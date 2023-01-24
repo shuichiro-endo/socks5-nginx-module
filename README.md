@@ -121,12 +121,12 @@ git clone https://github.com/shuichiro-endo/socks5-nginx-module.git
     ```
     cp xxx.crt socks5-nginx-module/client/server_https.crt
     ```
-    2. modify client.c file (if you changed the certificate filename or directory path)
+    2. modify client.c file (if you change the certificate filename or directory path)
     ```
     char serverCertificateFilenameHttps[256] = "server_https.crt";	// server certificate file name (HTTPS)
     char serverCertificateFileDirectoryPathHttps[256] = ".";	// server certificate file directory path (HTTPS)
     ```
-    3. build (if you changed the certificate filename or directory path)
+    3. build (if you change the certificate filename or directory path)
     ```
     cd socks5-nginx-module/client
     make
@@ -276,12 +276,12 @@ git clone https://github.com/shuichiro-endo/socks5-nginx-module.git
     ```
     cp server.crt socks5-nginx-module/client/server_socks5.crt
     ```
-    2. modify client.c file (if you changed the certificate filename or directory path)
+    2. modify client.c file (if you change the certificate filename or directory path)
     ```
     char serverCertificateFilenameSocks5[256] = "server_socks5.crt";	// server certificate file name (Socks5 over TLS)
     char serverCertificateFileDirectoryPathSocks5[256] = ".";	// server certificate file directory path (Socks5 over TLS)
     ```
-    3. build (if you changed the certificate filename or directory path)
+    3. build (if you change the certificate filename or directory path)
     ```
     cd socks5-nginx-module/client
     make
