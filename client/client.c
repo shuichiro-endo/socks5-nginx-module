@@ -16,6 +16,7 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
@@ -34,15 +35,15 @@
 #define HTTP_REQUEST_HEADER_TLS_KEY "tls"
 #define HTTP_REQUEST_HEADER_TLS_VALUE1 "off"	// Socks5
 #define HTTP_REQUEST_HEADER_TLS_VALUE2 "on"	// Socks5 over TLS
+#define HTTP_REQUEST_HEADER_TVSEC_KEY "sec"	// tv_sec
+#define HTTP_REQUEST_HEADER_TVUSEC_KEY "usec"	// tv_usec
 
 char *socks5ServerIp = NULL;
 char *socks5ServerPort = NULL;
 char *socks5TargetIp = NULL;
 char *socks5TargetPort = NULL;
-int httpsFlag = 0;	// 0:http 1:https
+int httpsFlag = 0;		// 0:http 1:https
 int socks5OverTlsFlag = 0;	// 0:socks5 1:socks5 over tls
-long tv_sec = 300;
-long tv_usec = 0;
 
 char serverCertificateFilenameHttps[256] = "server_https.crt";	// server certificate file name (HTTPS)
 char serverCertificateFileDirectoryPathHttps[256] = ".";	// server certificate file directory path (HTTPS)
@@ -51,23 +52,42 @@ char serverCertificateFilenameSocks5[256] = "server_socks5.crt";	// server certi
 char serverCertificateFileDirectoryPathSocks5[256] = ".";	// server certificate file directory path (Socks5 over TLS)
 
 
-int recvData(int sock, void *buffer, int length)
+int recvData(int sock, void *buffer, int length, long tv_sec, long tv_usec)
 {
 	int rec = 0;
-
+	fd_set readfds;
+	int nfds = -1;
+	struct timeval tv;
+	bzero(buffer, length+1);
+	
 	while(1){
-		rec = recv(sock, buffer, length, 0);	
-		if(rec <= 0){
-			if(errno == EINTR){
-				continue;
-			}else if(errno == EAGAIN){
-				usleep(5000);
-				continue;
-			}else{
-				return -1;
-			}
-		}else{
+		FD_ZERO(&readfds);
+		FD_SET(sock, &readfds);
+		nfds = sock + 1;
+		tv.tv_sec = tv_sec;
+		tv.tv_usec = tv_usec;
+		
+		if(select(nfds, &readfds, NULL, NULL, &tv) == 0){
+#ifdef _DEBUG
+			printf("[I] recvData timeout.\n");
+#endif
 			break;
+		}
+		
+		if(FD_ISSET(sock, &readfds)){
+			rec = recv(sock, buffer, length, 0);
+			if(rec <= 0){
+				if(errno == EINTR){
+					continue;
+				}else if(errno == EAGAIN){
+					usleep(5000);
+					continue;
+				}else{
+					return -1;
+				}
+			}else{
+				break;
+			}
 		}
 	}
 	
@@ -75,28 +95,47 @@ int recvData(int sock, void *buffer, int length)
 }
 
 
-int recvDataTls(SSL *ssl ,void *buffer, int length)
+int recvDataTls(int sock, SSL *ssl ,void *buffer, int length, long tv_sec, long tv_usec)
 {
 	int rec = 0;
 	int err = 0;
+	fd_set readfds;
+	int nfds = -1;
+	struct timeval tv;
+	bzero(buffer, length+1);
 
 	while(1){
-		rec = SSL_read(ssl, buffer, length);
-		err = SSL_get_error(ssl, rec);
+		FD_ZERO(&readfds);
+		FD_SET(sock, &readfds);
+		nfds = sock + 1;
+		tv.tv_sec = tv_sec;
+		tv.tv_usec = tv_usec;
 		
-		if(err == SSL_ERROR_NONE){
-			break;
-		}else if(err == SSL_ERROR_ZERO_RETURN){
-			break;
-		}else if(err == SSL_ERROR_WANT_READ){
-			usleep(5000);
-		}else if(err == SSL_ERROR_WANT_WRITE){
-			usleep(5000);
-		}else{
+		if(select(nfds, &readfds, NULL, NULL, &tv) == 0){
 #ifdef _DEBUG
-			printf("[E] SSL_read error:%d:%s.\n", err, ERR_error_string(ERR_peek_last_error(), NULL));
+			printf("[I] recvDataTls timeout.\n");
 #endif
-			return -2;
+			break;
+		}
+		
+		if(FD_ISSET(sock, &readfds)){
+			rec = SSL_read(ssl, buffer, length);
+			err = SSL_get_error(ssl, rec);
+			
+			if(err == SSL_ERROR_NONE){
+				break;
+			}else if(err == SSL_ERROR_ZERO_RETURN){
+				break;
+			}else if(err == SSL_ERROR_WANT_READ){
+				usleep(5000);
+			}else if(err == SSL_ERROR_WANT_WRITE){
+				usleep(5000);
+			}else{
+#ifdef _DEBUG
+				printf("[E] SSL_read error:%d:%s.\n", err, ERR_error_string(ERR_peek_last_error(), NULL));
+#endif
+				return -2;
+			}
 		}
 	}
 	
@@ -157,7 +196,7 @@ int sendDataTls(SSL *ssl, void *buffer, int length)
 }
 
 
-int forwarder(int clientSock, int targetSock)
+int forwarder(int clientSock, int targetSock, long tv_sec, long tv_usec)
 {
 
 	int rec,sen;
@@ -209,7 +248,7 @@ int forwarder(int clientSock, int targetSock)
 }
 
 
-int forwarderTls(int clientSock, int targetSock, SSL *targetSsl)
+int forwarderTls(int clientSock, int targetSock, SSL *targetSsl, long tv_sec, long tv_usec)
 {
 	int rec,sen;
 	fd_set readfds;
@@ -314,6 +353,8 @@ int worker(void *ptr)
 {
 	pPARAM pParam = (pPARAM)ptr;
 	int clientSock = pParam->clientSock;
+	long tv_sec = pParam->tv_sec;
+	long tv_usec = pParam->tv_usec;
 	
 	int targetSock = -1;
 	struct sockaddr_in targetAddr, *pTmpIpv4;		// IPv4
@@ -449,9 +490,9 @@ int worker(void *ptr)
 #endif
 
 	if(socks5OverTlsFlag == 0){	// Socks5
-		httpRequestLength = snprintf(httpRequest, BUFSIZ+1, "GET / HTTP/1.1\r\nHost: %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\r\nAccept-Language: en-US,en;q=0.5\r\nAccept-Encoding: gzip, deflate\r\n%s: %s\r\n%s: %s\r\nConnection: close\r\n\r\n", domainname, HTTP_REQUEST_HEADER_SOCKS5_KEY, HTTP_REQUEST_HEADER_SOCKS5_VALUE, HTTP_REQUEST_HEADER_TLS_KEY, HTTP_REQUEST_HEADER_TLS_VALUE1);
+		httpRequestLength = snprintf(httpRequest, BUFSIZ+1, "GET / HTTP/1.1\r\nHost: %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\r\nAccept-Language: en-US,en;q=0.5\r\nAccept-Encoding: gzip, deflate\r\n%s: %s\r\n%s: %s\r\n%s: %ld\r\n%s: %ld\r\nConnection: close\r\n\r\n", domainname, HTTP_REQUEST_HEADER_SOCKS5_KEY, HTTP_REQUEST_HEADER_SOCKS5_VALUE, HTTP_REQUEST_HEADER_TLS_KEY, HTTP_REQUEST_HEADER_TLS_VALUE1, HTTP_REQUEST_HEADER_TVSEC_KEY, tv_sec, HTTP_REQUEST_HEADER_TVUSEC_KEY, tv_usec);
 	}else{	// Socks5 over TLS
-		httpRequestLength = snprintf(httpRequest, BUFSIZ+1, "GET / HTTP/1.1\r\nHost: %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\r\nAccept-Language: en-US,en;q=0.5\r\nAccept-Encoding: gzip, deflate\r\n%s: %s\r\n%s: %s\r\nConnection: close\r\n\r\n", domainname, HTTP_REQUEST_HEADER_SOCKS5_KEY, HTTP_REQUEST_HEADER_SOCKS5_VALUE, HTTP_REQUEST_HEADER_TLS_KEY, HTTP_REQUEST_HEADER_TLS_VALUE2);
+		httpRequestLength = snprintf(httpRequest, BUFSIZ+1, "GET / HTTP/1.1\r\nHost: %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\r\nAccept-Language: en-US,en;q=0.5\r\nAccept-Encoding: gzip, deflate\r\n%s: %s\r\n%s: %s\r\n%s: %ld\r\n%s: %ld\r\nConnection: close\r\n\r\n", domainname, HTTP_REQUEST_HEADER_SOCKS5_KEY, HTTP_REQUEST_HEADER_SOCKS5_VALUE, HTTP_REQUEST_HEADER_TLS_KEY, HTTP_REQUEST_HEADER_TLS_VALUE2, HTTP_REQUEST_HEADER_TVSEC_KEY, tv_sec, HTTP_REQUEST_HEADER_TVUSEC_KEY, tv_usec);
 	}
 	
 	if(httpsFlag == 1){	// HTTPS
@@ -545,7 +586,7 @@ int worker(void *ptr)
 	check = 0;
 	do{
 		count++;
-		rec = recvData(targetSock, buffer, BUFSIZ);
+		rec = recvData(targetSock, buffer, BUFSIZ, tv_sec, tv_usec);
 #ifdef _DEBUG
 		printf("[I] count:%d rec:%d\n", count, rec);
 #endif
@@ -646,7 +687,7 @@ int worker(void *ptr)
 #ifdef _DEBUG
 	printf("[I] Recieving selection request. client -> server\n");
 #endif
-	if((rec = recvData(clientSock, buffer, BUFSIZ)) <= 0){
+	if((rec = recvData(clientSock, buffer, BUFSIZ, tv_sec, tv_usec)) <= 0){
 #ifdef _DEBUG
 		printf("[E] Recieving selection request error. client -> server\n");
 #endif
@@ -679,9 +720,9 @@ int worker(void *ptr)
 	printf("[I] Recieving selection response. server <- target\n");
 #endif
 	if(socks5OverTlsFlag == 0){
-		rec = recvData(targetSock, buffer, BUFSIZ);
+		rec = recvData(targetSock, buffer, BUFSIZ, tv_sec, tv_usec);
 	}else{
-		rec = recvDataTls(targetSslSocks5, buffer, BUFSIZ);
+		rec = recvDataTls(targetSock, targetSslSocks5, buffer, BUFSIZ, tv_sec, tv_usec);
 	}
 	if(rec != sizeof(SELECTION_RESPONSE)){
 #ifdef _DEBUG
@@ -717,7 +758,7 @@ int worker(void *ptr)
 #ifdef _DEBUG
 		printf("[I] Recieving username password authentication request. client -> server\n");
 #endif
-		if((rec = recvData(clientSock, buffer, BUFSIZ)) <= 0){
+		if((rec = recvData(clientSock, buffer, BUFSIZ, tv_sec, tv_usec)) <= 0){
 #ifdef _DEBUG
 			printf("[E] Recieving username password authentication request error. client -> server\n");
 #endif
@@ -750,9 +791,9 @@ int worker(void *ptr)
 		printf("[I] Recieving username password authentication response. server <- target\n");
 #endif
 		if(socks5OverTlsFlag == 0){
-			rec = recvData(targetSock, buffer, BUFSIZ);
+			rec = recvData(targetSock, buffer, BUFSIZ, tv_sec, tv_usec);
 		}else{
-			rec = recvDataTls(targetSslSocks5, buffer, BUFSIZ);
+			rec = recvDataTls(targetSock, targetSslSocks5, buffer, BUFSIZ, tv_sec, tv_usec);
 		}
 		if(rec <= 0){
 #ifdef _DEBUG
@@ -783,7 +824,7 @@ int worker(void *ptr)
 #ifdef _DEBUG
 	printf("[I] Recieving socks request. client -> server\n");
 #endif
-	if((rec = recvData(clientSock, buffer, BUFSIZ)) <= 0){
+	if((rec = recvData(clientSock, buffer, BUFSIZ, tv_sec, tv_usec)) <= 0){
 #ifdef _DEBUG
 		printf("[E] Recieving socks request error. client -> server\n");
 #endif
@@ -816,9 +857,9 @@ int worker(void *ptr)
 	printf("[I] Recieving socks response. server <- target\n");
 #endif
 	if(socks5OverTlsFlag == 0){
-		rec = recvData(targetSock, buffer, BUFSIZ);
+		rec = recvData(targetSock, buffer, BUFSIZ, tv_sec, tv_usec);
 	}else{
-		rec = recvDataTls(targetSslSocks5, buffer, BUFSIZ);
+		rec = recvDataTls(targetSock, targetSslSocks5, buffer, BUFSIZ, tv_sec, tv_usec);
 	}
 	if(rec <= 0){
 #ifdef _DEBUG
@@ -849,9 +890,9 @@ int worker(void *ptr)
 	printf("[I] Forwarder.\n");
 #endif
 	if(socks5OverTlsFlag == 0){
-		err = forwarder(clientSock, targetSock);
+		err = forwarder(clientSock, targetSock, tv_sec, tv_usec);
 	}else{
-		err = forwarderTls(clientSock, targetSock, targetSslSocks5);
+		err = forwarderTls(clientSock, targetSock, targetSslSocks5, tv_sec, tv_usec);
 	}
 
 
@@ -866,20 +907,24 @@ int worker(void *ptr)
 	return 0;
 }
 
-void usage(char *filename){
-	printf("usage   : %s -h listen_ip -p listen_port -H target_socks5server_domainname -P target_socks5server_port [-s (HTTPS)] [-t (Socks5 over TLS)]\n", filename);
+void usage(char *filename)
+{
+	printf("usage   : %s -h listen_ip -p listen_port -H target_socks5server_domainname -P target_socks5server_port [-s (HTTPS)] [-t (Socks5 over TLS)] [-S tv_sec(timeout 0-300 sec)] [-U tv_usec(timeout 0-1000000 microsec)]\n", filename);
 	printf("example : %s -h 0.0.0.0 -p 9050 -H 192.168.0.10 -P 80\n", filename);
 	printf("        : %s -h 0.0.0.0 -p 9050 -H foobar.test -P 80 -t\n", filename);
+	printf("        : %s -h 0.0.0.0 -p 9050 -H foobar.test -P 80 -t -S 3 -U 0\n", filename);
 	printf("        : %s -h 0.0.0.0 -p 9050 -H 192.168.0.10 -P 443 -s\n", filename);
 	printf("        : %s -h 0.0.0.0 -p 9050 -H foobar.test -P 443 -s -t\n", filename);
+	printf("        : %s -h 0.0.0.0 -p 9050 -H foobar.test -P 443 -s -t -S 3 -U 0\n", filename);
 }
 
 int main(int argc, char **argv)
 {
-
 	int opt;
-	const char* optstring = "h:p:H:P:stu:";
+	const char* optstring = "h:p:H:P:stS:U:";
 	opterr = 0;
+	long tv_sec = 3;
+	long tv_usec = 0;
 
 	while((opt=getopt(argc, argv, optstring)) != -1){
 		switch(opt){
@@ -907,6 +952,14 @@ int main(int argc, char **argv)
 			socks5OverTlsFlag = 1;
 			break;
 			
+		case 'S':
+			tv_sec = atol(optarg);
+			break;
+			
+		case 'U':
+			tv_usec = atol(optarg);
+			break;
+			
 		default:
 			usage(argv[0]);
 			exit(1);
@@ -916,6 +969,14 @@ int main(int argc, char **argv)
 	if(socks5ServerIp == NULL || socks5ServerPort == NULL || socks5TargetIp == NULL || socks5TargetPort == NULL){
 		usage(argv[0]);
 		exit(1);
+	}
+	
+	if(tv_sec<0 || tv_sec>300 || tv_usec<0 || tv_usec>1000000){
+		tv_sec = 3;
+		tv_usec = 0;
+	}else if(tv_sec == 0 && tv_usec == 0){
+		tv_sec = 3;
+		tv_usec = 0;
 	}
 	
 	if(httpsFlag == 0){	// HTTP
@@ -937,6 +998,10 @@ int main(int argc, char **argv)
 		printf("[I] Socks5 over TLS:on.\n");
 #endif
 	}
+	
+#ifdef _DEBUG
+	printf("[I] Timeout tv_sec(0-300 sec):%ld sec tv_usec(0-1000000 microsec):%ld microsec.\n", tv_sec, tv_usec);
+#endif
 	
 	
 	int serverSock, clientSock;
@@ -978,6 +1043,8 @@ int main(int argc, char **argv)
 		pthread_t thread;
 		PARAM param;
 		param.clientSock = clientSock;
+		param.tv_sec = tv_sec;
+		param.tv_usec =tv_usec;
 		
 		if(pthread_create(&thread, NULL, (void *)worker, &param))
 		{
