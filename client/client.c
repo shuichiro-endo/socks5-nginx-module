@@ -143,52 +143,88 @@ int recvDataTls(int sock, SSL *ssl ,void *buffer, int length, long tv_sec, long 
 }
 
 
-int sendData(int sock, void *buffer, int length)
+int sendData(int sock, void *buffer, int length, long tv_sec, long tv_usec)
 {
 	int sen = 0;
 	int sendLength = 0;
 	int len = length;
+	fd_set writefds;
+	int nfds = -1;
+	struct timeval tv;
 	
 	while(len > 0){
-		sen = send(sock, buffer+sendLength, len, 0);
-		if(sen <= 0){
-			if(errno == EINTR){
-				continue;
-			}else if(errno == EAGAIN){
-				usleep(5000);
-				continue;
-			}else{
-				return -1;
-			}
+		FD_ZERO(&writefds);
+		FD_SET(sock, &writefds);
+		nfds = sock + 1;
+		tv.tv_sec = tv_sec;
+		tv.tv_usec = tv_usec;
+		
+		if(select(nfds, NULL, &writefds, NULL, &tv) == 0){
+#ifdef _DEBUG
+			printf("[I] sendData timeout.\n");
+#endif
+			break;
 		}
-		sendLength += sen;
-		len -= sen;
+		
+		if(FD_ISSET(sock, &writefds)){
+			sen = send(sock, buffer+sendLength, len, 0);
+			if(sen <= 0){
+				if(errno == EINTR){
+					continue;
+				}else if(errno == EAGAIN){
+					usleep(5000);
+					continue;
+				}else{
+					return -1;
+				}
+			}
+			sendLength += sen;
+			len -= sen;
+		}
 	}
 	
 	return sendLength;
 }
 
 
-int sendDataTls(SSL *ssl, void *buffer, int length)
+int sendDataTls(int sock, SSL *ssl, void *buffer, int length, long tv_sec, long tv_usec)
 {
 	int sen = 0;
 	int err = 0;
+	fd_set writefds;
+	int nfds = -1;
+	struct timeval tv;
 
 	while(1){
-		sen = SSL_write(ssl, buffer, length);
-		err = SSL_get_error(ssl, sen);
+		FD_ZERO(&writefds);
+		FD_SET(sock, &writefds);
+		nfds = sock + 1;
+		tv.tv_sec = tv_sec;
+		tv.tv_usec = tv_usec;
 		
-		if(err == SSL_ERROR_NONE){
-			break;
-		}else if(err == SSL_ERROR_WANT_WRITE){
-			usleep(5000);
-		}else if(err == SSL_ERROR_WANT_READ){
-			usleep(5000);
-		}else{
+		if(select(nfds, NULL, &writefds, NULL, &tv) == 0){
 #ifdef _DEBUG
-			printf("[E] SSL_write error:%d:%s.\n", err, ERR_error_string(ERR_peek_last_error(), NULL));
+			printf("[I] sendDataTls timeout.\n");
 #endif
-			return -2;
+			break;
+		}
+		
+		if(FD_ISSET(sock, &writefds)){
+			sen = SSL_write(ssl, buffer, length);
+			err = SSL_get_error(ssl, sen);
+			
+			if(err == SSL_ERROR_NONE){
+				break;
+			}else if(err == SSL_ERROR_WANT_WRITE){
+				usleep(5000);
+			}else if(err == SSL_ERROR_WANT_READ){
+				usleep(5000);
+			}else{
+#ifdef _DEBUG
+				printf("[E] SSL_write error:%d:%s.\n", err, ERR_error_string(ERR_peek_last_error(), NULL));
+#endif
+				return -2;
+			}
 		}
 	}
 		
@@ -567,14 +603,14 @@ int worker(void *ptr)
 #endif
 		
 		// HTTP Request
-		sen = sendDataTls(targetSslHttp, httpRequest, httpRequestLength);
+		sen = sendDataTls(targetSock, targetSslHttp, httpRequest, httpRequestLength, tv_sec, tv_usec);
 #ifdef _DEBUG
 		printf("[I] Send http request.\n");
 #endif
 		
 	}else{
 		// HTTP Request
-		sen = sendData(targetSock, httpRequest, httpRequestLength);
+		sen = sendData(targetSock, httpRequest, httpRequestLength, tv_sec, tv_usec);
 #ifdef _DEBUG
 		printf("[I] Send http request.\n");
 #endif
@@ -706,9 +742,9 @@ int worker(void *ptr)
 	printf("[I] Sending selection request. server -> target\n");
 #endif
 	if(socks5OverTlsFlag == 0){
-		sen = sendData(targetSock, buffer, rec);
+		sen = sendData(targetSock, buffer, rec, tv_sec, tv_usec);
 	}else{
-		sen = sendDataTls(targetSslSocks5, buffer, rec);
+		sen = sendDataTls(targetSock, targetSslSocks5, buffer, rec, tv_sec, tv_usec);
 	}
 #ifdef _DEBUG
 	printf("[I] Send selection request:%d bytes. server -> target\n", sen);	
@@ -742,7 +778,7 @@ int worker(void *ptr)
 #ifdef _DEBUG
 	printf("[I] Sending selection response. client <- server\n");
 #endif
-	sen = sendData(clientSock, buffer, rec);
+	sen = sendData(clientSock, buffer, rec, tv_sec, tv_usec);
 #ifdef _DEBUG
 	printf("[I] Send selection response:%d bytes. client <- server\n", sen);
 #endif
@@ -777,9 +813,9 @@ int worker(void *ptr)
 		printf("[I] Sending username password authentication request. server -> target\n");
 #endif
 		if(socks5OverTlsFlag == 0){
-			sen = sendData(targetSock, buffer, rec);
+			sen = sendData(targetSock, buffer, rec, tv_sec, tv_usec);
 		}else{
-			sen = sendDataTls(targetSslSocks5, buffer, rec);
+			sen = sendDataTls(targetSock, targetSslSocks5, buffer, rec, tv_sec, tv_usec);
 		}
 #ifdef _DEBUG
 		printf("[I] Send username password authentication request:%d bytes. server -> target\n", sen);	
@@ -813,7 +849,7 @@ int worker(void *ptr)
 #ifdef _DEBUG
 		printf("[I] Sending username password authentication response. client <- server\n");
 #endif
-		sen = sendData(clientSock, buffer, rec);
+		sen = sendData(clientSock, buffer, rec, tv_sec, tv_usec);
 #ifdef _DEBUG
 		printf("[I] Send username password authentication response:%d bytes. client <- server\n", sen);
 #endif
@@ -843,9 +879,9 @@ int worker(void *ptr)
 	printf("[I] Sending socks request. server -> target\n");
 #endif
 	if(socks5OverTlsFlag == 0){
-		sen = sendData(targetSock, buffer, rec);
+		sen = sendData(targetSock, buffer, rec, tv_sec, tv_usec);
 	}else{
-		sen = sendDataTls(targetSslSocks5, buffer, rec);
+		sen = sendDataTls(targetSock, targetSslSocks5, buffer, rec, tv_sec, tv_usec);
 	}
 #ifdef _DEBUG
 	printf("[I] Send socks request:%d bytes. server -> target\n", sen);	
@@ -879,7 +915,7 @@ int worker(void *ptr)
 #ifdef _DEBUG
 	printf("[I] Sending socks response. client <- server\n");
 #endif
-	sen = sendData(clientSock, buffer, rec);
+	sen = sendData(clientSock, buffer, rec, tv_sec, tv_usec);
 #ifdef _DEBUG
 	printf("[I] Send socks response:%d bytes. client <- server\n", sen);
 #endif
@@ -971,7 +1007,7 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 	
-	if(tv_sec<0 || tv_sec>300 || tv_usec<0 || tv_usec>1000000){
+	if(tv_sec < 0 || tv_sec > 300 || tv_usec < 0 || tv_usec > 1000000){
 		tv_sec = 3;
 		tv_usec = 0;
 	}else if(tv_sec == 0 && tv_usec == 0){

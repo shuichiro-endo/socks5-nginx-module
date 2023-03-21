@@ -10,14 +10,14 @@ static ngx_int_t ngx_http_socks5_init(ngx_conf_t *cf);
 
 int recvData(ngx_http_request_t *r, int sock, void *buffer, int length, long tv_sec, long tv_usec);
 int recvDataTls(ngx_http_request_t *r, int sock, SSL *ssl ,void *buffer, int length, long tv_sec, long tv_usec);
-int sendData(ngx_http_request_t *r, int sock, void *buffer, int length);
-int sendDataTls(ngx_http_request_t *r, SSL *ssl, void *buffer, int length);
+int sendData(ngx_http_request_t *r, int sock, void *buffer, int length, long tv_sec, long tv_usec);
+int sendDataTls(ngx_http_request_t *r, int sock, SSL *ssl, void *buffer, int length, long tv_sec, long tv_usec);
 int forwarder(ngx_http_request_t *r, int clientSock, int targetSock, long tv_sec, long tv_usec);
 int forwarderTls(ngx_http_request_t *r, int clientSock, int targetSock, SSL *clientSslSocks5, long tv_sec, long tv_usec);
-int sendSocksResponseIpv4(ngx_http_request_t *r, int clientSock, char ver, char req, char rsv, char atyp);
-int sendSocksResponseIpv4Tls(ngx_http_request_t *r, SSL *clientSsl, char ver, char req, char rsv, char atyp);
-int sendSocksResponseIpv6(ngx_http_request_t *r, int clientSock, char ver, char req, char rsv, char atyp);
-int sendSocksResponseIpv6Tls(ngx_http_request_t *r, SSL *clientSsl, char ver, char req, char rsv, char atyp);
+int sendSocksResponseIpv4(ngx_http_request_t *r, int clientSock, char ver, char req, char rsv, char atyp, long tv_sec, long tv_usec);
+int sendSocksResponseIpv4Tls(ngx_http_request_t *r, int clientSock, SSL *clientSsl, char ver, char req, char rsv, char atyp, long tv_sec, long tv_usec);
+int sendSocksResponseIpv6(ngx_http_request_t *r, int clientSock, char ver, char req, char rsv, char atyp, long tv_sec, long tv_usec);
+int sendSocksResponseIpv6Tls(ngx_http_request_t *r, int clientSock, SSL *clientSsl, char ver, char req, char rsv, char atyp, long tv_sec, long tv_usec);
 int worker(ngx_http_request_t *r, void *ptr);
 
 typedef struct {
