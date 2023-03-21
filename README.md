@@ -136,7 +136,7 @@ git clone https://github.com/shuichiro-endo/socks5-nginx-module.git
     usage   : ./client -h listen_ip -p listen_port -H target_socks5server_domainname -P target_socks5server_port [-s (HTTPS)] [-t (Socks5 over TLS)] [-S tv_sec(timeout 0-300 sec)] [-U tv_usec(timeout 0-1000000 microsec)]
     example : ./client -h 0.0.0.0 -p 9050 -H 192.168.0.10 -P 80
             : ./client -h 0.0.0.0 -p 9050 -H foobar.test -P 80 -t
-            : ./client -h 0.0.0.0 -p 9050 -H foobar.test -P 80 -t -S 3 -U 0
+            : ./client -h 0.0.0.0 -p 9050 -H foobar.test -P 80 -t -S 10 -U 0
             : ./client -h 0.0.0.0 -p 9050 -H 192.168.0.10 -P 443 -s
             : ./client -h 0.0.0.0 -p 9050 -H foobar.test -P 443 -s -t
             : ./client -h 0.0.0.0 -p 9050 -H foobar.test -P 443 -s -t -S 3 -U 0
