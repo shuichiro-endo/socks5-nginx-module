@@ -36,8 +36,10 @@
 #define HTTP_REQUEST_HEADER_TLS_KEY "tls"
 #define HTTP_REQUEST_HEADER_TLS_VALUE1 "off"	// Socks5
 #define HTTP_REQUEST_HEADER_TLS_VALUE2 "on"	// Socks5 over TLS
-#define HTTP_REQUEST_HEADER_TVSEC_KEY "sec"	// tv_sec
-#define HTTP_REQUEST_HEADER_TVUSEC_KEY "usec"	// tv_usec
+#define HTTP_REQUEST_HEADER_TVSEC_KEY "sec"	// recv/send tv_sec
+#define HTTP_REQUEST_HEADER_TVUSEC_KEY "usec"	// recv/send tv_usec
+#define HTTP_REQUEST_HEADER_FORWARDER_TVSEC_KEY "forwardersec"		// forwarder tv_sec
+#define HTTP_REQUEST_HEADER_FORWARDER_TVUSEC_KEY "forwarderusec"	// forwarder tv_usec
 
 static char authenticationMethod = 0x0;	// 0x0:No Authentication Required	0x2:Username/Password Authentication
 static char username[256] = "socks5user";
@@ -482,8 +484,10 @@ int worker(ngx_http_request_t *r, void *ptr)
 	int clientSock = pParam->clientSock;
 	SSL *clientSslSocks5 = pParam->clientSslSocks5;
 	int socks5OverTlsFlag = pParam->socks5OverTlsFlag;	// 0:socks5 1:socks5 over tls
-	long tv_sec = pParam->tv_sec;
-	long tv_usec = pParam->tv_usec;
+	long tv_sec = pParam->tv_sec;		// recv send
+	long tv_usec = pParam->tv_usec;		// recv send
+	long forwarder_tv_sec = pParam->forwarder_tv_sec;
+	long forwarder_tv_usec = pParam->forwarder_tv_usec;
 	
 	char buffer[BUFSIZ+1];
 	bzero(buffer, BUFSIZ+1);
@@ -1399,9 +1403,9 @@ int worker(ngx_http_request_t *r, void *ptr)
 	ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Forwarder.");
 #endif
 	if(socks5OverTlsFlag == 0){	// Socks5
-		err = forwarder(r, clientSock, targetSock, tv_sec, tv_usec);
+		err = forwarder(r, clientSock, targetSock, forwarder_tv_sec, forwarder_tv_usec);
 	}else{	// Socks5 over TLS
-		err = forwarderTls(r, clientSock, targetSock, clientSslSocks5, tv_sec, tv_usec);
+		err = forwarderTls(r, clientSock, targetSock, clientSslSocks5, forwarder_tv_sec, forwarder_tv_usec);
 	}
 	
 #ifdef _DEBUG
@@ -1474,8 +1478,10 @@ static ngx_int_t ngx_http_socks5_header_filter(ngx_http_request_t *r)
 	SSL *clientSslSocks5 = NULL;
 	
 	PARAM param;
-	long tv_sec = 3;
-	long tv_usec = 0;
+	long tv_sec = 3;	// recv send
+	long tv_usec = 0;	// recv send
+	long forwarder_tv_sec = 3;
+	long forwarder_tv_usec = 0;
 	SSLPARAM sslParam;
 	sslParam.clientCtxSocks5 = NULL;
 	sslParam.clientSslSocks5 = NULL;
@@ -1484,7 +1490,7 @@ static ngx_int_t ngx_http_socks5_header_filter(ngx_http_request_t *r)
 	EVP_PKEY *sprivatekey = NULL;
 	X509 *scert = NULL;
 	
-
+	
 	// search header
 	h = search_headers_in(r, (u_char *)HTTP_REQUEST_HEADER_SOCKS5_KEY, (size_t)(strlen(HTTP_REQUEST_HEADER_SOCKS5_KEY)));
 	if(h != NULL &&  ngx_strcasecmp(h->value.data, (u_char *)HTTP_REQUEST_HEADER_SOCKS5_VALUE) == 0){	// socks5
@@ -1500,14 +1506,23 @@ static ngx_int_t ngx_http_socks5_header_filter(ngx_http_request_t *r)
 	
 	h = search_headers_in(r, (u_char *)HTTP_REQUEST_HEADER_TVSEC_KEY, (size_t)(strlen(HTTP_REQUEST_HEADER_TVSEC_KEY)));
 	if(h != NULL){
-		tv_sec =atol((char *)h->value.data);
+		tv_sec = atol((char *)h->value.data);
 	}
 	
 	h = search_headers_in(r, (u_char *)HTTP_REQUEST_HEADER_TVUSEC_KEY, (size_t)(strlen(HTTP_REQUEST_HEADER_TVUSEC_KEY)));
 	if(h != NULL){
-		tv_usec =atol((char *)h->value.data);
+		tv_usec = atol((char *)h->value.data);
 	}
 	
+	h = search_headers_in(r, (u_char *)HTTP_REQUEST_HEADER_FORWARDER_TVSEC_KEY, (size_t)(strlen(HTTP_REQUEST_HEADER_FORWARDER_TVSEC_KEY)));
+	if(h != NULL){
+		forwarder_tv_sec = atol((char *)h->value.data);
+	}
+	
+	h = search_headers_in(r, (u_char *)HTTP_REQUEST_HEADER_FORWARDER_TVUSEC_KEY, (size_t)(strlen(HTTP_REQUEST_HEADER_FORWARDER_TVUSEC_KEY)));
+	if(h != NULL){
+		forwarder_tv_usec = atol((char *)h->value.data);
+	}
 	
 	if(flag == 1){	// socks5
 #ifdef _DEBUG
@@ -1515,16 +1530,26 @@ static ngx_int_t ngx_http_socks5_header_filter(ngx_http_request_t *r)
 		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Socks5 start.");
 #endif
 		
-		if(tv_sec < 0 || tv_sec > 300 || tv_usec < 0 || tv_usec > 1000000){
+		if(tv_sec < 0 || tv_sec > 10 || tv_usec < 0 || tv_usec > 1000000){
 			tv_sec = 3;
 			tv_usec = 0;
 		}else if(tv_sec == 0 && tv_usec == 0){
 			tv_sec = 3;
 			tv_usec = 0;
 		}
+		
+		if(forwarder_tv_sec < 0 || forwarder_tv_sec > 300 || forwarder_tv_usec < 0 || forwarder_tv_usec > 1000000){
+			forwarder_tv_sec = 3;
+			forwarder_tv_usec = 0;
+		}else if(forwarder_tv_sec == 0 && forwarder_tv_usec == 0){
+			forwarder_tv_sec = 3;
+			forwarder_tv_usec = 0;
+		}
 #ifdef _DEBUG
-		printf("[I] Timeout tv_sec:%ld sec tv_usec:%ld microsec.\n", tv_sec, tv_usec);
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Timeout tv_sec:%ld sec tv_usec:%ld microsec.", tv_sec, tv_usec);
+		printf("[I] Timeout recv/send tv_sec:%ld sec recv/send tv_usec:%ld microsec.\n", tv_sec, tv_usec);
+		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Timeout recv/send tv_sec:%ld sec recv/send tv_usec:%ld microsec.", tv_sec, tv_usec);
+		printf("[I] Timeout forwarder tv_sec:%ld sec forwarder tv_usec:%ld microsec.\n", forwarder_tv_sec, forwarder_tv_usec);
+		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Timeout forwarder tv_sec:%ld sec forwarder tv_usec:%ld microsec.", forwarder_tv_sec, forwarder_tv_usec);
 #endif
 
 		// non blocking
@@ -1655,6 +1680,8 @@ static ngx_int_t ngx_http_socks5_header_filter(ngx_http_request_t *r)
 		param.socks5OverTlsFlag = socks5OverTlsFlag;
 		param.tv_sec = tv_sec;
 		param.tv_usec = tv_usec;
+		param.forwarder_tv_sec = forwarder_tv_sec;
+		param.forwarder_tv_usec = forwarder_tv_usec;
 		
 		ret = worker(r, &param);
 		

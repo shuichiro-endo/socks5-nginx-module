@@ -14,8 +14,10 @@ void usage(char *filename);
 
 typedef struct {
 	int clientSock;
-	long tv_sec;
-	long tv_usec;
+	long tv_sec;		// recv send
+	long tv_usec;		// recv send
+	long forwarder_tv_sec;
+	long forwarder_tv_usec;
 } PARAM, *pPARAM;
 
 typedef struct {

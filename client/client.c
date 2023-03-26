@@ -35,8 +35,10 @@
 #define HTTP_REQUEST_HEADER_TLS_KEY "tls"
 #define HTTP_REQUEST_HEADER_TLS_VALUE1 "off"	// Socks5
 #define HTTP_REQUEST_HEADER_TLS_VALUE2 "on"	// Socks5 over TLS
-#define HTTP_REQUEST_HEADER_TVSEC_KEY "sec"	// tv_sec
-#define HTTP_REQUEST_HEADER_TVUSEC_KEY "usec"	// tv_usec
+#define HTTP_REQUEST_HEADER_TVSEC_KEY "sec"	// recv/send tv_sec
+#define HTTP_REQUEST_HEADER_TVUSEC_KEY "usec"	// recv/send tv_usec
+#define HTTP_REQUEST_HEADER_FORWARDER_TVSEC_KEY "forwardersec"		// forwarder tv_sec
+#define HTTP_REQUEST_HEADER_FORWARDER_TVUSEC_KEY "forwarderusec"	// forwarder tv_usec
 
 char *socks5ServerIp = NULL;
 char *socks5ServerPort = NULL;
@@ -389,8 +391,10 @@ int worker(void *ptr)
 {
 	pPARAM pParam = (pPARAM)ptr;
 	int clientSock = pParam->clientSock;
-	long tv_sec = pParam->tv_sec;
-	long tv_usec = pParam->tv_usec;
+	long tv_sec = pParam->tv_sec;		// recv send
+	long tv_usec = pParam->tv_usec;		// recv send
+	long forwarder_tv_sec = pParam->forwarder_tv_sec;
+	long forwarder_tv_usec = pParam->forwarder_tv_usec;
 	
 	int targetSock = -1;
 	struct sockaddr_in targetAddr, *pTmpIpv4;		// IPv4
@@ -526,9 +530,9 @@ int worker(void *ptr)
 #endif
 
 	if(socks5OverTlsFlag == 0){	// Socks5
-		httpRequestLength = snprintf(httpRequest, BUFSIZ+1, "GET / HTTP/1.1\r\nHost: %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\r\nAccept-Language: en-US,en;q=0.5\r\nAccept-Encoding: gzip, deflate\r\n%s: %s\r\n%s: %s\r\n%s: %ld\r\n%s: %ld\r\nConnection: close\r\n\r\n", domainname, HTTP_REQUEST_HEADER_SOCKS5_KEY, HTTP_REQUEST_HEADER_SOCKS5_VALUE, HTTP_REQUEST_HEADER_TLS_KEY, HTTP_REQUEST_HEADER_TLS_VALUE1, HTTP_REQUEST_HEADER_TVSEC_KEY, tv_sec, HTTP_REQUEST_HEADER_TVUSEC_KEY, tv_usec);
+		httpRequestLength = snprintf(httpRequest, BUFSIZ+1, "GET / HTTP/1.1\r\nHost: %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\r\nAccept-Language: en-US,en;q=0.5\r\nAccept-Encoding: gzip, deflate\r\n%s: %s\r\n%s: %s\r\n%s: %ld\r\n%s: %ld\r\n%s: %ld\r\n%s: %ld\r\nConnection: close\r\n\r\n", domainname, HTTP_REQUEST_HEADER_SOCKS5_KEY, HTTP_REQUEST_HEADER_SOCKS5_VALUE, HTTP_REQUEST_HEADER_TLS_KEY, HTTP_REQUEST_HEADER_TLS_VALUE1, HTTP_REQUEST_HEADER_TVSEC_KEY, tv_sec, HTTP_REQUEST_HEADER_TVUSEC_KEY, tv_usec, HTTP_REQUEST_HEADER_FORWARDER_TVSEC_KEY, forwarder_tv_sec, HTTP_REQUEST_HEADER_FORWARDER_TVUSEC_KEY, forwarder_tv_usec);
 	}else{	// Socks5 over TLS
-		httpRequestLength = snprintf(httpRequest, BUFSIZ+1, "GET / HTTP/1.1\r\nHost: %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\r\nAccept-Language: en-US,en;q=0.5\r\nAccept-Encoding: gzip, deflate\r\n%s: %s\r\n%s: %s\r\n%s: %ld\r\n%s: %ld\r\nConnection: close\r\n\r\n", domainname, HTTP_REQUEST_HEADER_SOCKS5_KEY, HTTP_REQUEST_HEADER_SOCKS5_VALUE, HTTP_REQUEST_HEADER_TLS_KEY, HTTP_REQUEST_HEADER_TLS_VALUE2, HTTP_REQUEST_HEADER_TVSEC_KEY, tv_sec, HTTP_REQUEST_HEADER_TVUSEC_KEY, tv_usec);
+		httpRequestLength = snprintf(httpRequest, BUFSIZ+1, "GET / HTTP/1.1\r\nHost: %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\r\nAccept-Language: en-US,en;q=0.5\r\nAccept-Encoding: gzip, deflate\r\n%s: %s\r\n%s: %s\r\n%s: %ld\r\n%s: %ld\r\n%s: %ld\r\n%s: %ld\r\nConnection: close\r\n\r\n", domainname, HTTP_REQUEST_HEADER_SOCKS5_KEY, HTTP_REQUEST_HEADER_SOCKS5_VALUE, HTTP_REQUEST_HEADER_TLS_KEY, HTTP_REQUEST_HEADER_TLS_VALUE2, HTTP_REQUEST_HEADER_TVSEC_KEY, tv_sec, HTTP_REQUEST_HEADER_TVUSEC_KEY, tv_usec, HTTP_REQUEST_HEADER_FORWARDER_TVSEC_KEY, forwarder_tv_sec, HTTP_REQUEST_HEADER_FORWARDER_TVUSEC_KEY, forwarder_tv_usec);
 	}
 	
 	if(httpsFlag == 1){	// HTTPS
@@ -926,9 +930,9 @@ int worker(void *ptr)
 	printf("[I] Forwarder.\n");
 #endif
 	if(socks5OverTlsFlag == 0){
-		err = forwarder(clientSock, targetSock, tv_sec, tv_usec);
+		err = forwarder(clientSock, targetSock, forwarder_tv_sec, forwarder_tv_usec);
 	}else{
-		err = forwarderTls(clientSock, targetSock, targetSslSocks5, tv_sec, tv_usec);
+		err = forwarderTls(clientSock, targetSock, targetSslSocks5, forwarder_tv_sec, forwarder_tv_usec);
 	}
 
 
@@ -945,23 +949,25 @@ int worker(void *ptr)
 
 void usage(char *filename)
 {
-	printf("usage   : %s -h listen_ip -p listen_port -H target_socks5server_domainname -P target_socks5server_port [-s (HTTPS)] [-t (Socks5 over TLS)] [-S tv_sec(timeout 0-300 sec)] [-U tv_usec(timeout 0-1000000 microsec)]\n", filename);
+	printf("usage   : %s -h listen_ip -p listen_port -H target_socks5server_domainname -P target_socks5server_port [-s (HTTPS)] [-t (Socks5 over TLS)] [-A recv/send tv_sec(timeout 0-10 sec)] [-B recv/send tv_usec(timeout 0-1000000 microsec)] [-C forwarder tv_sec(timeout 0-300 sec)] [-D forwarder tv_usec(timeout 0-1000000 microsec)]\n", filename);
 	printf("example : %s -h 0.0.0.0 -p 9050 -H 192.168.0.10 -P 80\n", filename);
 	printf("        : %s -h 0.0.0.0 -p 9050 -H foobar.test -P 80 -t\n", filename);
-	printf("        : %s -h 0.0.0.0 -p 9050 -H foobar.test -P 80 -t -S 10 -U 0\n", filename);
+	printf("        : %s -h 0.0.0.0 -p 9050 -H foobar.test -P 80 -t -A 3 -B 0 -C 3 -D 0\n", filename);
 	printf("        : %s -h 0.0.0.0 -p 9050 -H 192.168.0.10 -P 443 -s\n", filename);
 	printf("        : %s -h 0.0.0.0 -p 9050 -H foobar.test -P 443 -s -t\n", filename);
-	printf("        : %s -h 0.0.0.0 -p 9050 -H foobar.test -P 443 -s -t -S 3 -U 0\n", filename);
+	printf("        : %s -h 0.0.0.0 -p 9050 -H foobar.test -P 443 -s -t -A 3 -B 0 -C 3 -D 0\n", filename);
 }
 
 int main(int argc, char **argv)
 {
 	int opt;
-	const char* optstring = "h:p:H:P:stS:U:";
+	const char* optstring = "h:p:H:P:stA:B:C:D:";
 	opterr = 0;
-	long tv_sec = 3;
-	long tv_usec = 0;
-
+	long tv_sec = 3;	// recv send
+	long tv_usec = 0;	// recv send
+	long forwarder_tv_sec = 3;
+	long forwarder_tv_usec = 0;
+	
 	while((opt=getopt(argc, argv, optstring)) != -1){
 		switch(opt){
 		case 'h':
@@ -988,12 +994,20 @@ int main(int argc, char **argv)
 			socks5OverTlsFlag = 1;
 			break;
 			
-		case 'S':
+		case 'A':
 			tv_sec = atol(optarg);
 			break;
 			
-		case 'U':
+		case 'B':
 			tv_usec = atol(optarg);
+			break;
+			
+		case 'C':
+			forwarder_tv_sec = atol(optarg);
+			break;
+			
+		case 'D':
+			forwarder_tv_usec = atol(optarg);
 			break;
 			
 		default:
@@ -1007,12 +1021,20 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 	
-	if(tv_sec < 0 || tv_sec > 300 || tv_usec < 0 || tv_usec > 1000000){
+	if(tv_sec < 0 || tv_sec > 10 || tv_usec < 0 || tv_usec > 1000000){
 		tv_sec = 3;
 		tv_usec = 0;
 	}else if(tv_sec == 0 && tv_usec == 0){
 		tv_sec = 3;
 		tv_usec = 0;
+	}
+	
+	if(forwarder_tv_sec < 0 || forwarder_tv_sec > 300 || forwarder_tv_usec < 0 || forwarder_tv_usec > 1000000){
+		forwarder_tv_sec = 3;
+		forwarder_tv_usec = 0;
+	}else if(forwarder_tv_sec == 0 && forwarder_tv_usec == 0){
+		forwarder_tv_sec = 3;
+		forwarder_tv_usec = 0;
 	}
 	
 	if(httpsFlag == 0){	// HTTP
@@ -1036,7 +1058,8 @@ int main(int argc, char **argv)
 	}
 	
 #ifdef _DEBUG
-	printf("[I] Timeout tv_sec(0-300 sec):%ld sec tv_usec(0-1000000 microsec):%ld microsec.\n", tv_sec, tv_usec);
+	printf("[I] Timeout recv/send tv_sec(0-10 sec):%ld sec recv/send tv_usec(0-1000000 microsec):%ld microsec.\n", tv_sec, tv_usec);
+	printf("[I] Timeout forwarder tv_sec(0-300 sec):%ld sec forwarder tv_usec(0-1000000 microsec):%ld microsec.\n", forwarder_tv_sec, forwarder_tv_usec);
 #endif
 	
 	
@@ -1080,7 +1103,9 @@ int main(int argc, char **argv)
 		PARAM param;
 		param.clientSock = clientSock;
 		param.tv_sec = tv_sec;
-		param.tv_usec =tv_usec;
+		param.tv_usec = tv_usec;
+		param.forwarder_tv_sec = forwarder_tv_sec;
+		param.forwarder_tv_usec = forwarder_tv_usec;
 		
 		if(pthread_create(&thread, NULL, (void *)worker, &param))
 		{
