@@ -134,7 +134,7 @@ git clone https://github.com/shuichiro-endo/socks5-nginx-module.git
     4. run my client (if the client uses socks5 over tls, you need to change the privatekey and certificate. see [How to change socks5 server privatekey and certificate (for Socks5 over TLS)](https://github.com/shuichiro-endo/socks5-nginx-module#how-to-change-socks5-server-privatekey-and-certificate-for-socks5-over-tls).)
     ```
     usage   : ./client -h listen_ip -p listen_port -H target_socks5server_domainname -P target_socks5server_port [-s (HTTPS)] [-t (Socks5 over TLS)] [-A recv/send tv_sec(timeout 0-10 sec)] [-B recv/send tv_usec(timeout 0-1000000 microsec)] [-C forwarder tv_sec(timeout 0-300 sec)] [-D forwarder tv_usec(timeout 0-1000000 microsec)]
-example : ./client -h 0.0.0.0 -p 9050 -H 192.168.0.10 -P 80
+    example : ./client -h 0.0.0.0 -p 9050 -H 192.168.0.10 -P 80
             : ./client -h 0.0.0.0 -p 9050 -H foobar.test -P 80 -t
             : ./client -h 0.0.0.0 -p 9050 -H foobar.test -P 80 -t -A 3 -B 0 -C 3 -D 0
             : ./client -h 0.0.0.0 -p 9050 -H 192.168.0.10 -P 443 -s
