@@ -1486,26 +1486,26 @@ static ngx_int_t ngx_http_socks5_header_filter(ngx_http_request_t *r)
 	
 
 	// search header
-	h = search_headers_in(r, (u_char *)HTTP_REQUEST_HEADER_SOCKS5_KEY, (size_t)(strlen(HTTP_REQUEST_HEADER_SOCKS5_KEY)+1));
+	h = search_headers_in(r, (u_char *)HTTP_REQUEST_HEADER_SOCKS5_KEY, (size_t)(strlen(HTTP_REQUEST_HEADER_SOCKS5_KEY)));
 	if(h != NULL &&  ngx_strcasecmp(h->value.data, (u_char *)HTTP_REQUEST_HEADER_SOCKS5_VALUE) == 0){	// socks5
 		flag = 1;
 	}
 	
-	h = search_headers_in(r, (u_char *)HTTP_REQUEST_HEADER_TLS_KEY, (size_t)(strlen(HTTP_REQUEST_HEADER_TLS_KEY)+1));
+	h = search_headers_in(r, (u_char *)HTTP_REQUEST_HEADER_TLS_KEY, (size_t)(strlen(HTTP_REQUEST_HEADER_TLS_KEY)));
 	if(h != NULL &&  ngx_strcasecmp(h->value.data, (u_char *)HTTP_REQUEST_HEADER_TLS_VALUE2) == 0){
 		socks5OverTlsFlag = 1;	// socks5 over tls
 	}else{
 		socks5OverTlsFlag = 0;	// socks5
 	}
 	
-	h = search_headers_in(r, (u_char *)HTTP_REQUEST_HEADER_TVSEC_KEY, (size_t)(strlen(HTTP_REQUEST_HEADER_TVSEC_KEY)+1));
+	h = search_headers_in(r, (u_char *)HTTP_REQUEST_HEADER_TVSEC_KEY, (size_t)(strlen(HTTP_REQUEST_HEADER_TVSEC_KEY)));
 	if(h != NULL){
-		tv_sec =atol(h->value.data);
+		tv_sec =atol((char *)h->value.data);
 	}
 	
-	h = search_headers_in(r, (u_char *)HTTP_REQUEST_HEADER_TVUSEC_KEY, (size_t)(strlen(HTTP_REQUEST_HEADER_TVUSEC_KEY)+1));
+	h = search_headers_in(r, (u_char *)HTTP_REQUEST_HEADER_TVUSEC_KEY, (size_t)(strlen(HTTP_REQUEST_HEADER_TVUSEC_KEY)));
 	if(h != NULL){
-		tv_usec =atol(h->value.data);
+		tv_usec =atol((char *)h->value.data);
 	}
 	
 	
