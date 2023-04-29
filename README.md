@@ -79,7 +79,7 @@ git clone https://github.com/shuichiro-endo/socks5-nginx-module.git
     ```
     /usr/sbin/nginx -v
     ```
-    2. donlowad the nginx open source release
+    2. download the nginx open source release
     ```
     cd socks5-nginx-module
     wget https://nginx.org/download/nginx-x.xx.x.tar.gz
