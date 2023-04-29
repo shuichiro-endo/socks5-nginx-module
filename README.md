@@ -18,33 +18,34 @@ sequenceDiagram
         C->>C: check HTTP Request Header Key and Value (e.g. socks5: socks5)
         note right of C: if the key and value do not match, do nothing
         note right of C: if value of tls key is on, send socks5 data with tls (Socks5 over TLS)
-        C-->>B: OK
+        note right of C: if value of tls key is off or there is no value, send socks5 data with aes (Socks5 over AES)
+        C-->>B: OK (encrypt with AES)
         alt socks5 over tls flag is on
         B->>+C: SSL connect
         C-->>-B: 
         end
-        B->>+C: socks5 selection request (Socks5 or Socks5 over TLS)
-        C-->>-B: socks5 selection response (Socks5 or Socks5 over TLS)
+        B->>+C: socks5 selection request (Socks5 over AES or Socks5 over TLS)
+        C-->>-B: socks5 selection response (Socks5 over AES or Socks5 over TLS)
         B-->>-A: socks5 selection response (Socks5)
         alt socks5 server authentication method is username/password authentication
         A->>+B: socks5 username/password authentication request (Socks5)
-        B->>+C: socks5 username/password authentication request (Socks5 or Socks5 over TLS)
+        B->>+C: socks5 username/password authentication request (Socks5 over AES or Socks5 over TLS)
         C->>C: check username and password
-        C-->>-B: socks5 username/password authentication response (Socks5 or Socks5 over TLS)
+        C-->>-B: socks5 username/password authentication response (Socks5 over AES or Socks5 over TLS)
         B-->>-A: socks5 username/password authentication response (Socks5)
         end
         A->>+B: socks5 socks request (Socks5)
-        B->>+C: socks5 socks request (Socks5 or Socks5 over TLS)
+        B->>+C: socks5 socks request (Socks5 over AES or Socks5 over TLS)
         C->>+D: check connection
         D-->>-C:  
-        C-->>-B: socks5 socks response (Socks5 or Socks5 over TLS)
+        C-->>-B: socks5 socks response (Socks5 over AES or Socks5 over TLS)
         B-->>-A: socks5 socks response (Socks5)
         loop until communication ends
             A->>+B: request (Socks5)
-            B->>+C: request (Socks5 or Socks5 over TLS)
+            B->>+C: request (Socks5 over AES or Socks5 over TLS)
             C->>+D: request
             D-->>-C: response
-            C-->>-B: response (Socks5 or Socks5 over TLS)
+            C-->>-B: response (Socks5 over AES or Socks5 over TLS)
             B-->>-A: response (Socks5)
         end
         C-->>-B: HTTP GET Response (HTTP or HTTPS)
@@ -154,8 +155,10 @@ git clone https://github.com/shuichiro-endo/socks5-nginx-module.git
     ```
     #define HTTP_REQUEST_HEADER_SOCKS5_KEY "socks5"
     #define HTTP_REQUEST_HEADER_SOCKS5_VALUE "socks5"
+    #define HTTP_REQUEST_HEADER_AESKEY_KEY "aeskey"
+    #define HTTP_REQUEST_HEADER_AESIV_KEY "aesiv"
     #define HTTP_REQUEST_HEADER_TLS_KEY "tls"
-    #define HTTP_REQUEST_HEADER_TLS_VALUE1 "off"	// Socks5
+    #define HTTP_REQUEST_HEADER_TLS_VALUE1 "off"	// Socks5 over AES
     #define HTTP_REQUEST_HEADER_TLS_VALUE2 "on"	// Socks5 over TLS
     #define HTTP_REQUEST_HEADER_TVSEC_KEY "sec"        // recv/send tv_sec
     #define HTTP_REQUEST_HEADER_TVUSEC_KEY "usec"      // recv/send tv_usec
@@ -182,8 +185,10 @@ git clone https://github.com/shuichiro-endo/socks5-nginx-module.git
     ```
     #define HTTP_REQUEST_HEADER_SOCKS5_KEY "socks5"
     #define HTTP_REQUEST_HEADER_SOCKS5_VALUE "socks5"
+    #define HTTP_REQUEST_HEADER_AESKEY_KEY "aeskey"
+    #define HTTP_REQUEST_HEADER_AESIV_KEY "aesiv"
     #define HTTP_REQUEST_HEADER_TLS_KEY "tls"
-    #define HTTP_REQUEST_HEADER_TLS_VALUE1 "off"	// Socks5
+    #define HTTP_REQUEST_HEADER_TLS_VALUE1 "off"	// Socks5 over AES
     #define HTTP_REQUEST_HEADER_TLS_VALUE2 "on"	// Socks5 over TLS
     #define HTTP_REQUEST_HEADER_TVSEC_KEY "sec"        // recv/send tv_sec
     #define HTTP_REQUEST_HEADER_TVUSEC_KEY "usec"      // recv/send tv_usec
@@ -192,10 +197,11 @@ git clone https://github.com/shuichiro-endo/socks5-nginx-module.git
     
     ...
 
-    if(socks5OverTlsFlag == 0){	// Socks5
-    	httpRequestLength = snprintf(httpRequest, BUFSIZ+1, "GET / HTTP/1.1\r\nHost: %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\r\nAccept-Language: en-US,en;q=0.5\r\nAccept-Encoding: gzip, deflate\r\n%s: %s\r\n%s: %s\r\n%s: %ld\r\n%s: %ld\r\n%s: %ld\r\n%s: %ld\r\nConnection: close\r\n\r\n", domainname, HTTP_REQUEST_HEADER_SOCKS5_KEY, HTTP_REQUEST_HEADER_SOCKS5_VALUE, HTTP_REQUEST_HEADER_TLS_KEY, HTTP_REQUEST_HEADER_TLS_VALUE1, HTTP_REQUEST_HEADER_TVSEC_KEY, tv_sec, HTTP_REQUEST_HEADER_TVUSEC_KEY, tv_usec, HTTP_REQUEST_HEADER_FORWARDER_TVSEC_KEY, forwarder_tv_sec, HTTP_REQUEST_HEADER_FORWARDER_TVUSEC_KEY, forwarder_tv_usec);
+    if(socks5OverTlsFlag == 0){	// Socks5 over AES
+        httpRequestLength = snprintf(httpRequest, BUFFER_SIZE+1, "GET / HTTP/1.1\r\nHost: %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\r\nAccept-Language: en-US,en;q=0.5\r\nAccept-Encoding: gzip, deflate\r\n%s: %s\r\n%s: %s\r\n%s: %s\r\n%s: %ld\r\n%s: %ld\r\n%s: %ld\r\n%s: %ld\r\nConnection: close\r\n\r\n", domainname, HTTP_REQUEST_HEADER_SOCKS5_KEY, HTTP_REQUEST_HEADER_SOCKS5_VALUE, HTTP_REQUEST_HEADER_AESKEY_KEY, aes_key_b64, HTTP_REQUEST_HEADER_AESIV_KEY, aes_iv_b64, HTTP_REQUEST_HEADER_TVSEC_KEY, tv_sec, HTTP_REQUEST_HEADER_TVUSEC_KEY, tv_usec, HTTP_REQUEST_HEADER_FORWARDER_TVSEC_KEY, forwarder_tv_sec, HTTP_REQUEST_HEADER_FORWARDER_TVUSEC_KEY, forwarder_tv_usec);
     }else{	// Socks5 over TLS
-    	httpRequestLength = snprintf(httpRequest, BUFSIZ+1, "GET / HTTP/1.1\r\nHost: %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\r\nAccept-Language: en-US,en;q=0.5\r\nAccept-Encoding: gzip, deflate\r\n%s: %s\r\n%s: %s\r\n%s: %ld\r\n%s: %ld\r\n%s: %ld\r\n%s: %ld\r\nConnection: close\r\n\r\n", domainname, HTTP_REQUEST_HEADER_SOCKS5_KEY, HTTP_REQUEST_HEADER_SOCKS5_VALUE, HTTP_REQUEST_HEADER_TLS_KEY, HTTP_REQUEST_HEADER_TLS_VALUE2, HTTP_REQUEST_HEADER_TVSEC_KEY, tv_sec, HTTP_REQUEST_HEADER_TVUSEC_KEY, tv_usec, HTTP_REQUEST_HEADER_FORWARDER_TVSEC_KEY, forwarder_tv_sec, HTTP_REQUEST_HEADER_FORWARDER_TVUSEC_KEY, forwarder_tv_usec);
+        httpRequestLength = snprintf(httpRequest, BUFFER_SIZE+1, "GET / HTTP/1.1\r\nHost: %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\r\nAccept-Language: en-US,en;q=0.5\r\nAccept-Encoding: gzip, deflate\r\n%s: %s\r\n%s: %s\r\n%s: %s\r\n%s: %s\r\n%s: %ld\r\n%s: %ld\r\n%s: %ld\r\n%s: %ld\r\nConnection: close\r\n\r\n", domainname, HTTP_REQUEST_HEADER_SOCKS5_KEY, HTTP_REQUEST_HEADER_SOCKS5_VALUE, HTTP_REQUEST_HEADER_AESKEY_KEY, aes_key_b64, HTTP_REQUEST_HEADER_AESIV_KEY, aes_iv_b64, HTTP_REQUEST_HEADER_TLS_KEY, HTTP_REQUEST_HEADER_TLS_VALUE2, HTTP_REQUEST_HEADER_TVSEC_KEY, tv_sec, HTTP_REQUEST_HEADER_TVUSEC_KEY, tv_usec, HTTP_REQUEST_HEADER_FORWARDER_TVSEC_KEY, forwarder_tv_sec, HTTP_REQUEST_HEADER_FORWARDER_TVUSEC_KEY, forwarder_tv_usec);
+    }
     ```
     2. build
     ```
