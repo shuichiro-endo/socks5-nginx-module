@@ -87,7 +87,7 @@ git clone https://github.com/shuichiro-endo/socks5-nginx-module.git
     3. build my module(dynamic module)
     ```
     cd nginx-x.xx.x
-    ./configure --with-compat --add-dynamic-module=../server
+    ./configure --with-compat --add-dynamic-module=../server --with-ld-opt="-lssl -lcrypto"
     make modules
     ```
     4. copy the module library(.so file) to nginx modules directory
@@ -165,7 +165,7 @@ git clone https://github.com/shuichiro-endo/socks5-nginx-module.git
     2. build my module (dynamic module)
     ```
     cd socks5-nginx-module/nginx-x.xx.x
-    ./configure --with-compat --add-dynamic-module=../server
+    ./configure --with-compat --add-dynamic-module=../server --with-ld-opt="-lssl -lcrypto"
     make modules
     ```
     3. copy the module library(.so file) to nginx modules directory
@@ -214,7 +214,7 @@ git clone https://github.com/shuichiro-endo/socks5-nginx-module.git
     2. build my module(dynamic module)
     ```
     cd socks5-nginx-module/nginx-x.xx.x
-    ./configure --with-compat --add-dynamic-module=../server
+    ./configure --with-compat --add-dynamic-module=../server --with-ld-opt="-lssl -lcrypto"
     make modules
     ```
     2. copy the module library(.so file) to nginx modules directory
@@ -268,7 +268,7 @@ git clone https://github.com/shuichiro-endo/socks5-nginx-module.git
     4. build my module(dynamic module)
     ```
     cd socks5-nginx-module/nginx-x.xx.x
-    ./configure --with-compat --add-dynamic-module=../server
+    ./configure --with-compat --add-dynamic-module=../server --with-ld-opt="-lssl -lcrypto"
     make modules
     ```
     5. copy the module library(.so file) to nginx modules directory
@@ -318,7 +318,7 @@ git clone https://github.com/shuichiro-endo/socks5-nginx-module.git
     4. build my module(dynamic module)
     ```
     cd socks5-nginx-module/nginx-x.xx.x
-    ./configure --with-compat --add-dynamic-module=../server
+    ./configure --with-compat --add-dynamic-module=../server --with-ld-opt="-lssl -lcrypto"
     make modules
     ```
     5. copy the module library(.so file) to nginx modules directory
