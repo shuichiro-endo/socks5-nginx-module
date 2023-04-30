@@ -16,6 +16,7 @@ int sendDataTls(int sock, SSL *ssl, void *buffer, int length, long tv_sec, long 
 int forwarder(int clientSock, int targetSock, long tv_sec, long tv_usec);
 int forwarderAes(int clientSock, int targetSock, unsigned char *aes_key, unsigned char *aes_iv, long tv_sec, long tv_usec);
 int forwarderTls(int clientSock, int targetSock, SSL *targetSsl, long tv_sec, long tv_usec);
+int sslConnectNonBlock(int sock, SSL *ssl, long tv_sec, long tv_usec);
 int worker(void *ptr);
 void usage(char *filename);
 
