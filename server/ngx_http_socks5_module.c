@@ -278,7 +278,7 @@ int recvDataAes(ngx_http_request_t *r, int sock, void *buffer, int length, unsig
 				
 				ret = aesDecrypt(r, pData->encryptDataLength, 16, aes_key, aes_iv, (unsigned char *)tmp);
 				if(ret == 4){	// int encryptDataLength
-					encryptDataLength = (tmp[0] << 24)|(tmp[1]<<16)|(tmp[2]<<8)|(tmp[3]);
+					encryptDataLength = (tmp[0] << 24)|(tmp[1] << 16)|(tmp[2] << 8)|(tmp[3]);
 				}else{
 					return -1;
 				}
@@ -625,7 +625,7 @@ int forwarderAes(ngx_http_request_t *r, int clientSock, int targetSock, unsigned
 							free(tmp);
 							return -1;
 						}
-						encryptDataLength = (tmp[0] << 24)|(tmp[1]<<16)|(tmp[2]<<8)|(tmp[3]);
+						encryptDataLength = (tmp[0] << 24)|(tmp[1] << 16)|(tmp[2] << 8)|(tmp[3]);
 						
 						if(index + 16 + encryptDataLength <= recvLength){
 							rec = aesDecrypt(r, pData->encryptData, encryptDataLength, aes_key, aes_iv, buffer2);
@@ -910,7 +910,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 	pPARAM pParam = (pPARAM)ptr;
 	int clientSock = pParam->clientSock;
 	SSL *clientSslSocks5 = pParam->clientSslSocks5;
-	int socks5OverTlsFlag = pParam->socks5OverTlsFlag;	// 0:socks5 1:socks5 over tls
+	int socks5OverTlsFlag = pParam->socks5OverTlsFlag;	// 0:socks5 over aes 1:socks5 over tls
 	unsigned char *aes_key = pParam->aes_key;
 	unsigned char *aes_iv = pParam->aes_iv;
 	long tv_sec = pParam->tv_sec;		// recv send

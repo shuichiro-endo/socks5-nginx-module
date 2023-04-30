@@ -244,7 +244,7 @@ int recvDataAes(int sock, void *buffer, int length, unsigned char *aes_key, unsi
 				
 				ret = aesDecrypt(pData->encryptDataLength, 16, aes_key, aes_iv, (unsigned char *)tmp);
 				if(ret == 4){	// int encryptDataLength
-					encryptDataLength = (tmp[0] << 24)|(tmp[1]<<16)|(tmp[2]<<8)|(tmp[3]);
+					encryptDataLength = (tmp[0] << 24)|(tmp[1] << 16)|(tmp[2] << 8)|(tmp[3]);
 				}else{
 					free(buffer2);
 					free(tmp);
@@ -628,7 +628,7 @@ int forwarderAes(int clientSock, int targetSock, unsigned char *aes_key, unsigne
 							free(tmp);
 							return -1;
 						}
-						encryptDataLength = (tmp[0] << 24)|(tmp[1]<<16)|(tmp[2]<<8)|(tmp[3]);
+						encryptDataLength = (tmp[0] << 24)|(tmp[1] << 16)|(tmp[2] << 8)|(tmp[3]);
 						
 						if(index + 16 + encryptDataLength <= recvLength){
 							rec = aesDecrypt(pData->encryptData, encryptDataLength, aes_key, aes_iv, buffer2);

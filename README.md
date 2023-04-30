@@ -83,7 +83,7 @@ git clone https://github.com/shuichiro-endo/socks5-nginx-module.git
     ```
     cd socks5-nginx-module
     wget https://nginx.org/download/nginx-x.xx.x.tar.gz
-    tar -xzvf nginx-x-xx.x.tar.gz
+    tar -xzvf nginx-x.xx.x.tar.gz
     ```
     3. build my module(dynamic module)
     ```
