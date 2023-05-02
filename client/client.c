@@ -1321,11 +1321,11 @@ int worker(void *ptr)
 
 	// socks SELECTION_REQUEST	client -> server
 #ifdef _DEBUG
-	printf("[I] Recieve selection request. client -> server\n");
+	printf("[I] Receive selection request. client -> server\n");
 #endif
 	if((rec = recvData(clientSock, buffer, BUFFER_SIZE, tv_sec, tv_usec)) <= 0){
 #ifdef _DEBUG
-		printf("[E] Recieve selection request. client -> server\n");
+		printf("[E] Receive selection request. client -> server\n");
 #endif
 		finiSsl(&sslParam);
 		shutdown(targetSock, SHUT_RDWR);
@@ -1337,7 +1337,7 @@ int worker(void *ptr)
 		return -1;
 	}
 #ifdef _DEBUG
-	printf("[I] Recieve selection request:%d bytes. client -> server\n", rec);
+	printf("[I] Receive selection request:%d bytes. client -> server\n", rec);
 #endif
 
 
@@ -1370,7 +1370,7 @@ int worker(void *ptr)
 
 	// socks SELECTION_RESPONSE	server <- target
 #ifdef _DEBUG
-	printf("[I] Recieve selection response. server <- target\n");
+	printf("[I] Receive selection response. server <- target\n");
 #endif
 	if(socks5OverTlsFlag == 0){
 		rec = recvDataAes(targetSock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec);
@@ -1379,7 +1379,7 @@ int worker(void *ptr)
 	}
 	if(rec != sizeof(SELECTION_RESPONSE)){
 #ifdef _DEBUG
-		printf("[E] Recieve selection response. server <- target\n");
+		printf("[E] Receive selection response. server <- target\n");
 #endif
 		finiSsl(&sslParam);
 		shutdown(targetSock, SHUT_RDWR);
@@ -1391,7 +1391,7 @@ int worker(void *ptr)
 		return -1;
 	}
 #ifdef _DEBUG
-	printf("[I] Recieve selection response:%d bytes. server <- target\n", rec);
+	printf("[I] Receive selection response:%d bytes. server <- target\n", rec);
 #endif
 
 
@@ -1426,11 +1426,11 @@ int worker(void *ptr)
 	if(pSelectionResponse->method == 0x2){	// USERNAME_PASSWORD_AUTHENTICATION
 		// socks USERNAME_PASSWORD_AUTHENTICATION_REQUEST		client -> server
 #ifdef _DEBUG
-		printf("[I] Recieve username password authentication request. client -> server\n");
+		printf("[I] Receive username password authentication request. client -> server\n");
 #endif
 		if((rec = recvData(clientSock, buffer, BUFFER_SIZE, tv_sec, tv_usec)) <= 0){
 #ifdef _DEBUG
-			printf("[E] Recieve username password authentication request. client -> server\n");
+			printf("[E] Receive username password authentication request. client -> server\n");
 #endif
 			finiSsl(&sslParam);
 			shutdown(targetSock, SHUT_RDWR);
@@ -1442,7 +1442,7 @@ int worker(void *ptr)
 			return -1;
 		}
 #ifdef _DEBUG
-		printf("[I] Recieve username password authentication request:%d bytes. client -> server\n", rec);
+		printf("[I] Receive username password authentication request:%d bytes. client -> server\n", rec);
 #endif
 
 
@@ -1475,7 +1475,7 @@ int worker(void *ptr)
 
 		// socks USERNAME_PASSWORD_AUTHENTICATION_RESPONSE	server <- target
 #ifdef _DEBUG
-		printf("[I] Recieve username password authentication response. server <- target\n");
+		printf("[I] Receive username password authentication response. server <- target\n");
 #endif
 		if(socks5OverTlsFlag == 0){
 			rec = recvDataAes(targetSock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec);
@@ -1484,7 +1484,7 @@ int worker(void *ptr)
 		}
 		if(rec <= 0){
 #ifdef _DEBUG
-			printf("[E] Recieve username password authentication response. server <- target\n");
+			printf("[E] Receive username password authentication response. server <- target\n");
 #endif
 			finiSsl(&sslParam);
 			shutdown(targetSock, SHUT_RDWR);
@@ -1496,7 +1496,7 @@ int worker(void *ptr)
 			return -1;
 		}
 #ifdef _DEBUG
-		printf("[I] Recieve username password authentication response:%d bytes. server <- target\n", rec);
+		printf("[I] Receive username password authentication response:%d bytes. server <- target\n", rec);
 #endif
 
 
@@ -1526,11 +1526,11 @@ int worker(void *ptr)
 
 	// socks SOCKS_REQUEST	client -> server
 #ifdef _DEBUG
-	printf("[I] Recieve socks request. client -> server\n");
+	printf("[I] Receive socks request. client -> server\n");
 #endif
 	if((rec = recvData(clientSock, buffer, BUFFER_SIZE, tv_sec, tv_usec)) <= 0){
 #ifdef _DEBUG
-		printf("[E] Recieve socks request. client -> server\n");
+		printf("[E] Receive socks request. client -> server\n");
 #endif
 		finiSsl(&sslParam);
 		shutdown(targetSock, SHUT_RDWR);
@@ -1542,7 +1542,7 @@ int worker(void *ptr)
 		return -1;
 	}
 #ifdef _DEBUG
-	printf("[I] Recieve socks request:%d bytes. client -> server\n", rec);
+	printf("[I] Receive socks request:%d bytes. client -> server\n", rec);
 #endif
 
 
@@ -1575,7 +1575,7 @@ int worker(void *ptr)
 
 	// socks SOCKS_RESPONSE	server <- target
 #ifdef _DEBUG
-	printf("[I] Recieve socks response. server <- target\n");
+	printf("[I] Receive socks response. server <- target\n");
 #endif
 	if(socks5OverTlsFlag == 0){
 		rec = recvDataAes(targetSock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec);
@@ -1584,7 +1584,7 @@ int worker(void *ptr)
 	}
 	if(rec <= 0){
 #ifdef _DEBUG
-		printf("[E] Recieve socks response. server <- target\n");
+		printf("[E] Receive socks response. server <- target\n");
 #endif
 		finiSsl(&sslParam);
 		shutdown(targetSock, SHUT_RDWR);
@@ -1596,7 +1596,7 @@ int worker(void *ptr)
 		return -1;
 	}
 #ifdef _DEBUG
-	printf("[I] Recieve socks response:%d bytes. server <- target\n", rec);
+	printf("[I] Receive socks response:%d bytes. server <- target\n", rec);
 #endif
 
 

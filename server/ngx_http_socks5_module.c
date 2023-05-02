@@ -928,8 +928,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 	
 	// socks SELECTION_REQUEST
 #ifdef _DEBUG
-	printf("[I] Recieve selection request.\n");
-	ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Recieve selection request.");
+	printf("[I] Receive selection request.\n");
+	ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Receive selection request.");
 #endif
 	if(socks5OverTlsFlag == 0){	// Socks5 over AES
 		rec = recvDataAes(r, clientSock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec);
@@ -938,14 +938,14 @@ int worker(ngx_http_request_t *r, void *ptr)
 	}
 	if(rec <= 0){
 #ifdef _DEBUG
-		printf("[E] Recieve selection request.\n");
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Recieve selection request.");
+		printf("[E] Receive selection request.\n");
+		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Receive selection request.");
 #endif
 		return -1;
 	}
 #ifdef _DEBUG
-	printf("[I] Recieive selection request:%d bytes.\n", rec);
-	ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Recieive selection request:%d bytes.", rec);
+	printf("[I] Receive selection request:%d bytes.\n", rec);
+	ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Receive selection request:%d bytes.", rec);
 #endif
 	pSELECTION_REQUEST pSelectionRequest = (pSELECTION_REQUEST)buffer;
 	unsigned char method = 0xFF;
@@ -1007,8 +1007,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 	if(method == 0x2){
 		// socks USERNAME_PASSWORD_AUTHENTICATION_REQUEST
 #ifdef _DEBUG
-		printf("[I] Recieve username password authentication request.\n");
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Recieve username password authentication request.");
+		printf("[I] Receive username password authentication request.\n");
+		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Receive username password authentication request.");
 #endif
 		if(socks5OverTlsFlag == 0){	// Socks5 over AES
 			rec = recvDataAes(r, clientSock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec);
@@ -1017,8 +1017,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 		}
 		if(rec <= 0){
 #ifdef _DEBUG
-			printf("[E] Recieve username password authentication request.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Recieve username password authentication request.");
+			printf("[E] Receive username password authentication request.\n");
+			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Receive username password authentication request.");
 #endif
 			return -1;
 		}
@@ -1101,8 +1101,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 	
 	// socks SOCKS_REQUEST
 #ifdef _DEBUG
-	printf("[I] Receiving socks request.\n");
-	ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Receiving socks request.");
+	printf("[I] Receive socks request.\n");
+	ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Receive socks request.");
 #endif
 	bzero(buffer, BUFFER_SIZE+1);
 	if(socks5OverTlsFlag == 0){	// Socks5 over AES
@@ -1112,8 +1112,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 	}
 	if(rec <= 0){
 #ifdef _DEBUG
-		printf("[E] Receiving socks request.\n");
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Receiving socks request.");
+		printf("[E] Receive socks request.\n");
+		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Receive socks request.");
 #endif
 		return -1;
 	}
