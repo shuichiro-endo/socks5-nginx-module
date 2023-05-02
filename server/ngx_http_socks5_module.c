@@ -928,8 +928,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 	
 	// socks SELECTION_REQUEST
 #ifdef _DEBUG
-	printf("[I] Recieving selection request.\n");
-	ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Recieving selection request.");
+	printf("[I] Recieve selection request.\n");
+	ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Recieve selection request.");
 #endif
 	if(socks5OverTlsFlag == 0){	// Socks5 over AES
 		rec = recvDataAes(r, clientSock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec);
@@ -938,8 +938,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 	}
 	if(rec <= 0){
 #ifdef _DEBUG
-		printf("[E] Recieving selection request error.\n");
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Recieving selection request error.");
+		printf("[E] Recieve selection request.\n");
+		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Recieve selection request.");
 #endif
 		return -1;
 	}
@@ -977,8 +977,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 	}
 	if(sen <= 0){
 #ifdef _DEBUG
-		printf("[E] Sending selection response error.\n");
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Sending selection response error.");
+		printf("[E] Send selection response.\n");
+		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send selection response.");
 #endif
 		free(pSelectionResponse);
 		return -1;
@@ -1007,8 +1007,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 	if(method == 0x2){
 		// socks USERNAME_PASSWORD_AUTHENTICATION_REQUEST
 #ifdef _DEBUG
-		printf("[I] Recieving username password authentication request.\n");
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Recieving username password authentication request.");
+		printf("[I] Recieve username password authentication request.\n");
+		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Recieve username password authentication request.");
 #endif
 		if(socks5OverTlsFlag == 0){	// Socks5 over AES
 			rec = recvDataAes(r, clientSock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec);
@@ -1017,8 +1017,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 		}
 		if(rec <= 0){
 #ifdef _DEBUG
-			printf("[E] Recieving username password authentication request error.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Recieving username password authentication request error.");
+			printf("[E] Recieve username password authentication request.\n");
+			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Recieve username password authentication request.");
 #endif
 			return -1;
 		}
@@ -1056,8 +1056,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 			}
 			if(sen <= 0){
 #ifdef _DEBUG
-				printf("[E] Sending username password authentication response error.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Sending username password authentication response error.");
+				printf("[E] Send username password authentication response.\n");
+				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send username password authentication response.");
 #endif
 				
 				free(pUsernamePasswordAuthenticationResponse);
@@ -1083,8 +1083,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 			}
 			if(sen <= 0){
 #ifdef _DEBUG
-				printf("[E] Sending username password authentication response error.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Sending username password authentication response error.");
+				printf("[E] Send username password authentication response.\n");
+				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send username password authentication response.");
 #endif
 			}else{
 #ifdef _DEBUG
@@ -1112,8 +1112,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 	}
 	if(rec <= 0){
 #ifdef _DEBUG
-		printf("[E] Receiving socks request error.\n");
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Receiving socks request error.");
+		printf("[E] Receiving socks request.\n");
+		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Receiving socks request.");
 #endif
 		return -1;
 	}
@@ -1144,8 +1144,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 		}
 		if(sen <= 0){
 #ifdef _DEBUG
-			printf("[E] Sending socks response error.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Sending socks response error.");
+			printf("[E] Send socks response.\n");
+			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
 		}
 
@@ -1177,8 +1177,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 		}
 		if(sen <= 0){
 #ifdef _DEBUG
-			printf("[E] Sending socks response error.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Sending socks response error.");
+			printf("[E] Send socks response.\n");
+			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
 		}
 		
@@ -1233,8 +1233,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 					}
 					if(sen <= 0){
 #ifdef _DEBUG
-						printf("[E] Sending socks response error.\n");
-						ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Sending socks response error.");
+						printf("[E] Send socks response.\n");
+						ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
 					}
 					
@@ -1257,8 +1257,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 				}
 				if(sen <= 0){
 #ifdef _DEBUG
-					printf("[E] Sending socks response error.\n");
-					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Sending socks response error.");
+					printf("[E] Send socks response.\n");
+					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
 				}
 
@@ -1294,8 +1294,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 			}
 			if(sen <= 0){
 #ifdef _DEBUG
-				printf("[E] Sending socks response error.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Sending socks response error.");
+				printf("[E] Send socks response.\n");
+				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
 			}
 			
@@ -1322,8 +1322,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 		}
 		if(sen <= 0){
 #ifdef _DEBUG
-			printf("[E] Sending socks response error.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Sending socks response error.");
+			printf("[E] Send socks response.\n");
+			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
 		}
 		
@@ -1367,8 +1367,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 				}
 				if(sen <= 0){
 #ifdef _DEBUG
-					printf("[E] Sending socks response error.\n");
-					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Sending socks response error.");
+					printf("[E] Send socks response.\n");
+					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
 				}else{
 #ifdef _DEBUG
@@ -1395,8 +1395,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 			}
 			if(sen <= 0){
 #ifdef _DEBUG
-				printf("[E] Sending socks response error.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Sending socks response error.");
+				printf("[E] Send socks response.\n");
+				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
 				
 				shutdown(targetSock, SHUT_RDWR);
@@ -1425,8 +1425,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 			}
 			if(sen <= 0){
 #ifdef _DEBUG
-				printf("[E] Sending socks response error.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Sending socks response error.");
+				printf("[E] Send socks response.\n");
+				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
 			}
 			
@@ -1456,8 +1456,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 				}
 				if(sen <= 0){
 #ifdef _DEBUG
-					printf("[E] Sending socks response error.\n");
-					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Sending socks response error.");
+					printf("[E] Send socks response.\n");
+					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif				
 				}else{
 #ifdef _DEBUG
@@ -1484,8 +1484,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 			}
 			if(sen <= 0){
 #ifdef _DEBUG
-				printf("[E] Sending socks response error.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Sending socks response error.");
+				printf("[E] Send socks response.\n");
+				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
 				
 				shutdown(targetSock, SHUT_RDWR);
@@ -1512,8 +1512,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 			}
 			if(sen <= 0){
 #ifdef _DEBUG
-				printf("[E] Sending socks response error.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Sending socks response error.");
+				printf("[E] Send socks response.\n");
+				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
 			}
 			
@@ -1550,8 +1550,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 					}
 					if(sen <= 0){
 #ifdef _DEBUG
-						printf("[E] Sending socks response error.\n");
-						ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Sending socks response error.");
+						printf("[E] Send socks response.\n");
+						ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
 					}else{
 #ifdef _DEBUG
@@ -1578,8 +1578,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 				}
 				if(sen <= 0){
 #ifdef _DEBUG
-					printf("[E] Sending socks response error.\n");
-					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Sending socks response error.");
+					printf("[E] Send socks response.\n");
+					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
 					
 					shutdown(targetSock, SHUT_RDWR);
@@ -1608,8 +1608,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 				}
 				if(sen <= 0){
 #ifdef _DEBUG
-					printf("[E] Sending socks response error.\n");
-					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Sending socks response error.");
+					printf("[E] Send socks response.\n");
+					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
 				}
 				
@@ -1638,8 +1638,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 					}
 					if(sen <= 0){
 #ifdef _DEBUG
-						printf("[E] Sending socks response error.\n");
-						ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Sending socks response error.");
+						printf("[E] Send socks response.\n");
+						ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
 					}else{
 #ifdef _DEBUG
@@ -1666,8 +1666,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 				}
 				if(sen <= 0){
 #ifdef _DEBUG
-					printf("[E] Sending socks response error.\n");
-					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Sending socks response error.");
+					printf("[E] Send socks response.\n");
+					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
 					
 					shutdown(targetSock, SHUT_RDWR);
@@ -1694,8 +1694,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 				}
 				if(sen <= 0){
 #ifdef _DEBUG
-					printf("[E] Sending socks response error.\n");
-					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Sending socks response error.");
+					printf("[E] Send socks response.\n");
+					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
 				}
 				
@@ -1732,8 +1732,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 					}
 					if(sen <= 0){
 #ifdef _DEBUG
-						printf("[E] Sending socks response error.\n");
-						ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Sending socks response error.");
+						printf("[E] Send socks response.\n");
+						ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
 					}else{
 #ifdef _DEBUG
@@ -1760,8 +1760,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 				}
 				if(sen <= 0){
 #ifdef _DEBUG
-					printf("[E] Sending socks response error.\n");
-					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Sending socks response error.");
+					printf("[E] Send socks response.\n");
+					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
 					
 					shutdown(targetSock, SHUT_RDWR);
@@ -1790,8 +1790,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 				}
 				if(sen <= 0){
 #ifdef _DEBUG
-					printf("[E] Sending socks response error.\n");
-					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Sending socks response error.");
+					printf("[E] Send socks response.\n");
+					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
 				}
 				
@@ -1820,8 +1820,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 					}
 					if(sen <= 0){
 #ifdef _DEBUG
-						printf("[E] Sending socks response error.\n");
-						ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Sending socks response error.");
+						printf("[E] Send socks response.\n");
+						ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
 					}else{
 #ifdef _DEBUG
@@ -1848,8 +1848,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 				}
 				if(sen <= 0){
 #ifdef _DEBUG
-					printf("[E] Sending socks response error.\n");
-					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Sending socks response error.");
+					printf("[E] Send socks response.\n");
+					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
 					
 					shutdown(targetSock, SHUT_RDWR);
@@ -1876,8 +1876,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 				}
 				if(sen <= 0){
 #ifdef _DEBUG
-					printf("[E] Sending socks response error.\n");
-					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Sending socks response error.");
+					printf("[E] Send socks response.\n");
+					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
 				}
 				
@@ -1896,8 +1896,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 			}
 			if(sen <= 0){
 #ifdef _DEBUG
-				printf("[E] Sending socks response error.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Sending socks response error.");
+				printf("[E] Send socks response.\n");
+				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
 			}
 			
@@ -1934,8 +1934,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 				}
 				if(sen <= 0){
 #ifdef _DEBUG
-					printf("[E] Sending socks response error.\n");
-					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Sending socks response error.");
+					printf("[E] Send socks response.\n");
+					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
 				}else{
 #ifdef _DEBUG
@@ -1962,8 +1962,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 			}
 			if(sen <= 0){
 #ifdef _DEBUG
-				printf("[E] Sending socks response error.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Sending socks response error.");
+				printf("[E] Send socks response.\n");
+				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
 				
 				shutdown(targetSock, SHUT_RDWR);
@@ -1992,8 +1992,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 			}
 			if(sen <= 0){
 #ifdef _DEBUG
-				printf("[E] Sending socks response error.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Sending socks response error.");
+				printf("[E] Send socks response.\n");
+				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
 			}
 			
@@ -2022,8 +2022,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 				}
 				if(sen <= 0){
 #ifdef _DEBUG
-					printf("[E] Sending socks response error.\n");
-					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Sending socks response error.");
+					printf("[E] Send socks response.\n");
+					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
 				}else{
 #ifdef _DEBUG
@@ -2050,8 +2050,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 			}
 			if(sen <= 0){
 #ifdef _DEBUG
-				printf("[E] Sending socks response error.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Sending socks response error.");
+				printf("[E] Send socks response.\n");
+				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
 				
 				shutdown(targetSock, SHUT_RDWR);
@@ -2078,8 +2078,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 			}
 			if(sen <= 0){
 #ifdef _DEBUG
-				printf("[E] Sending socks response error.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Sending socks response error.");
+				printf("[E] Send socks response.\n");
+				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
 			}
 			
@@ -2098,8 +2098,8 @@ int worker(ngx_http_request_t *r, void *ptr)
 		}
 		if(sen <= 0){
 #ifdef _DEBUG
-				printf("[E] Sending socks response error.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Sending socks response error.");
+				printf("[E] Send socks response.\n");
+				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
 		}
 		
