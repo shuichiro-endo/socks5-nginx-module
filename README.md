@@ -148,6 +148,50 @@ git clone https://github.com/shuichiro-endo/socks5-nginx-module.git
     curl -v -x socks5h://127.0.0.1:9050 https://www.google.com
     ```
 
+## Troubleshooting
+### How to reduce number of connections in CLOSE_WAIT state
+You can check number of connections in CLOSE_WAIT state by running the following command.
+```
+sudo ss -p --tcp state CLOSE-WAIT
+```
+If there are many connections in CLOSE_WAIT state, you can do the following.
+- change the value of tcp_keepalive_time, tcp_keepalive_probes and tcp_keepalive_intvl (temporary)
+    1. check the value before the changes
+    ```
+    cat /proc/sys/net/ipv4/tcp_keepalive_time
+    cat /proc/sys/net/ipv4/tcp_keepalive_probes
+    cat /proc/sys/net/ipv4/tcp_keepalive_intvl
+    ```
+    2. change the value
+    ```
+    sudo sh -c "echo 10 > /proc/sys/net/ipv4/tcp_keepalive_time"
+    sudo sh -c "echo 2 > /proc/sys/net/ipv4/tcp_keepalive_probes"
+    sudo sh -c "echo 3 > /proc/sys/net/ipv4/tcp_keepalive_intvl"
+    ```
+    3. check the value after the changes
+    ```
+    cat /proc/sys/net/ipv4/tcp_keepalive_time
+    cat /proc/sys/net/ipv4/tcp_keepalive_probes
+    cat /proc/sys/net/ipv4/tcp_keepalive_intvl
+    ```
+    4. restart client and server
+
+- change the value of tcp_keepalive_time, tcp_keepalive_probes and tcp_keepalive_intvl (permanent)
+    1. modify /etc/sysctl.conf file
+    ```
+    net.ipv4.tcp_keepalive_time = 10
+    net.ipv4.tcp_keepalive_intvl = 3
+    net.ipv4.tcp_keepalive_probes = 2
+    ```
+    2. check the value
+    ```
+    sudo sysctl -p
+    ```
+    3. reboot
+    4. start client and server
+
+- restart client and server
+
 ## Notes
 ### How to change HTTP Request Header Key and Value
 - server
