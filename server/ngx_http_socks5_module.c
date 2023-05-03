@@ -1350,9 +1350,9 @@ int worker(ngx_http_request_t *r, void *ptr)
 #endif
 			targetSock = socket(AF_INET, SOCK_STREAM, 0);
 			
+			// blocking
 			flags = fcntl(targetSock, F_GETFL, 0);
-			flags &= ~O_NONBLOCK;
-			fcntl(targetSock, F_SETFL, flags);
+			fcntl(targetSock, F_SETFL, flags & ~O_NONBLOCK);
 			
 			if((err = connect(targetSock, (struct sockaddr *)&targetAddr, sizeof(targetAddr))) < 0){
 #ifdef _DEBUG
@@ -1439,9 +1439,9 @@ int worker(ngx_http_request_t *r, void *ptr)
 #endif
 			targetSock = socket(AF_INET, SOCK_DGRAM, 0);
 			
+			// blocking
 			flags = fcntl(targetSock, F_GETFL, 0);
-			flags &= ~O_NONBLOCK;
-			fcntl(targetSock, F_SETFL, flags);
+			fcntl(targetSock, F_SETFL, flags & ~O_NONBLOCK);
 		
 			if((err = connect(targetSock, (struct sockaddr *)&targetAddr, sizeof(targetAddr))) < 0){
 #ifdef _DEBUG
@@ -1533,9 +1533,9 @@ int worker(ngx_http_request_t *r, void *ptr)
 #endif
 				targetSock = socket(AF_INET, SOCK_STREAM, 0);
 				
+				// blocking
 				flags = fcntl(targetSock, F_GETFL, 0);
-				flags &= ~O_NONBLOCK;
-				fcntl(targetSock, F_SETFL, flags);
+				fcntl(targetSock, F_SETFL, flags & ~O_NONBLOCK);
 				
 				if((err = connect(targetSock, (struct sockaddr *)&targetAddr, sizeof(targetAddr))) < 0){
 #ifdef _DEBUG
@@ -1621,9 +1621,9 @@ int worker(ngx_http_request_t *r, void *ptr)
 #endif
 				targetSock = socket(AF_INET, SOCK_DGRAM, 0);
 				
+				// blocking
 				flags = fcntl(targetSock, F_GETFL, 0);
-				flags &= ~O_NONBLOCK;
-				fcntl(targetSock, F_SETFL, flags);
+				fcntl(targetSock, F_SETFL, flags & ~O_NONBLOCK);
 			
 				if((err = connect(targetSock, (struct sockaddr *)&targetAddr, sizeof(targetAddr))) < 0){
 #ifdef _DEBUG
@@ -1715,9 +1715,9 @@ int worker(ngx_http_request_t *r, void *ptr)
 #endif
 				targetSock = socket(AF_INET6, SOCK_STREAM, 0);
 
+				// blocking
 				flags = fcntl(targetSock, F_GETFL, 0);
-				flags &= ~O_NONBLOCK;
-				fcntl(targetSock, F_SETFL, flags);
+				fcntl(targetSock, F_SETFL, flags & ~O_NONBLOCK);
 			
 				if((err = connect(targetSock, (struct sockaddr *)&targetAddr6, sizeof(targetAddr6))) < 0){
 #ifdef _DEBUG
@@ -1803,10 +1803,10 @@ int worker(ngx_http_request_t *r, void *ptr)
 #endif
 				targetSock = socket(AF_INET6, SOCK_DGRAM, 0);
 				
+				// blocking
 				flags = fcntl(targetSock, F_GETFL, 0);
-				flags &= ~O_NONBLOCK;
-				fcntl(targetSock, F_SETFL, flags);				
-								
+				fcntl(targetSock, F_SETFL, flags & ~O_NONBLOCK);
+				
 				if((err = connect(targetSock, (struct sockaddr *)&targetAddr6, sizeof(targetAddr6))) < 0){
 #ifdef _DEBUG
 					printf("[E] Cannot connect. errno:%d\n", err);
@@ -1917,9 +1917,9 @@ int worker(ngx_http_request_t *r, void *ptr)
 #endif
 			targetSock = socket(AF_INET6, SOCK_STREAM, 0);
 			
+			// blocking
 			flags = fcntl(targetSock, F_GETFL, 0);
-			flags &= ~O_NONBLOCK;
-			fcntl(targetSock, F_SETFL, flags);
+			fcntl(targetSock, F_SETFL, flags & ~O_NONBLOCK);
 			
 			if((err = connect(targetSock, (struct sockaddr *)&targetAddr6, sizeof(targetAddr6))) < 0){
 #ifdef _DEBUG
@@ -2005,9 +2005,9 @@ int worker(ngx_http_request_t *r, void *ptr)
 #endif
 			targetSock = socket(AF_INET6, SOCK_DGRAM, 0);
 
+			// blocking
 			flags = fcntl(targetSock, F_GETFL, 0);
-			flags &= ~O_NONBLOCK;
-			fcntl(targetSock, F_SETFL, flags);
+			fcntl(targetSock, F_SETFL, flags & ~O_NONBLOCK);
 		
 			if(connect(targetSock, (struct sockaddr *)&targetAddr6, sizeof(targetAddr6)) < 0){
 #ifdef _DEBUG
@@ -2142,6 +2142,8 @@ int sslAcceptNonBlock(ngx_http_request_t *r, int sock, SSL *ssl, long tv_sec, lo
 	int ret = 0;
 	int err = 0;
 	int flags = 0;
+	
+	// non blocking
 	flags = fcntl(sock, F_GETFL, 0);
 	fcntl(sock, F_SETFL, flags | O_NONBLOCK);
 	
@@ -2150,6 +2152,9 @@ int sslAcceptNonBlock(ngx_http_request_t *r, int sock, SSL *ssl, long tv_sec, lo
 		printf("[E] gettimeofday error.\n");
 		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] gettimeofday error.");
 #endif
+		// blocking
+		flags = fcntl(sock, F_GETFL, 0);
+		fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
 		return -2;
 	}
 
@@ -2167,6 +2172,9 @@ int sslAcceptNonBlock(ngx_http_request_t *r, int sock, SSL *ssl, long tv_sec, lo
 			printf("[I] sslAcceptNonBlock timeout.\n");
 			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] sslAcceptNonBlock timeout.");
 #endif
+			// blocking
+			flags = fcntl(sock, F_GETFL, 0);
+			fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
 			return -2;
 		}
 		
@@ -2185,6 +2193,9 @@ int sslAcceptNonBlock(ngx_http_request_t *r, int sock, SSL *ssl, long tv_sec, lo
 				printf("[E] SSL_accept error:%d:%s.\n", err, ERR_error_string(ERR_peek_last_error(), NULL));
 				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] SSL_accept error:%d:%s.", err, ERR_error_string(ERR_peek_last_error(), NULL));
 #endif
+				// blocking
+				flags = fcntl(sock, F_GETFL, 0);
+				fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
 				return -2;
 			}
 		}
@@ -2194,6 +2205,9 @@ int sslAcceptNonBlock(ngx_http_request_t *r, int sock, SSL *ssl, long tv_sec, lo
 			printf("[E] gettimeofday error.\n");
 			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] gettimeofday error.");
 #endif
+			// blocking
+			flags = fcntl(sock, F_GETFL, 0);
+			fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
 			return -2;
 		}
 		
@@ -2203,9 +2217,16 @@ int sslAcceptNonBlock(ngx_http_request_t *r, int sock, SSL *ssl, long tv_sec, lo
 			printf("[I] sslAcceptNonBlock timeout.\n");
 			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] sslAcceptNonBlock timeout.");
 #endif
+			// blocking
+			flags = fcntl(sock, F_GETFL, 0);
+			fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
 			return -2;
 		}
 	}
+	
+	// blocking
+	flags = fcntl(sock, F_GETFL, 0);
+	fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
 	
 	return ret;
 }
@@ -2384,10 +2405,9 @@ static ngx_int_t ngx_http_socks5_header_filter(ngx_http_request_t *r)
 		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Timeout forwarder tv_sec:%ld sec forwarder tv_usec:%ld microsec.", forwarder_tv_sec, forwarder_tv_usec);
 #endif
 
-		// non blocking
+		// blocking
 		flags = fcntl(clientSock, F_GETFL, 0);
-		flags &= ~O_NONBLOCK;
-		fcntl(clientSock, F_SETFL, flags);
+		fcntl(clientSock, F_SETFL, flags & ~O_NONBLOCK);
 		
 		// send OK to client
 		ret = sendDataAes(r, clientSock, "OK", strlen("OK"), aes_key, aes_iv, tv_sec, tv_usec);

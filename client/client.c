@@ -759,6 +759,8 @@ int sslConnectNonBlock(int sock, SSL *ssl, long tv_sec, long tv_usec)
 	int ret = 0;
 	int err = 0;
 	int flags = 0;
+	
+	// non blocking
 	flags = fcntl(sock, F_GETFL, 0);
 	fcntl(sock, F_SETFL, flags | O_NONBLOCK);
 	
@@ -766,6 +768,9 @@ int sslConnectNonBlock(int sock, SSL *ssl, long tv_sec, long tv_usec)
 #ifdef _DEBUG
 		printf("[E] gettimeofday error.\n");
 #endif
+		// blocking
+		flags = fcntl(sock, F_GETFL, 0);
+		fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
 		return -2;
 	}
 
@@ -782,6 +787,9 @@ int sslConnectNonBlock(int sock, SSL *ssl, long tv_sec, long tv_usec)
 #ifdef _DEBUG
 			printf("[I] sslConnectNonBlock timeout.\n");
 #endif
+			// blocking
+			flags = fcntl(sock, F_GETFL, 0);
+			fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
 			return -2;
 		}
 		
@@ -799,6 +807,9 @@ int sslConnectNonBlock(int sock, SSL *ssl, long tv_sec, long tv_usec)
 #ifdef _DEBUG
 				printf("[E] SSL_connect error:%d:%s.\n", err, ERR_error_string(ERR_peek_last_error(), NULL));
 #endif
+				// blocking
+				flags = fcntl(sock, F_GETFL, 0);
+				fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
 				return -2;
 			}
 		}
@@ -807,6 +818,9 @@ int sslConnectNonBlock(int sock, SSL *ssl, long tv_sec, long tv_usec)
 #ifdef _DEBUG
 			printf("[E] gettimeofday error.\n");
 #endif
+			// blocking
+			flags = fcntl(sock, F_GETFL, 0);
+			fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
 			return -2;
 		}
 		
@@ -815,9 +829,16 @@ int sslConnectNonBlock(int sock, SSL *ssl, long tv_sec, long tv_usec)
 #ifdef _DEBUG
 			printf("[I] sslConnectNonBlock timeout.\n");
 #endif
+			// blocking
+			flags = fcntl(sock, F_GETFL, 0);
+			fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
 			return -2;
 		}
 	}
+	
+	// blocking
+	flags = fcntl(sock, F_GETFL, 0);
+	fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
 	
 	return ret;
 }
