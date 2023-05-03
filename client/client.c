@@ -1343,9 +1343,6 @@ int worker(void *ptr)
 
 
 	// socks SELECTION_REQUEST	client -> server
-#ifdef _DEBUG
-	printf("[I] Receive selection request. client -> server\n");
-#endif
 	if((rec = recvData(clientSock, buffer, BUFFER_SIZE, tv_sec, tv_usec)) <= 0){
 #ifdef _DEBUG
 		printf("[E] Receive selection request. client -> server\n");
@@ -1365,9 +1362,6 @@ int worker(void *ptr)
 
 
 	// socks SELECTION_REQUEST	server -> target
-#ifdef _DEBUG
-	printf("[I] Send selection request. server -> target\n");
-#endif
 	if(socks5OverTlsFlag == 0){
 		sen = sendDataAes(targetSock, buffer, rec, aes_key, aes_iv, tv_sec, tv_usec);
 	}else{
@@ -1392,9 +1386,6 @@ int worker(void *ptr)
 
 
 	// socks SELECTION_RESPONSE	server <- target
-#ifdef _DEBUG
-	printf("[I] Receive selection response. server <- target\n");
-#endif
 	if(socks5OverTlsFlag == 0){
 		rec = recvDataAes(targetSock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec);
 	}else{
@@ -1419,9 +1410,6 @@ int worker(void *ptr)
 
 
 	// socks SELECTION_RESPONSE	client <- server
-#ifdef _DEBUG
-	printf("[I] Send selection response. client <- server\n");
-#endif
 	sen = sendData(clientSock, buffer, rec, tv_sec, tv_usec);
 	if(sen <= 0){
 #ifdef _DEBUG
@@ -1448,9 +1436,6 @@ int worker(void *ptr)
 
 	if(pSelectionResponse->method == 0x2){	// USERNAME_PASSWORD_AUTHENTICATION
 		// socks USERNAME_PASSWORD_AUTHENTICATION_REQUEST		client -> server
-#ifdef _DEBUG
-		printf("[I] Receive username password authentication request. client -> server\n");
-#endif
 		if((rec = recvData(clientSock, buffer, BUFFER_SIZE, tv_sec, tv_usec)) <= 0){
 #ifdef _DEBUG
 			printf("[E] Receive username password authentication request. client -> server\n");
@@ -1470,9 +1455,6 @@ int worker(void *ptr)
 
 
 		// socks USERNAME_PASSWORD_AUTHENTICATION_REQUEST		server -> target
-#ifdef _DEBUG
-		printf("[I] Send username password authentication request. server -> target\n");
-#endif
 		if(socks5OverTlsFlag == 0){
 			sen = sendDataAes(targetSock, buffer, rec, aes_key, aes_iv, tv_sec, tv_usec);
 		}else{
@@ -1497,9 +1479,6 @@ int worker(void *ptr)
 		
 
 		// socks USERNAME_PASSWORD_AUTHENTICATION_RESPONSE	server <- target
-#ifdef _DEBUG
-		printf("[I] Receive username password authentication response. server <- target\n");
-#endif
 		if(socks5OverTlsFlag == 0){
 			rec = recvDataAes(targetSock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec);
 		}else{
@@ -1524,9 +1503,6 @@ int worker(void *ptr)
 
 
 		// socks USERNAME_PASSWORD_AUTHENTICATION_RESPONSE	client <- server
-#ifdef _DEBUG
-		printf("[I] Send username password authentication response. client <- server\n");
-#endif
 		sen = sendData(clientSock, buffer, rec, tv_sec, tv_usec);
 		if(sen <= 0){
 #ifdef _DEBUG
@@ -1548,9 +1524,6 @@ int worker(void *ptr)
 
 
 	// socks SOCKS_REQUEST	client -> server
-#ifdef _DEBUG
-	printf("[I] Receive socks request. client -> server\n");
-#endif
 	if((rec = recvData(clientSock, buffer, BUFFER_SIZE, tv_sec, tv_usec)) <= 0){
 #ifdef _DEBUG
 		printf("[E] Receive socks request. client -> server\n");
@@ -1570,9 +1543,6 @@ int worker(void *ptr)
 
 
 	// socks SOCKS_REQUEST	server -> target
-#ifdef _DEBUG
-	printf("[I] Send socks request. server -> target\n");
-#endif
 	if(socks5OverTlsFlag == 0){
 		sen = sendDataAes(targetSock, buffer, rec, aes_key, aes_iv, tv_sec, tv_usec);
 	}else{
@@ -1597,9 +1567,6 @@ int worker(void *ptr)
 	
 
 	// socks SOCKS_RESPONSE	server <- target
-#ifdef _DEBUG
-	printf("[I] Receive socks response. server <- target\n");
-#endif
 	if(socks5OverTlsFlag == 0){
 		rec = recvDataAes(targetSock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec);
 	}else{
@@ -1624,9 +1591,6 @@ int worker(void *ptr)
 
 
 	// socks SOCKS_RESPONSE	client <- server
-#ifdef _DEBUG
-	printf("[I] Send socks response. client <- server\n");
-#endif
 	sen = sendData(clientSock, buffer, rec, tv_sec, tv_usec);
 	if(sen <= 0){
 #ifdef _DEBUG
