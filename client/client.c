@@ -163,9 +163,34 @@ int recvData(int sock, void *buffer, int length, long tv_sec, long tv_usec)
 	fd_set readfds;
 	int nfds = -1;
 	struct timeval tv;
+	struct timeval start;
+	struct timeval end;
+	long t = 0;
 	bzero(buffer, length+1);
 	
+	if(gettimeofday(&start, NULL) == -1){
+#ifdef _DEBUG
+		printf("[E] gettimeofday error.\n");
+#endif
+		return -1;
+	}
+	
 	while(1){
+		if(gettimeofday(&end, NULL) == -1){
+#ifdef _DEBUG
+			printf("[E] gettimeofday error.\n");
+#endif
+			return -1;
+		}
+		
+		t = end.tv_sec - start.tv_sec;
+		if(t >= tv_sec){
+#ifdef _DEBUG
+			printf("[I] recvData timeout.\n");
+#endif
+			return -1;
+		}
+		
 		FD_ZERO(&readfds);
 		FD_SET(sock, &readfds);
 		nfds = sock + 1;
@@ -174,9 +199,9 @@ int recvData(int sock, void *buffer, int length, long tv_sec, long tv_usec)
 		
 		if(select(nfds, &readfds, NULL, NULL, &tv) == 0){
 #ifdef _DEBUG
-			printf("[I] recvData timeout.\n");
+			printf("[I] recvData select timeout.\n");
 #endif
-			break;
+			return -1;
 		}
 		
 		if(FD_ISSET(sock, &readfds)){
@@ -206,6 +231,9 @@ int recvDataAes(int sock, void *buffer, int length, unsigned char *aes_key, unsi
 	fd_set readfds;
 	int nfds = -1;
 	struct timeval tv;
+	struct timeval start;
+	struct timeval end;
+	long t = 0;
 	bzero(buffer, length+1);
 	pSEND_RECV_DATA pData;
 	unsigned char *buffer2 = calloc(BUFFER_SIZE*2, sizeof(unsigned char));
@@ -213,7 +241,29 @@ int recvDataAes(int sock, void *buffer, int length, unsigned char *aes_key, unsi
 	int encryptDataLength = 0;
 	unsigned char *tmp = calloc(16, sizeof(unsigned char));
 	
+	if(gettimeofday(&start, NULL) == -1){
+#ifdef _DEBUG
+		printf("[E] gettimeofday error.\n");
+#endif
+		return -1;
+	}
+	
 	while(1){
+		if(gettimeofday(&end, NULL) == -1){
+#ifdef _DEBUG
+			printf("[E] gettimeofday error.\n");
+#endif
+			return -1;
+		}
+		
+		t = end.tv_sec - start.tv_sec;
+		if(t >= tv_sec){
+#ifdef _DEBUG
+			printf("[I] recvDataAes timeout.\n");
+#endif
+			return -1;
+		}
+		
 		FD_ZERO(&readfds);
 		FD_SET(sock, &readfds);
 		nfds = sock + 1;
@@ -222,9 +272,9 @@ int recvDataAes(int sock, void *buffer, int length, unsigned char *aes_key, unsi
 		
 		if(select(nfds, &readfds, NULL, NULL, &tv) == 0){
 #ifdef _DEBUG
-			printf("[I] recvDataAes timeout.\n");
+			printf("[I] recvDataAes select timeout.\n");
 #endif
-			break;
+			return -1;
 		}
 		
 		if(FD_ISSET(sock, &readfds)){
@@ -285,9 +335,34 @@ int recvDataTls(int sock, SSL *ssl ,void *buffer, int length, long tv_sec, long 
 	fd_set readfds;
 	int nfds = -1;
 	struct timeval tv;
+	struct timeval start;
+	struct timeval end;
+	long t = 0;
 	bzero(buffer, length+1);
-
+	
+	if(gettimeofday(&start, NULL) == -1){
+#ifdef _DEBUG
+		printf("[E] gettimeofday error.\n");
+#endif
+		return -2;
+	}
+	
 	while(1){
+		if(gettimeofday(&end, NULL) == -1){
+#ifdef _DEBUG
+			printf("[E] gettimeofday error.\n");
+#endif
+			return -2;
+		}
+		
+		t = end.tv_sec - start.tv_sec;
+		if(t >= tv_sec){
+#ifdef _DEBUG
+			printf("[I] recvDataTls timeout.\n");
+#endif
+			return -2;
+		}
+		
 		FD_ZERO(&readfds);
 		FD_SET(sock, &readfds);
 		nfds = sock + 1;
@@ -296,9 +371,9 @@ int recvDataTls(int sock, SSL *ssl ,void *buffer, int length, long tv_sec, long 
 		
 		if(select(nfds, &readfds, NULL, NULL, &tv) == 0){
 #ifdef _DEBUG
-			printf("[I] recvDataTls timeout.\n");
+			printf("[I] recvDataTls select timeout.\n");
 #endif
-			break;
+			return -2;
 		}
 		
 		if(FD_ISSET(sock, &readfds)){
@@ -334,8 +409,33 @@ int sendData(int sock, void *buffer, int length, long tv_sec, long tv_usec)
 	fd_set writefds;
 	int nfds = -1;
 	struct timeval tv;
+	struct timeval start;
+	struct timeval end;
+	long t = 0;
+	
+	if(gettimeofday(&start, NULL) == -1){
+#ifdef _DEBUG
+		printf("[E] gettimeofday error.\n");
+#endif
+		return -1;
+	}
 	
 	while(len > 0){
+		if(gettimeofday(&end, NULL) == -1){
+#ifdef _DEBUG
+			printf("[E] gettimeofday error.\n");
+#endif
+			return -1;
+		}
+		
+		t = end.tv_sec - start.tv_sec;
+		if(t >= tv_sec){
+#ifdef _DEBUG
+			printf("[I] sendData timeout.\n");
+#endif
+			return -1;
+		}
+		
 		FD_ZERO(&writefds);
 		FD_SET(sock, &writefds);
 		nfds = sock + 1;
@@ -344,9 +444,9 @@ int sendData(int sock, void *buffer, int length, long tv_sec, long tv_usec)
 		
 		if(select(nfds, NULL, &writefds, NULL, &tv) == 0){
 #ifdef _DEBUG
-			printf("[I] sendData timeout.\n");
+			printf("[I] sendData select timeout.\n");
 #endif
-			break;
+			return -1;
 		}
 		
 		if(FD_ISSET(sock, &writefds)){
@@ -378,6 +478,9 @@ int sendDataAes(int sock, void *buffer, int length, unsigned char *aes_key, unsi
 	fd_set writefds;
 	int nfds = -1;
 	struct timeval tv;
+	struct timeval start;
+	struct timeval end;
+	long t = 0;
 	SEND_RECV_DATA data;
 	bzero(data.encryptDataLength, 16);
 	bzero(data.encryptData, BUFFER_SIZE*2);
@@ -405,7 +508,29 @@ int sendDataAes(int sock, void *buffer, int length, unsigned char *aes_key, unsi
 	
 	len = 16 + encryptDataLength;
 	
+	if(gettimeofday(&start, NULL) == -1){
+#ifdef _DEBUG
+		printf("[E] gettimeofday error.\n");
+#endif
+		return -1;
+	}
+	
 	while(len > 0){
+		if(gettimeofday(&end, NULL) == -1){
+#ifdef _DEBUG
+			printf("[E] gettimeofday error.\n");
+#endif
+			return -1;
+		}
+		
+		t = end.tv_sec - start.tv_sec;
+		if(t >= tv_sec){
+#ifdef _DEBUG
+			printf("[I] sendDataAes timeout.\n");
+#endif
+			return -1;
+		}
+		
 		FD_ZERO(&writefds);
 		FD_SET(sock, &writefds);
 		nfds = sock + 1;
@@ -414,9 +539,9 @@ int sendDataAes(int sock, void *buffer, int length, unsigned char *aes_key, unsi
 		
 		if(select(nfds, NULL, &writefds, NULL, &tv) == 0){
 #ifdef _DEBUG
-			printf("[I] sendDataAes timeout.\n");
+			printf("[I] sendDataAes select timeout.\n");
 #endif
-			break;
+			return -1;
 		}
 		
 		if(FD_ISSET(sock, &writefds)){
@@ -448,8 +573,33 @@ int sendDataTls(int sock, SSL *ssl, void *buffer, int length, long tv_sec, long 
 	fd_set writefds;
 	int nfds = -1;
 	struct timeval tv;
-
+	struct timeval start;
+	struct timeval end;
+	long t = 0;
+	
+	if(gettimeofday(&start, NULL) == -1){
+#ifdef _DEBUG
+		printf("[E] gettimeofday error.\n");
+#endif
+		return -2;
+	}
+	
 	while(1){
+		if(gettimeofday(&end, NULL) == -1){
+#ifdef _DEBUG
+			printf("[E] gettimeofday error.\n");
+#endif
+			return -2;
+		}
+		
+		t = end.tv_sec - start.tv_sec;
+		if(t >= tv_sec){
+#ifdef _DEBUG
+			printf("[I] sendDataTls timeout.\n");
+#endif
+			return -2;
+		}
+		
 		FD_ZERO(&writefds);
 		FD_SET(sock, &writefds);
 		nfds = sock + 1;
@@ -458,9 +608,9 @@ int sendDataTls(int sock, SSL *ssl, void *buffer, int length, long tv_sec, long 
 		
 		if(select(nfds, NULL, &writefds, NULL, &tv) == 0){
 #ifdef _DEBUG
-			printf("[I] sendDataTls timeout.\n");
+			printf("[I] sendDataTls select timeout.\n");
 #endif
-			break;
+			return -2;
 		}
 		
 		if(FD_ISSET(sock, &writefds)){
@@ -505,7 +655,7 @@ int forwarder(int clientSock, int targetSock, long tv_sec, long tv_usec)
 		
 		if(select(nfds, &readfds, NULL, NULL, &tv) == 0){
 #ifdef _DEBUG
-			printf("[I] Forwarder timeout.\n");
+			printf("[I] forwarder select timeout.\n");
 #endif
 			break;
 		}
@@ -564,7 +714,7 @@ int forwarderAes(int clientSock, int targetSock, unsigned char *aes_key, unsigne
 		
 		if(select(nfds, &readfds, NULL, NULL, &tv) == 0){
 #ifdef _DEBUG
-			printf("[I] Forwarder timeout.\n");
+			printf("[I] forwarderAes select timeout.\n");
 #endif
 			break;
 		}
@@ -690,7 +840,7 @@ int forwarderTls(int clientSock, int targetSock, SSL *targetSsl, long tv_sec, lo
 		
 		if(select(nfds, &readfds, NULL, NULL, &tv) == 0){
 #ifdef _DEBUG
-			printf("[I] Forwarder timeout.\n");
+			printf("[I] forwarderTls select timeout.\n");
 #endif
 			break;
 		}
@@ -785,7 +935,7 @@ int sslConnectNonBlock(int sock, SSL *ssl, long tv_sec, long tv_usec)
 		
 		if(select(nfds, &readfds, &writefds, NULL, &tv) == 0){
 #ifdef _DEBUG
-			printf("[I] sslConnectNonBlock timeout.\n");
+			printf("[I] sslConnectNonBlock select timeout.\n");
 #endif
 			// blocking
 			flags = fcntl(sock, F_GETFL, 0);

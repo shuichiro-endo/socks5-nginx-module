@@ -197,9 +197,37 @@ int recvData(ngx_http_request_t *r, int sock, void *buffer, int length, long tv_
 	fd_set readfds;
 	int nfds = -1;
 	struct timeval tv;
+	struct timeval start;
+	struct timeval end;
+	long t = 0;
 	bzero(buffer, length+1);
 	
+	if(gettimeofday(&start, NULL) == -1){
+#ifdef _DEBUG
+		printf("[E] gettimeofday error.\n");
+		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] gettimeofday error.");
+#endif
+		return -1;
+	}
+	
 	while(1){
+		if(gettimeofday(&end, NULL) == -1){
+#ifdef _DEBUG
+			printf("[E] gettimeofday error.\n");
+			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] gettimeofday error.");
+#endif
+			return -1;
+		}
+		
+		t = end.tv_sec - start.tv_sec;
+		if(t >= tv_sec){
+#ifdef _DEBUG
+			printf("[I] recvDataAes timeout.\n");
+			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] recvDataAes timeout.");
+#endif
+			return -1;
+		}
+		
 		FD_ZERO(&readfds);
 		FD_SET(sock, &readfds);
 		nfds = sock + 1;
@@ -208,10 +236,10 @@ int recvData(ngx_http_request_t *r, int sock, void *buffer, int length, long tv_
 		
 		if(select(nfds, &readfds, NULL, NULL, &tv) == 0){
 #ifdef _DEBUG
-			printf("[I] recvData timeout.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] recvData timeout.");
+			printf("[I] recvData select timeout.\n");
+			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] recvData select timeout.");
 #endif
-			break;
+			return -1;
 		}
 		
 		if(FD_ISSET(sock, &readfds)){
@@ -241,6 +269,9 @@ int recvDataAes(ngx_http_request_t *r, int sock, void *buffer, int length, unsig
 	fd_set readfds;
 	int nfds = -1;
 	struct timeval tv;
+	struct timeval start;
+	struct timeval end;
+	long t = 0;
 	bzero(buffer, length+1);
 	pSEND_RECV_DATA pData;
 	unsigned char *buffer2 = calloc(BUFFER_SIZE*2, sizeof(unsigned char));
@@ -248,19 +279,44 @@ int recvDataAes(ngx_http_request_t *r, int sock, void *buffer, int length, unsig
 	int encryptDataLength = 0;
 	unsigned char *tmp = calloc(16, sizeof(unsigned char));
 	
+	if(gettimeofday(&start, NULL) == -1){
+#ifdef _DEBUG
+		printf("[E] gettimeofday error.\n");
+		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] gettimeofday error.");
+#endif
+		return -1;
+	}
+
 	while(1){
+		if(gettimeofday(&end, NULL) == -1){
+#ifdef _DEBUG
+			printf("[E] gettimeofday error.\n");
+			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] gettimeofday error.");
+#endif
+			return -1;
+		}
+		
+		t = end.tv_sec - start.tv_sec;
+		if(t >= tv_sec){
+#ifdef _DEBUG
+			printf("[I] recvDataAes timeout.\n");
+			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] recvDataAes timeout.");
+#endif
+			return -1;
+		}
+
 		FD_ZERO(&readfds);
 		FD_SET(sock, &readfds);
 		nfds = sock + 1;
 		tv.tv_sec = tv_sec;
 		tv.tv_usec = tv_usec;
-		
+
 		if(select(nfds, &readfds, NULL, NULL, &tv) == 0){
 #ifdef _DEBUG
-			printf("[I] recvDataAes timeout.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] recvDataAes timeout.");
+			printf("[I] recvDataAes select timeout.\n");
+			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] recvDataAes select timeout.");
 #endif
-			break;
+			return -1;
 		}
 		
 		if(FD_ISSET(sock, &readfds)){
@@ -313,9 +369,37 @@ int recvDataTls(ngx_http_request_t *r, int sock, SSL *ssl ,void *buffer, int len
 	fd_set readfds;
 	int nfds = -1;
 	struct timeval tv;
+	struct timeval start;
+	struct timeval end;
+	long t = 0;
 	bzero(buffer, length+1);
-
+	
+	if(gettimeofday(&start, NULL) == -1){
+#ifdef _DEBUG
+		printf("[E] gettimeofday error.\n");
+		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] gettimeofday error.");
+#endif
+		return -2;
+	}
+	
 	while(1){
+		if(gettimeofday(&end, NULL) == -1){
+#ifdef _DEBUG
+			printf("[E] gettimeofday error.\n");
+			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] gettimeofday error.");
+#endif
+			return -2;
+		}
+		
+		t = end.tv_sec - start.tv_sec;
+		if(t >= tv_sec){
+#ifdef _DEBUG
+			printf("[I] recvDataTls timeout.\n");
+			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] recvDataTls timeout.");
+#endif
+			return -2;
+		}
+		
 		FD_ZERO(&readfds);
 		FD_SET(sock, &readfds);
 		nfds = sock + 1;
@@ -324,10 +408,10 @@ int recvDataTls(ngx_http_request_t *r, int sock, SSL *ssl ,void *buffer, int len
 		
 		if(select(nfds, &readfds, NULL, NULL, &tv) == 0){
 #ifdef _DEBUG
-			printf("[I] recvDataTls timeout.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] recvData timeout.");
+			printf("[I] recvDataTls select timeout.\n");
+			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] recvDataTls select timeout.");
 #endif
-			break;
+			return -2;
 		}
 		
 		if(FD_ISSET(sock, &readfds)){
@@ -364,8 +448,36 @@ int sendData(ngx_http_request_t *r, int sock, void *buffer, int length, long tv_
 	fd_set writefds;
 	int nfds = -1;
 	struct timeval tv;
+	struct timeval start;
+	struct timeval end;
+	long t = 0;
+	
+	if(gettimeofday(&start, NULL) == -1){
+#ifdef _DEBUG
+		printf("[E] gettimeofday error.\n");
+		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] gettimeofday error.");
+#endif
+		return -1;
+	}
 	
 	while(len > 0){
+		if(gettimeofday(&end, NULL) == -1){
+#ifdef _DEBUG
+			printf("[E] gettimeofday error.\n");
+			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] gettimeofday error.");
+#endif
+			return -1;
+		}
+		
+		t = end.tv_sec - start.tv_sec;
+		if(t >= tv_sec){
+#ifdef _DEBUG
+			printf("[I] sendData timeout.\n");
+			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] sendData timeout.");
+#endif
+			return -1;
+		}
+		
 		FD_ZERO(&writefds);
 		FD_SET(sock, &writefds);
 		nfds = sock + 1;
@@ -374,10 +486,10 @@ int sendData(ngx_http_request_t *r, int sock, void *buffer, int length, long tv_
 		
 		if(select(nfds, NULL, &writefds, NULL, &tv) == 0){
 #ifdef _DEBUG
-			printf("[I] sendData timeout.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] sendData timeout.");
+			printf("[I] sendData select timeout.\n");
+			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] sendData select timeout.");
 #endif
-			break;
+			return -1;
 		}
 		
 		if(FD_ISSET(sock, &writefds)){
@@ -409,6 +521,9 @@ int sendDataAes(ngx_http_request_t *r, int sock, void *buffer, int length, unsig
 	fd_set writefds;
 	int nfds = -1;
 	struct timeval tv;
+	struct timeval start;
+	struct timeval end;
+	long t = 0;
 	SEND_RECV_DATA data;
 	bzero(data.encryptDataLength, 16);
 	bzero(data.encryptData, BUFFER_SIZE*2);
@@ -435,8 +550,33 @@ int sendDataAes(ngx_http_request_t *r, int sock, void *buffer, int length, unsig
 	}
 	
 	len = 16 + encryptDataLength;
-		
+	
+	if(gettimeofday(&start, NULL) == -1){
+#ifdef _DEBUG
+		printf("[E] gettimeofday error.\n");
+		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] gettimeofday error.");
+#endif
+		return -1;
+	}
+	
 	while(len > 0){
+		if(gettimeofday(&end, NULL) == -1){
+#ifdef _DEBUG
+			printf("[E] gettimeofday error.\n");
+			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] gettimeofday error.");
+#endif
+			return -1;
+		}
+		
+		t = end.tv_sec - start.tv_sec;
+		if(t >= tv_sec){
+#ifdef _DEBUG
+			printf("[I] sendDataAes timeout.\n");
+			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] sendDataAes timeout.");
+#endif
+			return -1;
+		}
+		
 		FD_ZERO(&writefds);
 		FD_SET(sock, &writefds);
 		nfds = sock + 1;
@@ -445,10 +585,10 @@ int sendDataAes(ngx_http_request_t *r, int sock, void *buffer, int length, unsig
 		
 		if(select(nfds, NULL, &writefds, NULL, &tv) == 0){
 #ifdef _DEBUG
-			printf("[I] sendDataAes timeout.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] sendDataAes timeout.");
+			printf("[I] sendDataAes select timeout.\n");
+			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] sendDataAes select timeout.");
 #endif
-			break;
+			return -1;
 		}
 		
 		if(FD_ISSET(sock, &writefds)){
@@ -480,8 +620,36 @@ int sendDataTls(ngx_http_request_t *r, int sock, SSL *ssl, void *buffer, int len
 	fd_set writefds;
 	int nfds = -1;
 	struct timeval tv;
-
+	struct timeval start;
+	struct timeval end;
+	long t = 0;
+	
+	if(gettimeofday(&start, NULL) == -1){
+#ifdef _DEBUG
+		printf("[E] gettimeofday error.\n");
+		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] gettimeofday error.");
+#endif
+		return -2;
+	}
+	
 	while(1){
+		if(gettimeofday(&end, NULL) == -1){
+#ifdef _DEBUG
+			printf("[E] gettimeofday error.\n");
+			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] gettimeofday error.");
+#endif
+			return -2;
+		}
+		
+		t = end.tv_sec - start.tv_sec;
+		if(t >= tv_sec){
+#ifdef _DEBUG
+			printf("[I] sendDataTls timeout.\n");
+			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] sendDataTls timeout.");
+#endif
+			return -2;
+		}
+		
 		FD_ZERO(&writefds);
 		FD_SET(sock, &writefds);
 		nfds = sock + 1;
@@ -490,10 +658,10 @@ int sendDataTls(ngx_http_request_t *r, int sock, SSL *ssl, void *buffer, int len
 		
 		if(select(nfds, NULL, &writefds, NULL, &tv) == 0){
 #ifdef _DEBUG
-			printf("[I] sendDataTls timeout.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] sendDataTls timeout.");
+			printf("[I] sendDataTls select timeout.\n");
+			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] sendDataTls select timeout.");
 #endif
-			break;
+			return -2;
 		}
 		
 		if(FD_ISSET(sock, &writefds)){
@@ -539,8 +707,8 @@ int forwarder(ngx_http_request_t *r, int clientSock, int targetSock, long tv_sec
 		
 		if(select(nfds, &readfds, NULL, NULL, &tv) == 0){
 #ifdef _DEBUG
-			printf("[I] Forwarder timeout.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Forwarder timeout.");
+			printf("[I] forwarder select timeout.\n");
+			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] forwarder select timeout.");
 #endif
 			break;
 		}
@@ -599,8 +767,8 @@ int forwarderAes(ngx_http_request_t *r, int clientSock, int targetSock, unsigned
 		
 		if(select(nfds, &readfds, NULL, NULL, &tv) == 0){
 #ifdef _DEBUG
-			printf("[I] Forwarder timeout.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Forwarder timeout.");
+			printf("[I] forwarderAes select timeout.\n");
+			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] forwarderAes select timeout.");
 #endif
 			break;
 		}
@@ -726,8 +894,8 @@ int forwarderTls(ngx_http_request_t *r, int clientSock, int targetSock, SSL *cli
 		
 		if(select(nfds, &readfds, NULL, NULL, &tv) == 0){
 #ifdef _DEBUG
-			printf("[I] Forwarder timeout.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Forwarder timeout.");
+			printf("[I] forwarderTls select timeout.\n");
+			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] forwarderTls select timeout.");
 #endif
 			break;
 		}
@@ -2136,6 +2304,8 @@ int sslAcceptNonBlock(ngx_http_request_t *r, int sock, SSL *ssl, long tv_sec, lo
 	fd_set writefds;
 	int nfds = -1;
 	struct timeval tv;
+	tv.tv_sec = tv_sec;
+	tv.tv_usec = tv_usec;
 	struct timeval start;
 	struct timeval end;
 	long t = 0;
@@ -2164,13 +2334,11 @@ int sslAcceptNonBlock(ngx_http_request_t *r, int sock, SSL *ssl, long tv_sec, lo
 		FD_SET(sock, &readfds);
 		FD_SET(sock, &writefds);
 		nfds = sock + 1;
-		tv.tv_sec = tv_sec;
-		tv.tv_usec = tv_usec;
 		
 		if(select(nfds, &readfds, &writefds, NULL, &tv) == 0){
 #ifdef _DEBUG
-			printf("[I] sslAcceptNonBlock timeout.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] sslAcceptNonBlock timeout.");
+			printf("[I] sslAcceptNonBlock select timeout.\n");
+			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] sslAcceptNonBlock select timeout.");
 #endif
 			// blocking
 			flags = fcntl(sock, F_GETFL, 0);
@@ -2400,9 +2568,9 @@ static ngx_int_t ngx_http_socks5_header_filter(ngx_http_request_t *r)
 		}
 #ifdef _DEBUG
 		printf("[I] Timeout recv/send tv_sec:%ld sec recv/send tv_usec:%ld microsec.\n", tv_sec, tv_usec);
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Timeout recv/send tv_sec:%ld sec recv/send tv_usec:%ld microsec.", tv_sec, tv_usec);
+		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Timeout recv/send tv_sec:%l sec recv/send tv_usec:%l microsec.", tv_sec, tv_usec);
 		printf("[I] Timeout forwarder tv_sec:%ld sec forwarder tv_usec:%ld microsec.\n", forwarder_tv_sec, forwarder_tv_usec);
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Timeout forwarder tv_sec:%ld sec forwarder tv_usec:%ld microsec.", forwarder_tv_sec, forwarder_tv_usec);
+		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Timeout forwarder tv_sec:%l sec forwarder tv_usec:%l microsec.", forwarder_tv_sec, forwarder_tv_usec);
 #endif
 
 		// blocking
