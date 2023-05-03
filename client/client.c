@@ -827,7 +827,9 @@ void finiSsl(pSSLPARAM pSslParam)
 {
 	// Socks5 over TLS
 	if(pSslParam->targetSslSocks5 != NULL){
-		SSL_shutdown(pSslParam->targetSslSocks5);
+		if(httpsFlag == 0 && socks5OverTlsFlag == 1){	// HTTP and Socks5 over TLS
+			SSL_shutdown(pSslParam->targetSslSocks5);
+		}
 		SSL_free(pSslParam->targetSslSocks5);
 	}
 	if(pSslParam->targetCtxSocks5 != NULL){
@@ -836,7 +838,7 @@ void finiSsl(pSSLPARAM pSslParam)
 	
 	// HTTPS
 	if(pSslParam->targetSslHttp != NULL){
-//		SSL_shutdown(pSslParam->targetSslHttp);
+		SSL_shutdown(pSslParam->targetSslHttp);
 		SSL_free(pSslParam->targetSslHttp);
 	}
 	if(pSslParam->targetCtxHttp != NULL){
