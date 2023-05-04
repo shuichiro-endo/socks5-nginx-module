@@ -1545,9 +1545,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 #endif
 				}
 				
-				shutdown(targetSock, SHUT_RDWR);
-				usleep(500);
-				close(targetSock);
+				closeSocket(targetSock);
 				return -1;
 			}
 
@@ -1567,9 +1565,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
 				
-				shutdown(targetSock, SHUT_RDWR);
-				usleep(500);
-				close(targetSock);
+				closeSocket(targetSock);
 				return -1;
 			}else{
 #ifdef _DEBUG
@@ -1634,9 +1630,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 #endif
 				}
 				
-				shutdown(targetSock, SHUT_RDWR);
-				usleep(500);
-				close(targetSock);
+				closeSocket(targetSock);
 				return -1;
 			}
 
@@ -1656,9 +1650,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
 				
-				shutdown(targetSock, SHUT_RDWR);
-				usleep(500);
-				close(targetSock);
+				closeSocket(targetSock);
 				return -1;
 			}else{
 #ifdef _DEBUG
@@ -1728,9 +1720,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 #endif
 					}
 					
-					shutdown(targetSock, SHUT_RDWR);
-					usleep(500);
-					close(targetSock);
+					closeSocket(targetSock);
 					return -1;
 				}
 
@@ -1750,9 +1740,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
 					
-					shutdown(targetSock, SHUT_RDWR);
-					usleep(500);
-					close(targetSock);
+					closeSocket(targetSock);
 					return -1;
 				}else{
 #ifdef _DEBUG
@@ -1816,9 +1804,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 #endif
 					}
 					
-					shutdown(targetSock, SHUT_RDWR);
-					usleep(500);
-					close(targetSock);
+					closeSocket(targetSock);
 					return -1;
 				}
 
@@ -1838,9 +1824,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
 					
-					shutdown(targetSock, SHUT_RDWR);
-					usleep(500);
-					close(targetSock);
+					closeSocket(targetSock);
 					return -1;
 				}else{
 #ifdef _DEBUG
@@ -1910,9 +1894,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 #endif
 					}
 					
-					shutdown(targetSock, SHUT_RDWR);
-					usleep(500);
-					close(targetSock);
+					closeSocket(targetSock);
 					return -1;
 				}
 
@@ -1932,9 +1914,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
 					
-					shutdown(targetSock, SHUT_RDWR);
-					usleep(500);
-					close(targetSock);
+					closeSocket(targetSock);
 					return -1;
 				}else{
 #ifdef _DEBUG
@@ -1998,9 +1978,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 #endif
 					}
 					
-					shutdown(targetSock, SHUT_RDWR);
-					usleep(500);
-					close(targetSock);
+					closeSocket(targetSock);
 					return -1;
 				}
 
@@ -2020,9 +1998,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
 					
-					shutdown(targetSock, SHUT_RDWR);
-					usleep(500);
-					close(targetSock);
+					closeSocket(targetSock);
 					return -1;
 				}else{
 #ifdef _DEBUG
@@ -2112,9 +2088,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 #endif
 				}
 				
-				shutdown(targetSock, SHUT_RDWR);
-				usleep(500);
-				close(targetSock);
+				closeSocket(targetSock);
 				return -1;
 			}
 
@@ -2134,9 +2108,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
 				
-				shutdown(targetSock, SHUT_RDWR);
-				usleep(500);
-				close(targetSock);
+				closeSocket(targetSock);
 				return -1;
 			}else{
 #ifdef _DEBUG
@@ -2200,9 +2172,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 #endif
 				}
 				
-				shutdown(targetSock, SHUT_RDWR);
-				usleep(500);
-				close(targetSock);
+				closeSocket(targetSock);
 				return -1;
 			}
 
@@ -2222,9 +2192,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
 				
-				shutdown(targetSock, SHUT_RDWR);
-				usleep(500);
-				close(targetSock);
+				closeSocket(targetSock);
 				return -1;
 			}else{
 #ifdef _DEBUG
@@ -2290,9 +2258,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 	printf("[I] Worker exit.\n");
 	ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Worker exit.");
 #endif
-	shutdown(targetSock, SHUT_RDWR);
-	usleep(500);
-	close(targetSock);
+	closeSocket(targetSock);
 	
 	return 0;
 }
@@ -2410,6 +2376,16 @@ void finiSsl(pSSLPARAM pSslParam)
 	if(pSslParam->clientCtxSocks5 != NULL){
 		SSL_CTX_free(pSslParam->clientCtxSocks5);
 	}
+	
+	return;
+}
+
+
+void closeSocket(int sock)
+{
+	shutdown(sock, SHUT_RDWR);
+	usleep(500);
+	close(sock);
 	
 	return;
 }

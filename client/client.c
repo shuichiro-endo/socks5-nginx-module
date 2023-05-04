@@ -1020,6 +1020,16 @@ void finiSsl(pSSLPARAM pSslParam)
 }
 
 
+void closeSocket(int sock)
+{
+	shutdown(sock, SHUT_RDWR);
+	usleep(500);
+	close(sock);
+	
+	return;
+}
+
+
 int worker(void *ptr)
 {
 	pPARAM pParam = (pPARAM)ptr;
@@ -1080,9 +1090,7 @@ int worker(void *ptr)
 #ifdef _DEBUG
 		printf("[E] aes key generate error:%s.\n", ERR_error_string(ERR_peek_last_error(), NULL));
 #endif
-		shutdown(clientSock, SHUT_RDWR);
-		usleep(500);
-		close(clientSock);
+		closeSocket(clientSock);
 		return -1;
 	}
 	unsigned char aes_key_b64[45];
@@ -1104,9 +1112,7 @@ int worker(void *ptr)
 #ifdef _DEBUG
 		printf("[E] aes iv generate error:%s.\n", ERR_error_string(ERR_peek_last_error(), NULL));
 #endif
-		shutdown(clientSock, SHUT_RDWR);
-		usleep(500);
-		close(clientSock);
+		closeSocket(clientSock);
 		return -1;
 	}
 	unsigned char aes_iv_b64[25];
@@ -1134,9 +1140,7 @@ int worker(void *ptr)
 #ifdef _DEBUG
 				printf("[E] Cannot resolv the domain name:%s.\n", domainname);
 #endif
-				shutdown(clientSock, SHUT_RDWR);
-				usleep(500);
-				close(clientSock);
+				closeSocket(clientSock);
 				return -1;
 			}
 		}
@@ -1146,9 +1150,7 @@ int worker(void *ptr)
 #ifdef _DEBUG
 			printf("[E] Cannot resolv the domain name:%s.\n", domainname);
 #endif
-			shutdown(clientSock, SHUT_RDWR);
-			usleep(500);
-			close(clientSock);
+			closeSocket(clientSock);
 			return -1;
 		}
 	}
@@ -1172,9 +1174,7 @@ int worker(void *ptr)
 		printf("[E] Not implemented.\n");
 #endif
 		freeaddrinfo(pTargetHost);
-		shutdown(clientSock, SHUT_RDWR);
-		usleep(500);
-		close(clientSock);
+		closeSocket(clientSock);
 		return -1;
 	}
 
@@ -1189,12 +1189,8 @@ int worker(void *ptr)
 #ifdef _DEBUG
 			printf("[E] Connect failed. errno:%d\n", err);
 #endif
-			shutdown(targetSock, SHUT_RDWR);
-			usleep(500);
-			close(targetSock);
-			shutdown(clientSock, SHUT_RDWR);
-			usleep(500);
-			close(clientSock);
+			closeSocket(targetSock);
+			closeSocket(clientSock);
 			return -1;
 		}
 	}else if(family == AF_INET6){	// IPv6
@@ -1208,21 +1204,15 @@ int worker(void *ptr)
 #ifdef _DEBUG
 			printf("[E] Connect failed. errno:%d\n", err);
 #endif
-			shutdown(targetSock, SHUT_RDWR);
-			usleep(500);
-			close(targetSock);
-			shutdown(clientSock, SHUT_RDWR);
-			usleep(500);
-			close(clientSock);
+			closeSocket(targetSock);
+			closeSocket(clientSock);
 			return -1;
 		}
 	}else{
 #ifdef _DEBUG
 		printf("[E] Not implemented.\n");
 #endif
-		shutdown(clientSock, SHUT_RDWR);
-		usleep(500);
-		close(clientSock);
+		closeSocket(clientSock);
 		return -1;
 	}
 #ifdef _DEBUG
@@ -1245,12 +1235,8 @@ int worker(void *ptr)
 #ifdef _DEBUG
 			printf("[E] SSL_CTX_new error.\n");
 #endif
-			shutdown(targetSock, SHUT_RDWR);
-			usleep(500);
-			close(targetSock);
-			shutdown(clientSock, SHUT_RDWR);
-			usleep(500);
-			close(clientSock);
+			closeSocket(targetSock);
+			closeSocket(clientSock);
 			return -2;
 		}
 		sslParam.targetCtxHttp = targetCtxHttp;
@@ -1262,12 +1248,8 @@ int worker(void *ptr)
 			printf("[E] SSL_CTX_set_min_proto_version error.\n");
 #endif
 			finiSsl(&sslParam);
-			shutdown(targetSock, SHUT_RDWR);
-			usleep(500);
-			close(targetSock);
-			shutdown(clientSock, SHUT_RDWR);
-			usleep(500);
-			close(clientSock);
+			closeSocket(targetSock);
+			closeSocket(clientSock);
 			return -2;
 		}
 		
@@ -1281,12 +1263,8 @@ int worker(void *ptr)
 			printf("[E] SSL_new error.\n");
 #endif
 			finiSsl(&sslParam);
-			shutdown(targetSock, SHUT_RDWR);
-			usleep(500);
-			close(targetSock);
-			shutdown(clientSock, SHUT_RDWR);
-			usleep(500);
-			close(clientSock);
+			closeSocket(targetSock);
+			closeSocket(clientSock);
 			return -2;
 		}
 		sslParam.targetSslHttp = targetSslHttp;
@@ -1296,12 +1274,8 @@ int worker(void *ptr)
 			printf("[E] SSL_set_fd error.\n");
 #endif
 			finiSsl(&sslParam);
-			shutdown(targetSock, SHUT_RDWR);
-			usleep(500);
-			close(targetSock);
-			shutdown(clientSock, SHUT_RDWR);
-			usleep(500);
-			close(clientSock);
+			closeSocket(targetSock);
+			closeSocket(clientSock);
 			return -2;
 		}
 		
@@ -1314,12 +1288,8 @@ int worker(void *ptr)
 			printf("[E] SSL_connect error.\n");
 #endif
 			finiSsl(&sslParam);
-			shutdown(targetSock, SHUT_RDWR);
-			usleep(500);
-			close(targetSock);
-			shutdown(clientSock, SHUT_RDWR);
-			usleep(500);
-			close(clientSock);
+			closeSocket(targetSock);
+			closeSocket(clientSock);
 			return -2;
 		}
 #ifdef _DEBUG
@@ -1333,12 +1303,8 @@ int worker(void *ptr)
 			printf("[E] Send http request.\n");
 #endif
 			finiSsl(&sslParam);
-			shutdown(targetSock, SHUT_RDWR);
-			usleep(500);
-			close(targetSock);
-			shutdown(clientSock, SHUT_RDWR);
-			usleep(500);
-			close(clientSock);
+			closeSocket(targetSock);
+			closeSocket(clientSock);
 			return -2;
 		}
 #ifdef _DEBUG
@@ -1352,12 +1318,8 @@ int worker(void *ptr)
 			printf("[E] Send http request.\n");
 #endif
 			finiSsl(&sslParam);
-			shutdown(targetSock, SHUT_RDWR);
-			usleep(500);
-			close(targetSock);
-			shutdown(clientSock, SHUT_RDWR);
-			usleep(500);
-			close(clientSock);
+			closeSocket(targetSock);
+			closeSocket(clientSock);
 			return -1;
 		}
 #ifdef _DEBUG
@@ -1389,12 +1351,8 @@ int worker(void *ptr)
 		printf("[E] Server Socks5 NG.\n");
 #endif
 		finiSsl(&sslParam);
-		shutdown(targetSock, SHUT_RDWR);
-		usleep(500);
-		close(targetSock);
-		shutdown(clientSock, SHUT_RDWR);
-		usleep(500);
-		close(clientSock);
+		closeSocket(targetSock);
+		closeSocket(clientSock);
 		return -1;
 	}
 
@@ -1410,12 +1368,8 @@ int worker(void *ptr)
 			printf("[E] SSL_CTX_new error.\n");
 #endif
 			finiSsl(&sslParam);
-			shutdown(targetSock, SHUT_RDWR);
-			usleep(500);
-			close(targetSock);
-			shutdown(clientSock, SHUT_RDWR);
-			usleep(500);
-			close(clientSock);
+			closeSocket(targetSock);
+			closeSocket(clientSock);
 			return -2;
 		}
 		sslParam.targetCtxSocks5 = targetCtxSocks5;
@@ -1427,12 +1381,8 @@ int worker(void *ptr)
 			printf("[E] SSL_CTX_set_min_proto_version error.\n");
 #endif
 			finiSsl(&sslParam);
-			shutdown(targetSock, SHUT_RDWR);
-			usleep(500);
-			close(targetSock);
-			shutdown(clientSock, SHUT_RDWR);
-			usleep(500);
-			close(clientSock);
+			closeSocket(targetSock);
+			closeSocket(clientSock);
 			return -2;
 		}
 
@@ -1446,12 +1396,8 @@ int worker(void *ptr)
 			printf("[E] SSL_new error.\n");
 #endif
 			finiSsl(&sslParam);
-			shutdown(targetSock, SHUT_RDWR);
-			usleep(500);
-			close(targetSock);
-			shutdown(clientSock, SHUT_RDWR);
-			usleep(500);
-			close(clientSock);
+			closeSocket(targetSock);
+			closeSocket(clientSock);
 			return -2;
 		}
 		sslParam.targetSslSocks5 = targetSslSocks5;
@@ -1461,12 +1407,8 @@ int worker(void *ptr)
 			printf("[E] SSL_set_fd error.\n");
 #endif
 			finiSsl(&sslParam);
-			shutdown(targetSock, SHUT_RDWR);
-			usleep(500);
-			close(targetSock);
-			shutdown(clientSock, SHUT_RDWR);
-			usleep(500);
-			close(clientSock);
+			closeSocket(targetSock);
+			closeSocket(clientSock);
 			return -2;
 		}
 		
@@ -1479,12 +1421,8 @@ int worker(void *ptr)
 			printf("[E] SSL_connect error.\n");
 #endif
 			finiSsl(&sslParam);
-			shutdown(targetSock, SHUT_RDWR);
-			usleep(500);
-			close(targetSock);
-			shutdown(clientSock, SHUT_RDWR);
-			usleep(500);
-			close(clientSock);
+			closeSocket(targetSock);
+			closeSocket(clientSock);
 			return -2;
 		}
 #ifdef _DEBUG
@@ -1499,12 +1437,8 @@ int worker(void *ptr)
 		printf("[E] Receive selection request. client -> server\n");
 #endif
 		finiSsl(&sslParam);
-		shutdown(targetSock, SHUT_RDWR);
-		usleep(500);
-		close(targetSock);
-		shutdown(clientSock, SHUT_RDWR);
-		usleep(500);
-		close(clientSock);
+		closeSocket(targetSock);
+		closeSocket(clientSock);
 		return -1;
 	}
 #ifdef _DEBUG
@@ -1523,12 +1457,8 @@ int worker(void *ptr)
 		printf("[E] Send selection request. server -> target.\n");
 #endif
 		finiSsl(&sslParam);
-		shutdown(targetSock, SHUT_RDWR);
-		usleep(500);
-		close(targetSock);
-		shutdown(clientSock, SHUT_RDWR);
-		usleep(500);
-		close(clientSock);
+		closeSocket(targetSock);
+		closeSocket(clientSock);
 		return -1;
 	}
 #ifdef _DEBUG
@@ -1547,12 +1477,8 @@ int worker(void *ptr)
 		printf("[E] Receive selection response. server <- target\n");
 #endif
 		finiSsl(&sslParam);
-		shutdown(targetSock, SHUT_RDWR);
-		usleep(500);
-		close(targetSock);
-		shutdown(clientSock, SHUT_RDWR);
-		usleep(500);
-		close(clientSock);
+		closeSocket(targetSock);
+		closeSocket(clientSock);
 		return -1;
 	}
 #ifdef _DEBUG
@@ -1567,12 +1493,8 @@ int worker(void *ptr)
 		printf("[E] Send selection response. client <- server\n");
 #endif
 		finiSsl(&sslParam);
-		shutdown(targetSock, SHUT_RDWR);
-		usleep(500);
-		close(targetSock);
-		shutdown(clientSock, SHUT_RDWR);
-		usleep(500);
-		close(clientSock);
+		closeSocket(targetSock);
+		closeSocket(clientSock);
 		return -1;
 	}
 #ifdef _DEBUG
@@ -1592,12 +1514,8 @@ int worker(void *ptr)
 			printf("[E] Receive username password authentication request. client -> server\n");
 #endif
 			finiSsl(&sslParam);
-			shutdown(targetSock, SHUT_RDWR);
-			usleep(500);
-			close(targetSock);
-			shutdown(clientSock, SHUT_RDWR);
-			usleep(500);
-			close(clientSock);
+			closeSocket(targetSock);
+			closeSocket(clientSock);
 			return -1;
 		}
 #ifdef _DEBUG
@@ -1616,12 +1534,8 @@ int worker(void *ptr)
 			printf("[E] Send username password authentication request. server -> target\n");
 #endif
 			finiSsl(&sslParam);
-			shutdown(targetSock, SHUT_RDWR);
-			usleep(500);
-			close(targetSock);
-			shutdown(clientSock, SHUT_RDWR);
-			usleep(500);
-			close(clientSock);
+			closeSocket(targetSock);
+			closeSocket(clientSock);
 			return -1;
 		}
 #ifdef _DEBUG
@@ -1640,12 +1554,8 @@ int worker(void *ptr)
 			printf("[E] Receive username password authentication response. server <- target\n");
 #endif
 			finiSsl(&sslParam);
-			shutdown(targetSock, SHUT_RDWR);
-			usleep(500);
-			close(targetSock);
-			shutdown(clientSock, SHUT_RDWR);
-			usleep(500);
-			close(clientSock);
+			closeSocket(targetSock);
+			closeSocket(clientSock);
 			return -1;
 		}
 #ifdef _DEBUG
@@ -1660,12 +1570,8 @@ int worker(void *ptr)
 			printf("[E] Send username password authentication response. client <- server\n");
 #endif
 			finiSsl(&sslParam);
-			shutdown(targetSock, SHUT_RDWR);
-			usleep(500);
-			close(targetSock);
-			shutdown(clientSock, SHUT_RDWR);
-			usleep(500);
-			close(clientSock);
+			closeSocket(targetSock);
+			closeSocket(clientSock);
 			return -1;
 		}
 #ifdef _DEBUG
@@ -1680,12 +1586,8 @@ int worker(void *ptr)
 		printf("[E] Receive socks request. client -> server\n");
 #endif
 		finiSsl(&sslParam);
-		shutdown(targetSock, SHUT_RDWR);
-		usleep(500);
-		close(targetSock);
-		shutdown(clientSock, SHUT_RDWR);
-		usleep(500);
-		close(clientSock);
+		closeSocket(targetSock);
+		closeSocket(clientSock);
 		return -1;
 	}
 #ifdef _DEBUG
@@ -1704,12 +1606,8 @@ int worker(void *ptr)
 		printf("[E] Send socks request. server -> target\n");
 #endif
 		finiSsl(&sslParam);
-		shutdown(targetSock, SHUT_RDWR);
-		usleep(500);
-		close(targetSock);
-		shutdown(clientSock, SHUT_RDWR);
-		usleep(500);
-		close(clientSock);
+		closeSocket(targetSock);
+		closeSocket(clientSock);
 		return -1;
 	}
 #ifdef _DEBUG
@@ -1728,12 +1626,8 @@ int worker(void *ptr)
 		printf("[E] Receive socks response. server <- target\n");
 #endif
 		finiSsl(&sslParam);
-		shutdown(targetSock, SHUT_RDWR);
-		usleep(500);
-		close(targetSock);
-		shutdown(clientSock, SHUT_RDWR);
-		usleep(500);
-		close(clientSock);
+		closeSocket(targetSock);
+		closeSocket(clientSock);
 		return -1;
 	}
 #ifdef _DEBUG
@@ -1748,12 +1642,8 @@ int worker(void *ptr)
 		printf("[E] Send socks response. client <- server\n");
 #endif
 		finiSsl(&sslParam);
-		shutdown(targetSock, SHUT_RDWR);
-		usleep(500);
-		close(targetSock);
-		shutdown(clientSock, SHUT_RDWR);
-		usleep(500);
-		close(clientSock);
+		closeSocket(targetSock);
+		closeSocket(clientSock);
 		return -1;
 	}
 #ifdef _DEBUG
@@ -1777,12 +1667,8 @@ int worker(void *ptr)
 #endif
 	sleep(5);
 	finiSsl(&sslParam);
-	shutdown(targetSock, SHUT_RDWR);
-	usleep(500);
-	close(targetSock);
-	shutdown(clientSock, SHUT_RDWR);
-	usleep(500);
-	close(clientSock);
+	closeSocket(targetSock);
+	closeSocket(clientSock);
 
 	return 0;
 }
@@ -1952,15 +1838,13 @@ int main(int argc, char **argv)
 #ifdef _DEBUG
 			printf("[E] pthread_create failed.\n");
 #endif
-			shutdown(clientSock, SHUT_RDWR);
-			usleep(500);
-			close(clientSock);
+			closeSocket(clientSock);
 		}else{
 			pthread_detach(thread);
 		}
 	}
 
-	close(serverSock);
+	closeSocket(serverSock);
 
 	return 0;
 }

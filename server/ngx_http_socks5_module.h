@@ -28,6 +28,7 @@ int sendSocksResponseIpv6(ngx_http_request_t *r, int clientSock, char ver, char 
 int sendSocksResponseIpv6Aes(ngx_http_request_t *r, int clientSock, char ver, char req, char rsv, char atyp, unsigned char *aes_key, unsigned char *aes_iv, long tv_sec, long tv_usec);
 int sendSocksResponseIpv6Tls(ngx_http_request_t *r, int clientSock, SSL *clientSsl, char ver, char req, char rsv, char atyp, long tv_sec, long tv_usec);
 int sslAcceptNonBlock(ngx_http_request_t *r, int sock, SSL *ssl, long tv_sec, long tv_usec);
+void closeSocket(int sock);
 int worker(ngx_http_request_t *r, void *ptr);
 
 typedef struct {
