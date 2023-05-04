@@ -183,8 +183,8 @@ int recvData(int sock, void *buffer, int length, long tv_sec, long tv_usec)
 			return -1;
 		}
 		
-		t = end.tv_sec - start.tv_sec;
-		if(t >= tv_sec){
+		t = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);	// microsecond
+		if(t >= (tv_sec * 1000000 + tv_usec)){
 #ifdef _DEBUG
 			printf("[I] recvData timeout.\n");
 #endif
@@ -256,8 +256,8 @@ int recvDataAes(int sock, void *buffer, int length, unsigned char *aes_key, unsi
 			return -1;
 		}
 		
-		t = end.tv_sec - start.tv_sec;
-		if(t >= tv_sec){
+		t = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);	// microsecond
+		if(t >= (tv_sec * 1000000 + tv_usec)){
 #ifdef _DEBUG
 			printf("[I] recvDataAes timeout.\n");
 #endif
@@ -355,8 +355,8 @@ int recvDataTls(int sock, SSL *ssl ,void *buffer, int length, long tv_sec, long 
 			return -2;
 		}
 		
-		t = end.tv_sec - start.tv_sec;
-		if(t >= tv_sec){
+		t = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);	// microsecond
+		if(t >= (tv_sec * 1000000 + tv_usec)){
 #ifdef _DEBUG
 			printf("[I] recvDataTls timeout.\n");
 #endif
@@ -428,8 +428,8 @@ int sendData(int sock, void *buffer, int length, long tv_sec, long tv_usec)
 			return -1;
 		}
 		
-		t = end.tv_sec - start.tv_sec;
-		if(t >= tv_sec){
+		t = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);	// microsecond
+		if(t >= (tv_sec * 1000000 + tv_usec)){
 #ifdef _DEBUG
 			printf("[I] sendData timeout.\n");
 #endif
@@ -523,8 +523,8 @@ int sendDataAes(int sock, void *buffer, int length, unsigned char *aes_key, unsi
 			return -1;
 		}
 		
-		t = end.tv_sec - start.tv_sec;
-		if(t >= tv_sec){
+		t = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);	// microsecond
+		if(t >= (tv_sec * 1000000 + tv_usec)){
 #ifdef _DEBUG
 			printf("[I] sendDataAes timeout.\n");
 #endif
@@ -592,8 +592,8 @@ int sendDataTls(int sock, SSL *ssl, void *buffer, int length, long tv_sec, long 
 			return -2;
 		}
 		
-		t = end.tv_sec - start.tv_sec;
-		if(t >= tv_sec){
+		t = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);	// microsecond
+		if(t >= (tv_sec * 1000000 + tv_usec)){
 #ifdef _DEBUG
 			printf("[I] sendDataTls timeout.\n");
 #endif
@@ -974,8 +974,8 @@ int sslConnectNonBlock(int sock, SSL *ssl, long tv_sec, long tv_usec)
 			return -2;
 		}
 		
-		t = end.tv_sec - start.tv_sec;
-		if(t >= tv_sec){
+		t = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);	// microsecond
+		if(t >= (tv_sec * 1000000 + tv_usec)){
 #ifdef _DEBUG
 			printf("[I] sslConnectNonBlock timeout.\n");
 #endif

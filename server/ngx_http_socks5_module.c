@@ -219,8 +219,8 @@ int recvData(ngx_http_request_t *r, int sock, void *buffer, int length, long tv_
 			return -1;
 		}
 		
-		t = end.tv_sec - start.tv_sec;
-		if(t >= tv_sec){
+		t = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);	// microsecond
+		if(t >= (tv_sec * 1000000 + tv_usec)){
 #ifdef _DEBUG
 			printf("[I] recvDataAes timeout.\n");
 			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] recvDataAes timeout.");
@@ -296,8 +296,8 @@ int recvDataAes(ngx_http_request_t *r, int sock, void *buffer, int length, unsig
 			return -1;
 		}
 		
-		t = end.tv_sec - start.tv_sec;
-		if(t >= tv_sec){
+		t = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);	// microsecond
+		if(t >= (tv_sec * 1000000 + tv_usec)){
 #ifdef _DEBUG
 			printf("[I] recvDataAes timeout.\n");
 			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] recvDataAes timeout.");
@@ -391,8 +391,8 @@ int recvDataTls(ngx_http_request_t *r, int sock, SSL *ssl ,void *buffer, int len
 			return -2;
 		}
 		
-		t = end.tv_sec - start.tv_sec;
-		if(t >= tv_sec){
+		t = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);	// microsecond
+		if(t >= (tv_sec * 1000000 + tv_usec)){
 #ifdef _DEBUG
 			printf("[I] recvDataTls timeout.\n");
 			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] recvDataTls timeout.");
@@ -469,8 +469,8 @@ int sendData(ngx_http_request_t *r, int sock, void *buffer, int length, long tv_
 			return -1;
 		}
 		
-		t = end.tv_sec - start.tv_sec;
-		if(t >= tv_sec){
+		t = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);	// microsecond
+		if(t >= (tv_sec * 1000000 + tv_usec)){
 #ifdef _DEBUG
 			printf("[I] sendData timeout.\n");
 			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] sendData timeout.");
@@ -568,8 +568,8 @@ int sendDataAes(ngx_http_request_t *r, int sock, void *buffer, int length, unsig
 			return -1;
 		}
 		
-		t = end.tv_sec - start.tv_sec;
-		if(t >= tv_sec){
+		t = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);	// microsecond
+		if(t >= (tv_sec * 1000000 + tv_usec)){
 #ifdef _DEBUG
 			printf("[I] sendDataAes timeout.\n");
 			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] sendDataAes timeout.");
@@ -641,8 +641,8 @@ int sendDataTls(ngx_http_request_t *r, int sock, SSL *ssl, void *buffer, int len
 			return -2;
 		}
 		
-		t = end.tv_sec - start.tv_sec;
-		if(t >= tv_sec){
+		t = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);	// microsecond
+		if(t >= (tv_sec * 1000000 + tv_usec)){
 #ifdef _DEBUG
 			printf("[I] sendDataTls timeout.\n");
 			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] sendDataTls timeout.");
@@ -2345,8 +2345,8 @@ int sslAcceptNonBlock(ngx_http_request_t *r, int sock, SSL *ssl, long tv_sec, lo
 			return -2;
 		}
 		
-		t = end.tv_sec - start.tv_sec;
-		if(t >= tv_sec){
+		t = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);	// microsecond
+		if(t >= (tv_sec * 1000000 + tv_usec)){
 #ifdef _DEBUG
 			printf("[I] sslAcceptNonBlock timeout.\n");
 			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] sslAcceptNonBlock timeout.");
