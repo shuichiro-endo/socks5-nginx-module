@@ -509,7 +509,7 @@ int sendData(ngx_http_request_t *r, int sock, void *buffer, int length, long tv_
 		}
 	}
 	
-	return sendLength;
+	return length;
 }
 
 
@@ -609,7 +609,7 @@ int sendDataAes(ngx_http_request_t *r, int sock, void *buffer, int length, unsig
 		}
 	}
 	
-	return sendLength;
+	return length;
 }
 
 
@@ -684,7 +684,7 @@ int sendDataTls(ngx_http_request_t *r, int sock, SSL *ssl, void *buffer, int len
 		}
 	}
 		
-	return sen;
+	return length;
 }
 
 
