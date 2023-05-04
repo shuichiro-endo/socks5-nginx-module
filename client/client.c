@@ -1028,6 +1028,7 @@ int worker(void *ptr)
 	long tv_usec = pParam->tv_usec;		// recv send
 	long forwarder_tv_sec = pParam->forwarder_tv_sec;
 	long forwarder_tv_usec = pParam->forwarder_tv_usec;
+	free(ptr);
 	
 	int targetSock = -1;
 	struct sockaddr_in targetAddr, *pTmpIpv4;		// IPv4
@@ -1939,14 +1940,14 @@ int main(int argc, char **argv)
 		fcntl(clientSock, F_SETFL, flags);
 		
 		pthread_t thread;
-		PARAM param;
-		param.clientSock = clientSock;
-		param.tv_sec = tv_sec;
-		param.tv_usec = tv_usec;
-		param.forwarder_tv_sec = forwarder_tv_sec;
-		param.forwarder_tv_usec = forwarder_tv_usec;
+		pPARAM pParam = (pPARAM)calloc(1, sizeof(PARAM));
+		pParam->clientSock = clientSock;
+		pParam->tv_sec = tv_sec;
+		pParam->tv_usec = tv_usec;
+		pParam->forwarder_tv_sec = forwarder_tv_sec;
+		pParam->forwarder_tv_usec = forwarder_tv_usec;
 		
-		if(pthread_create(&thread, NULL, (void *)worker, &param))
+		if(pthread_create(&thread, NULL, (void *)worker, pParam))
 		{
 #ifdef _DEBUG
 			printf("[E] pthread_create failed.\n");
