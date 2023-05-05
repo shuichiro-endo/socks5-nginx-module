@@ -235,16 +235,18 @@ int recvDataAes(int sock, void *buffer, int length, unsigned char *aes_key, unsi
 	struct timeval end;
 	long t = 0;
 	bzero(buffer, length+1);
-	pSEND_RECV_DATA pData;
-	unsigned char *buffer2 = calloc(BUFFER_SIZE*2, sizeof(unsigned char));
 	int ret = 0;
+	pSEND_RECV_DATA_AES pData;
 	int encryptDataLength = 0;
 	unsigned char *tmp = calloc(16, sizeof(unsigned char));
+	unsigned char *buffer2 = calloc(BUFFER_SIZE*2, sizeof(unsigned char));
 	
 	if(gettimeofday(&start, NULL) == -1){
 #ifdef _DEBUG
 		printf("[E] gettimeofday error.\n");
 #endif
+		free(tmp);
+		free(buffer2);
 		return -1;
 	}
 	
@@ -253,6 +255,8 @@ int recvDataAes(int sock, void *buffer, int length, unsigned char *aes_key, unsi
 #ifdef _DEBUG
 			printf("[E] gettimeofday error.\n");
 #endif
+			free(tmp);
+			free(buffer2);
 			return -1;
 		}
 		
@@ -261,6 +265,8 @@ int recvDataAes(int sock, void *buffer, int length, unsigned char *aes_key, unsi
 #ifdef _DEBUG
 			printf("[I] recvDataAes timeout.\n");
 #endif
+			free(tmp);
+			free(buffer2);
 			return -1;
 		}
 		
@@ -274,6 +280,8 @@ int recvDataAes(int sock, void *buffer, int length, unsigned char *aes_key, unsi
 #ifdef _DEBUG
 			printf("[I] recvDataAes select timeout.\n");
 #endif
+			free(tmp);
+			free(buffer2);
 			return -1;
 		}
 		
@@ -286,19 +294,19 @@ int recvDataAes(int sock, void *buffer, int length, unsigned char *aes_key, unsi
 					usleep(5000);
 					continue;
 				}else{
-					free(buffer2);
 					free(tmp);
+					free(buffer2);
 					return -1;
 				}
 			}else if(rec >= 16){	// unsigned char encryptDataLength[16]
-				pData = (pSEND_RECV_DATA)buffer2;
+				pData = (pSEND_RECV_DATA_AES)buffer2;
 				
 				ret = aesDecrypt(pData->encryptDataLength, 16, aes_key, aes_iv, (unsigned char *)tmp);
 				if(ret == 4){	// int encryptDataLength
 					encryptDataLength = (tmp[0] << 24)|(tmp[1] << 16)|(tmp[2] << 8)|(tmp[3]);
 				}else{
-					free(buffer2);
 					free(tmp);
+					free(buffer2);
 					return -1;
 				}
 				
@@ -307,8 +315,8 @@ int recvDataAes(int sock, void *buffer, int length, unsigned char *aes_key, unsi
 					if(ret > 0){
 						rec = ret;
 					}else{
-						free(buffer2);
 						free(tmp);
+						free(buffer2);
 						return -1;
 					}
 					
@@ -322,8 +330,8 @@ int recvDataAes(int sock, void *buffer, int length, unsigned char *aes_key, unsi
 		}
 	}
 	
-	free(buffer2);
 	free(tmp);
+	free(buffer2);
 	return rec;
 }
 
@@ -481,18 +489,17 @@ int sendDataAes(int sock, void *buffer, int length, unsigned char *aes_key, unsi
 	struct timeval start;
 	struct timeval end;
 	long t = 0;
-	SEND_RECV_DATA data;
-	bzero(data.encryptDataLength, 16);
-	bzero(data.encryptData, BUFFER_SIZE*2);
 	int ret = 0;
+	pSEND_RECV_DATA_AES pData = (pSEND_RECV_DATA_AES)calloc(1, sizeof(SEND_RECV_DATA_AES));
 	int encryptDataLength = 0;
 	unsigned char *tmp = calloc(16, sizeof(unsigned char));
 	
-	ret = aesEncrypt((unsigned char *)buffer, length, aes_key, aes_iv, data.encryptData);
+	ret = aesEncrypt((unsigned char *)buffer, length, aes_key, aes_iv, pData->encryptData);
 	if(ret > 0){
 		encryptDataLength = ret;
 	}else{
 		free(tmp);
+		free(pData);
 		return -1;
 	}
 	
@@ -500,9 +507,11 @@ int sendDataAes(int sock, void *buffer, int length, unsigned char *aes_key, unsi
 	tmp[1] = (unsigned char)(encryptDataLength >> 16);
 	tmp[2] = (unsigned char)(encryptDataLength >> 8);
 	tmp[3] = (unsigned char)encryptDataLength;
-	ret = aesEncrypt((unsigned char *)tmp, 4, aes_key, aes_iv, data.encryptDataLength);
+	
+	ret = aesEncrypt((unsigned char *)tmp, 4, aes_key, aes_iv, pData->encryptDataLength);
 	if(ret != 16){	// unsigned char encryptDataLength[16]
 		free(tmp);
+		free(pData);
 		return -1;
 	}
 	
@@ -512,6 +521,8 @@ int sendDataAes(int sock, void *buffer, int length, unsigned char *aes_key, unsi
 #ifdef _DEBUG
 		printf("[E] gettimeofday error.\n");
 #endif
+		free(tmp);
+		free(pData);
 		return -1;
 	}
 	
@@ -520,6 +531,8 @@ int sendDataAes(int sock, void *buffer, int length, unsigned char *aes_key, unsi
 #ifdef _DEBUG
 			printf("[E] gettimeofday error.\n");
 #endif
+			free(tmp);
+			free(pData);
 			return -1;
 		}
 		
@@ -528,6 +541,8 @@ int sendDataAes(int sock, void *buffer, int length, unsigned char *aes_key, unsi
 #ifdef _DEBUG
 			printf("[I] sendDataAes timeout.\n");
 #endif
+			free(tmp);
+			free(pData);
 			return -1;
 		}
 		
@@ -541,11 +556,13 @@ int sendDataAes(int sock, void *buffer, int length, unsigned char *aes_key, unsi
 #ifdef _DEBUG
 			printf("[I] sendDataAes select timeout.\n");
 #endif
+			free(tmp);
+			free(pData);
 			return -1;
 		}
 		
 		if(FD_ISSET(sock, &writefds)){
-			sen = send(sock, (unsigned char *)&data+sendLength, len, 0);
+			sen = send(sock, (unsigned char *)pData+sendLength, len, 0);
 			if(sen <= 0){
 				if(errno == EINTR){
 					continue;
@@ -554,6 +571,7 @@ int sendDataAes(int sock, void *buffer, int length, unsigned char *aes_key, unsi
 					continue;
 				}else{
 					free(tmp);
+					free(pData);
 					return -1;
 				}
 			}
@@ -562,6 +580,8 @@ int sendDataAes(int sock, void *buffer, int length, unsigned char *aes_key, unsi
 		}
 	}
 	
+	free(tmp);
+	free(pData);
 	return length;
 }
 
@@ -693,16 +713,13 @@ int forwarderAes(int clientSock, int targetSock, unsigned char *aes_key, unsigne
 	fd_set readfds;
 	int nfds = -1;
 	struct timeval tv;
-	unsigned char *buffer = calloc(BUFFER_SIZE*10, sizeof(unsigned char));
 	int ret = 0;
-	int recvLength = 0;
 	int len = 0;
-	int index = 0;
-	FORWARDER_DATA data;
-	pFORWARDER_DATA pData;
+	pSEND_RECV_DATA_AES pData = (pSEND_RECV_DATA_AES)calloc(1, sizeof(SEND_RECV_DATA_AES));
 	int encryptDataLength = 0;
 	unsigned char *tmp = calloc(16, sizeof(unsigned char));
-	unsigned char *buffer2 = calloc(BUFFER_SIZE*10, sizeof(unsigned char));
+	unsigned char *buffer = calloc(BUFFER_SIZE*2, sizeof(unsigned char));
+	unsigned char *buffer2 = calloc(BUFFER_SIZE*2, sizeof(unsigned char));
 	
 	while(1){
 		FD_ZERO(&readfds);
@@ -720,19 +737,19 @@ int forwarderAes(int clientSock, int targetSock, unsigned char *aes_key, unsigne
 		}
 		
 		if(FD_ISSET(clientSock, &readfds)){
-			bzero(buffer, BUFFER_SIZE*10);
-			bzero(&data.encryptDataLength, 16);
-			bzero(&data.encryptData, BUFFER_SIZE*10);
 			bzero(tmp, 16);
+			bzero(pData, sizeof(SEND_RECV_DATA_AES));
+			bzero(buffer, BUFFER_SIZE*2);
 			
 			if((rec = read(clientSock, buffer, BUFFER_SIZE)) > 0){
-				ret = aesEncrypt((unsigned char *)buffer, rec, aes_key, aes_iv, data.encryptData);
+				ret = aesEncrypt((unsigned char *)buffer, rec, aes_key, aes_iv, pData->encryptData);
 				if(ret > 0){
 					encryptDataLength = ret;
 				}else{
+					free(tmp);
+					free(pData);
 					free(buffer);
 					free(buffer2);
-					free(tmp);
 					return -1;
 				}
 				
@@ -740,16 +757,18 @@ int forwarderAes(int clientSock, int targetSock, unsigned char *aes_key, unsigne
 				tmp[1] = (unsigned char)(encryptDataLength >> 16);
 				tmp[2] = (unsigned char)(encryptDataLength >> 8);
 				tmp[3] = (unsigned char)encryptDataLength;
-				ret = aesEncrypt((unsigned char *)tmp, 4, aes_key, aes_iv, data.encryptDataLength);
+				
+				ret = aesEncrypt((unsigned char *)tmp, 4, aes_key, aes_iv, pData->encryptDataLength);
 				if(ret != 16){	// unsigned char encryptDataLength[16]
+					free(tmp);
+					free(pData);
 					free(buffer);
 					free(buffer2);
-					free(tmp);
 					return -1;
 				}
 				
 				len = 16 + encryptDataLength;
-				sen = write(targetSock, (unsigned char *)&data, len);
+				sen = write(targetSock, (unsigned char *)pData, len);
 				if(sen <= 0){
 					break;
 				}
@@ -759,53 +778,64 @@ int forwarderAes(int clientSock, int targetSock, unsigned char *aes_key, unsigne
 		}
 		
 		if(FD_ISSET(targetSock, &readfds)){
-			bzero(buffer, BUFFER_SIZE*10);
-			bzero(buffer2, BUFFER_SIZE*10);
 			bzero(tmp, 16);
+			bzero(buffer, BUFFER_SIZE*2);
+			bzero(buffer2, BUFFER_SIZE*2);
 			
-			if((rec = read(targetSock, buffer, BUFFER_SIZE*10)) > 0){
-				recvLength = rec;
-				len = rec;
-				index = 0;
+			if((rec = read(targetSock, buffer, 16)) > 0){
+				if(rec != 16){
+					break;
+				}
 				
-				while(len > 0){
-					if(len >= 16){
-						pData = (pFORWARDER_DATA)(buffer + index);
-						
-						ret = aesDecrypt(pData->encryptDataLength, 16, aes_key, aes_iv, tmp);
-						if(ret != 4){	// int encryptDataLength
-							free(buffer);
-							free(buffer2);
-							free(tmp);
-							return -1;
-						}
-						encryptDataLength = (tmp[0] << 24)|(tmp[1] << 16)|(tmp[2] << 8)|(tmp[3]);
-						
-						if(index + 16 + encryptDataLength <= recvLength){
-							rec = aesDecrypt(pData->encryptData, encryptDataLength, aes_key, aes_iv, buffer2);
-							if(rec < 0){
-								free(buffer);
-								free(buffer2);
-								free(tmp);
-								return -1;
-							}
-							
-							sen = write(clientSock, buffer2, rec);
-							if(sen <= 0){
-								free(buffer);
-								free(buffer2);
-								free(tmp);
-								return -1;
-							}
-							
-							index += 16 + encryptDataLength;
-							len -= 16 + encryptDataLength;
-						}else{
-							break;
-						}
-					}else{
-						break;
+				ret = aesDecrypt((unsigned char *)buffer, 16, aes_key, aes_iv, tmp);
+				if(ret != 4){	// int encryptDataLength
+					free(tmp);
+					free(pData);
+					free(buffer);
+					free(buffer2);
+					return -1;
+				}
+				encryptDataLength = (tmp[0] << 24)|(tmp[1] << 16)|(tmp[2] << 8)|(tmp[3]);
+				
+				if(encryptDataLength <= 0 || encryptDataLength > BUFFER_SIZE*2 || (encryptDataLength & 0xf) != 0){
+					free(tmp);
+					free(pData);
+					free(buffer);
+					free(buffer2);
+					return -1;
+				}
+				
+				bzero(buffer, BUFFER_SIZE*2);
+				
+				if((rec = read(targetSock, buffer, encryptDataLength)) > 0){
+					if(rec != encryptDataLength){
+						free(tmp);
+						free(pData);
+						free(buffer);
+						free(buffer2);
+						return -1;
 					}
+					
+					ret = aesDecrypt((unsigned char *)buffer, encryptDataLength, aes_key, aes_iv, buffer2);
+					if(ret < 0){
+						free(tmp);
+						free(pData);
+						free(buffer);
+						free(buffer2);
+						return -1;
+					}
+					
+					len = ret;
+					sen = write(clientSock, buffer2, len);
+					if(sen <= 0){
+						free(tmp);
+						free(pData);
+						free(buffer);
+						free(buffer2);
+						return -1;
+					}
+				}else{
+					break;
 				}
 			}else{
 				break;
@@ -813,9 +843,10 @@ int forwarderAes(int clientSock, int targetSock, unsigned char *aes_key, unsigne
 		}
 	}
 	
+	free(tmp);
+	free(pData);
 	free(buffer);
 	free(buffer2);
-	free(tmp);
 	return 0;
 }
 

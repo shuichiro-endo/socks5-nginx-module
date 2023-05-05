@@ -41,10 +41,5 @@ void finiSsl(pSSLPARAM pSslParam);
 typedef struct {
 	unsigned char encryptDataLength[16];
 	unsigned char encryptData[BUFFER_SIZE*2];
-} SEND_RECV_DATA, *pSEND_RECV_DATA;
-
-typedef struct {
-	unsigned char encryptDataLength[16];
-	unsigned char encryptData[BUFFER_SIZE*10];
-} FORWARDER_DATA, *pFORWARDER_DATA;
+} SEND_RECV_DATA_AES, *pSEND_RECV_DATA_AES;
 

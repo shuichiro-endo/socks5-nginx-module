@@ -273,17 +273,19 @@ int recvDataAes(ngx_http_request_t *r, int sock, void *buffer, int length, unsig
 	struct timeval end;
 	long t = 0;
 	bzero(buffer, length+1);
-	pSEND_RECV_DATA pData;
-	unsigned char *buffer2 = calloc(BUFFER_SIZE*2, sizeof(unsigned char));
 	int ret = 0;
+	pSEND_RECV_DATA_AES pData;
 	int encryptDataLength = 0;
 	unsigned char *tmp = calloc(16, sizeof(unsigned char));
+	unsigned char *buffer2 = calloc(BUFFER_SIZE*2, sizeof(unsigned char));
 	
 	if(gettimeofday(&start, NULL) == -1){
 #ifdef _DEBUG
 		printf("[E] gettimeofday error.\n");
 		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] gettimeofday error.");
 #endif
+		free(tmp);
+		free(buffer2);
 		return -1;
 	}
 
@@ -293,6 +295,8 @@ int recvDataAes(ngx_http_request_t *r, int sock, void *buffer, int length, unsig
 			printf("[E] gettimeofday error.\n");
 			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] gettimeofday error.");
 #endif
+			free(tmp);
+			free(buffer2);
 			return -1;
 		}
 		
@@ -302,6 +306,8 @@ int recvDataAes(ngx_http_request_t *r, int sock, void *buffer, int length, unsig
 			printf("[I] recvDataAes timeout.\n");
 			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] recvDataAes timeout.");
 #endif
+			free(tmp);
+			free(buffer2);
 			return -1;
 		}
 
@@ -316,6 +322,8 @@ int recvDataAes(ngx_http_request_t *r, int sock, void *buffer, int length, unsig
 			printf("[I] recvDataAes select timeout.\n");
 			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] recvDataAes select timeout.");
 #endif
+			free(tmp);
+			free(buffer2);
 			return -1;
 		}
 		
@@ -328,15 +336,19 @@ int recvDataAes(ngx_http_request_t *r, int sock, void *buffer, int length, unsig
 					usleep(5000);
 					continue;
 				}else{
+					free(tmp);
+					free(buffer2);
 					return -1;
 				}
 			}else if(rec >= 16){	// unsigned char encryptDataLength[16]
-				pData = (pSEND_RECV_DATA)buffer2;
+				pData = (pSEND_RECV_DATA_AES)buffer2;
 				
 				ret = aesDecrypt(r, pData->encryptDataLength, 16, aes_key, aes_iv, (unsigned char *)tmp);
 				if(ret == 4){	// int encryptDataLength
 					encryptDataLength = (tmp[0] << 24)|(tmp[1] << 16)|(tmp[2] << 8)|(tmp[3]);
 				}else{
+					free(tmp);
+					free(buffer2);
 					return -1;
 				}
 				
@@ -345,6 +357,8 @@ int recvDataAes(ngx_http_request_t *r, int sock, void *buffer, int length, unsig
 					if(ret > 0){
 						rec = ret;
 					}else{
+						free(tmp);
+						free(buffer2);
 						return -1;
 					}
 					
@@ -357,7 +371,9 @@ int recvDataAes(ngx_http_request_t *r, int sock, void *buffer, int length, unsig
 			}
 		}
 	}
-	
+
+	free(tmp);
+	free(buffer2);
 	return rec;
 }
 
@@ -524,18 +540,17 @@ int sendDataAes(ngx_http_request_t *r, int sock, void *buffer, int length, unsig
 	struct timeval start;
 	struct timeval end;
 	long t = 0;
-	SEND_RECV_DATA data;
-	bzero(data.encryptDataLength, 16);
-	bzero(data.encryptData, BUFFER_SIZE*2);
 	int ret = 0;
+	pSEND_RECV_DATA_AES pData = (pSEND_RECV_DATA_AES)calloc(1, sizeof(SEND_RECV_DATA_AES));
 	int encryptDataLength = 0;
 	unsigned char *tmp = calloc(16, sizeof(unsigned char));
 	
-	ret = aesEncrypt(r, (unsigned char *)buffer, length, aes_key, aes_iv, data.encryptData);
+	ret = aesEncrypt(r, (unsigned char *)buffer, length, aes_key, aes_iv, pData->encryptData);
 	if(ret > 0){
 		encryptDataLength = ret;
 	}else{
 		free(tmp);
+		free(pData);
 		return -1;
 	}
 	
@@ -543,9 +558,11 @@ int sendDataAes(ngx_http_request_t *r, int sock, void *buffer, int length, unsig
 	tmp[1] = (unsigned char)encryptDataLength >> 16;
 	tmp[2] = (unsigned char)encryptDataLength >> 8;
 	tmp[3] = (unsigned char)encryptDataLength;
-	ret = aesEncrypt(r, (unsigned char *)tmp, 4, aes_key, aes_iv, data.encryptDataLength);
+	
+	ret = aesEncrypt(r, (unsigned char *)tmp, 4, aes_key, aes_iv, pData->encryptDataLength);
 	if(ret != 16){	// unsigned char encryptDataLength[16]
 		free(tmp);
+		free(pData);
 		return -1;
 	}
 	
@@ -556,6 +573,8 @@ int sendDataAes(ngx_http_request_t *r, int sock, void *buffer, int length, unsig
 		printf("[E] gettimeofday error.\n");
 		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] gettimeofday error.");
 #endif
+		free(tmp);
+		free(pData);
 		return -1;
 	}
 	
@@ -565,6 +584,8 @@ int sendDataAes(ngx_http_request_t *r, int sock, void *buffer, int length, unsig
 			printf("[E] gettimeofday error.\n");
 			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] gettimeofday error.");
 #endif
+			free(tmp);
+			free(pData);
 			return -1;
 		}
 		
@@ -574,6 +595,8 @@ int sendDataAes(ngx_http_request_t *r, int sock, void *buffer, int length, unsig
 			printf("[I] sendDataAes timeout.\n");
 			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] sendDataAes timeout.");
 #endif
+			free(tmp);
+			free(pData);
 			return -1;
 		}
 		
@@ -588,11 +611,13 @@ int sendDataAes(ngx_http_request_t *r, int sock, void *buffer, int length, unsig
 			printf("[I] sendDataAes select timeout.\n");
 			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] sendDataAes select timeout.");
 #endif
+			free(tmp);
+			free(pData);
 			return -1;
 		}
 		
 		if(FD_ISSET(sock, &writefds)){
-			sen = send(sock, (unsigned char *)&data+sendLength, len, 0);
+			sen = send(sock, (unsigned char *)pData+sendLength, len, 0);
 			if(sen <= 0){
 				if(errno == EINTR){
 					continue;
@@ -601,6 +626,7 @@ int sendDataAes(ngx_http_request_t *r, int sock, void *buffer, int length, unsig
 					continue;
 				}else{
 					free(tmp);
+					free(pData);
 					return -1;
 				}
 			}
@@ -609,6 +635,8 @@ int sendDataAes(ngx_http_request_t *r, int sock, void *buffer, int length, unsig
 		}
 	}
 	
+	free(tmp);
+	free(pData);
 	return length;
 }
 
@@ -746,16 +774,13 @@ int forwarderAes(ngx_http_request_t *r, int clientSock, int targetSock, unsigned
 	fd_set readfds;
 	int nfds = -1;
 	struct timeval tv;
-	unsigned char *buffer = calloc(BUFFER_SIZE*10, sizeof(unsigned char));
 	int ret = 0;
-	int recvLength = 0;
 	int len = 0;
-	int index = 0;
-	FORWARDER_DATA data;
-	pFORWARDER_DATA pData;
+	pSEND_RECV_DATA_AES pData = (pSEND_RECV_DATA_AES)calloc(1, sizeof(SEND_RECV_DATA_AES));
 	int encryptDataLength = 0;
 	unsigned char *tmp = calloc(16, sizeof(unsigned char));
-	unsigned char *buffer2 = calloc(BUFFER_SIZE*10, sizeof(unsigned char));
+	unsigned char *buffer = calloc(BUFFER_SIZE*2, sizeof(unsigned char));
+	unsigned char *buffer2 = calloc(BUFFER_SIZE*2, sizeof(unsigned char));
 	
 	while(1){
 		FD_ZERO(&readfds);
@@ -774,53 +799,64 @@ int forwarderAes(ngx_http_request_t *r, int clientSock, int targetSock, unsigned
 		}
 		
 		if(FD_ISSET(clientSock, &readfds)){
-			bzero(buffer, BUFFER_SIZE*10);
-			bzero(buffer2, BUFFER_SIZE*10);
 			bzero(tmp, 16);
+			bzero(buffer, BUFFER_SIZE*2);
+			bzero(buffer2, BUFFER_SIZE*2);
 			
-			if((rec = read(clientSock, buffer, BUFFER_SIZE*10)) > 0){
-				recvLength = rec;
-				len = rec;
-				index = 0;
-
-				while(len > 0){
-					if(len >= 16){
-						pData = (pFORWARDER_DATA)(buffer + index);
-						
-						ret = aesDecrypt(r, pData->encryptDataLength, 16, aes_key, aes_iv, tmp);
-						if(ret != 4){	// int encryptDataLength
-							free(buffer);
-							free(buffer2);
-							free(tmp);
-							return -1;
-						}
-						encryptDataLength = (tmp[0] << 24)|(tmp[1] << 16)|(tmp[2] << 8)|(tmp[3]);
-						
-						if(index + 16 + encryptDataLength <= recvLength){
-							rec = aesDecrypt(r, pData->encryptData, encryptDataLength, aes_key, aes_iv, buffer2);
-							if(rec < 0){
-								free(buffer);
-								free(buffer2);
-								free(tmp);
-								return -1;
-							}
-							
-							sen = write(targetSock, buffer2, rec);
-							if(sen <= 0){
-								free(buffer);
-								free(buffer2);
-								free(tmp);
-								return -1;
-							}
-							
-							index += 16 + encryptDataLength;
-							len -= 16 + encryptDataLength;
-						}else{
-							break;
-						}
-					}else{
-						break;
+			if((rec = read(clientSock, buffer, 16)) > 0){
+				if(rec != 16){
+					break;
+				}
+				
+				ret = aesDecrypt(r, (unsigned char *)buffer, 16, aes_key, aes_iv, tmp);
+				if(ret != 4){	// int encryptDataLength
+					free(tmp);
+					free(pData);
+					free(buffer);
+					free(buffer2);
+					return -1;
+				}
+				
+				encryptDataLength = (tmp[0] << 24)|(tmp[1] << 16)|(tmp[2] << 8)|(tmp[3]);
+				if(encryptDataLength <= 0 || encryptDataLength > BUFFER_SIZE*2 || (encryptDataLength & 0xf) != 0){
+					free(tmp);
+					free(pData);
+					free(buffer);
+					free(buffer2);
+					return -1;
+				}
+				
+				bzero(buffer, BUFFER_SIZE*2);
+				
+				if((rec = read(clientSock, buffer, encryptDataLength)) > 0){
+					if(rec != encryptDataLength){
+						free(tmp);
+						free(pData);
+						free(buffer);
+						free(buffer2);
+						return -1;
 					}
+					
+					ret = aesDecrypt(r, (unsigned char *)buffer, encryptDataLength, aes_key, aes_iv, buffer2);
+					if(ret < 0){
+						free(tmp);
+						free(pData);
+						free(buffer);
+						free(buffer2);
+						return -1;
+					}
+					
+					len = ret;
+					sen = write(targetSock, buffer2, len);
+					if(sen <= 0){
+						free(tmp);
+						free(pData);
+						free(buffer);
+						free(buffer2);
+						return -1;
+					}
+				}else{
+					break;
 				}
 			}else{
 				break;
@@ -828,19 +864,19 @@ int forwarderAes(ngx_http_request_t *r, int clientSock, int targetSock, unsigned
 		}
 		
 		if(FD_ISSET(targetSock, &readfds)){
-			bzero(buffer, BUFFER_SIZE*10);
-			bzero(&data.encryptDataLength, 16);
-			bzero(&data.encryptData, BUFFER_SIZE*10);
 			bzero(tmp, 16);
+			bzero(pData, sizeof(SEND_RECV_DATA_AES));
+			bzero(buffer, BUFFER_SIZE*2);
 			
 			if((rec = read(targetSock, buffer, BUFFER_SIZE)) > 0){
-				ret = aesEncrypt(r, (unsigned char *)buffer, rec, aes_key, aes_iv, data.encryptData);
+				ret = aesEncrypt(r, (unsigned char *)buffer, rec, aes_key, aes_iv, pData->encryptData);
 				if(ret > 0){
 					encryptDataLength = ret;
 				}else{
+					free(tmp);
+					free(pData);
 					free(buffer);
 					free(buffer2);
-					free(tmp);
 					return -1;
 				}
 				
@@ -848,16 +884,18 @@ int forwarderAes(ngx_http_request_t *r, int clientSock, int targetSock, unsigned
 				tmp[1] = (unsigned char)(encryptDataLength >> 16);
 				tmp[2] = (unsigned char)(encryptDataLength >> 8);
 				tmp[3] = (unsigned char)encryptDataLength;
-				ret = aesEncrypt(r, (unsigned char *)tmp, 4, aes_key, aes_iv, data.encryptDataLength);
+				
+				ret = aesEncrypt(r, (unsigned char *)tmp, 4, aes_key, aes_iv, pData->encryptDataLength);
 				if(ret != 16){	// unsigned char encryptDataLength[16]
+					free(tmp);
+					free(pData);
 					free(buffer);
 					free(buffer2);
-					free(tmp);
 					return -1;
 				}
 				
 				len = 16 + encryptDataLength;
-				sen = write(clientSock, (unsigned char *)&data, len);
+				sen = write(clientSock, (unsigned char *)pData, len);
 				if(sen <= 0){
 					break;
 				}
@@ -867,9 +905,10 @@ int forwarderAes(ngx_http_request_t *r, int clientSock, int targetSock, unsigned
 		}
 	}
 	
+	free(tmp);
+	free(pData);
 	free(buffer);
 	free(buffer2);
-	free(tmp);
 	return 0;
 }
 
