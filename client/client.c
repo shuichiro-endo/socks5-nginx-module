@@ -49,21 +49,21 @@
 #define HTTP_REQUEST_HEADER_FORWARDER_TVSEC_KEY "forwardersec"		// forwarder tv_sec
 #define HTTP_REQUEST_HEADER_FORWARDER_TVUSEC_KEY "forwarderusec"	// forwarder tv_usec
 
-char *socks5ServerIp = NULL;
-char *socks5ServerPort = NULL;
-char *socks5TargetIp = NULL;
-char *socks5TargetPort = NULL;
-int httpsFlag = 0;		// 0:http 1:https
-int socks5OverTlsFlag = 0;	// 0:socks5 over aes 1:socks5 over tls
+char *socks5_server_ip = NULL;
+char *socks5_server_port = NULL;
+char *socks5_target_ip = NULL;
+char *socks5_target_port = NULL;
+int https_flag = 0;		// 0:http 1:https
+int socks5_over_tls_flag = 0;	// 0:socks5 over aes 1:socks5 over tls
 
-char serverCertificateFilenameHttps[256] = "server_https.crt";	// server certificate file name (HTTPS)
-char serverCertificateFileDirectoryPathHttps[256] = ".";	// server certificate file directory path (HTTPS)
+char server_certificate_filename_https[256] = "server_https.crt";	// server certificate filename (HTTPS)
+char server_certificate_file_directory_path_https[256] = ".";	// server certificate file directory path (HTTPS)
 
-char serverCertificateFilenameSocks5[256] = "server_socks5.crt";	// server certificate file name (Socks5 over TLS)
-char serverCertificateFileDirectoryPathSocks5[256] = ".";	// server certificate file directory path (Socks5 over TLS)
+char server_certificate_filename_socks5[256] = "server_socks5.crt";	// server certificate filename (Socks5 over TLS)
+char server_certificate_file_directory_path_socks5[256] = ".";	// server certificate file directory path (Socks5 over TLS)
 
 
-int aesEncrypt(unsigned char *plaintext, int plaintext_length, unsigned char *aes_key, unsigned char *aes_iv, unsigned char *ciphertext)
+int encrypt_aes(unsigned char *plaintext, int plaintext_length, unsigned char *aes_key, unsigned char *aes_iv, unsigned char *ciphertext)
 {
 	EVP_CIPHER_CTX *ctx;
 	int length;
@@ -110,7 +110,7 @@ int aesEncrypt(unsigned char *plaintext, int plaintext_length, unsigned char *ae
 }
 
 
-int aesDecrypt(unsigned char *ciphertext, int ciphertext_length, unsigned char *aes_key, unsigned char *aes_iv, unsigned char *plaintext)
+int decrypt_aes(unsigned char *ciphertext, int ciphertext_length, unsigned char *aes_key, unsigned char *aes_iv, unsigned char *plaintext)
 {
 	EVP_CIPHER_CTX *ctx;
 	int length;
@@ -157,7 +157,7 @@ int aesDecrypt(unsigned char *ciphertext, int ciphertext_length, unsigned char *
 }
 
 
-int recvData(int sock, void *buffer, int length, long tv_sec, long tv_usec)
+int recv_data(int sock, void *buffer, int length, long tv_sec, long tv_usec)
 {
 	int rec = 0;
 	fd_set readfds;
@@ -186,7 +186,7 @@ int recvData(int sock, void *buffer, int length, long tv_sec, long tv_usec)
 		t = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);	// microsecond
 		if(t >= (tv_sec * 1000000 + tv_usec)){
 #ifdef _DEBUG
-			printf("[I] recvData timeout.\n");
+			printf("[I] recv_data timeout.\n");
 #endif
 			return -1;
 		}
@@ -199,7 +199,7 @@ int recvData(int sock, void *buffer, int length, long tv_sec, long tv_usec)
 		
 		if(select(nfds, &readfds, NULL, NULL, &tv) == 0){
 #ifdef _DEBUG
-			printf("[I] recvData select timeout.\n");
+			printf("[I] recv_data select timeout.\n");
 #endif
 			return -1;
 		}
@@ -225,7 +225,7 @@ int recvData(int sock, void *buffer, int length, long tv_sec, long tv_usec)
 }
 
 
-int recvDataAes(int sock, void *buffer, int length, unsigned char *aes_key, unsigned char *aes_iv, long tv_sec, long tv_usec)
+int recv_data_aes(int sock, void *buffer, int length, unsigned char *aes_key, unsigned char *aes_iv, long tv_sec, long tv_usec)
 {
 	int rec = 0;
 	fd_set readfds;
@@ -236,8 +236,8 @@ int recvDataAes(int sock, void *buffer, int length, unsigned char *aes_key, unsi
 	long t = 0;
 	bzero(buffer, length+1);
 	int ret = 0;
-	pSEND_RECV_DATA_AES pData;
-	int encryptDataLength = 0;
+	struct send_recv_data_aes *data;
+	int encrypt_data_length = 0;
 	unsigned char *tmp = calloc(16, sizeof(unsigned char));
 	unsigned char *buffer2 = calloc(BUFFER_SIZE*2, sizeof(unsigned char));
 	
@@ -263,7 +263,7 @@ int recvDataAes(int sock, void *buffer, int length, unsigned char *aes_key, unsi
 		t = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);	// microsecond
 		if(t >= (tv_sec * 1000000 + tv_usec)){
 #ifdef _DEBUG
-			printf("[I] recvDataAes timeout.\n");
+			printf("[I] recv_data_aes timeout.\n");
 #endif
 			free(tmp);
 			free(buffer2);
@@ -278,7 +278,7 @@ int recvDataAes(int sock, void *buffer, int length, unsigned char *aes_key, unsi
 		
 		if(select(nfds, &readfds, NULL, NULL, &tv) == 0){
 #ifdef _DEBUG
-			printf("[I] recvDataAes select timeout.\n");
+			printf("[I] recv_data_aes select timeout.\n");
 #endif
 			free(tmp);
 			free(buffer2);
@@ -298,20 +298,20 @@ int recvDataAes(int sock, void *buffer, int length, unsigned char *aes_key, unsi
 					free(buffer2);
 					return -1;
 				}
-			}else if(rec >= 16){	// unsigned char encryptDataLength[16]
-				pData = (pSEND_RECV_DATA_AES)buffer2;
+			}else if(rec >= 16){	// unsigned char encrypt_data_length[16]
+				data = (struct send_recv_data_aes *)buffer2;
 				
-				ret = aesDecrypt(pData->encryptDataLength, 16, aes_key, aes_iv, (unsigned char *)tmp);
-				if(ret == 4){	// int encryptDataLength
-					encryptDataLength = (tmp[0] << 24)|(tmp[1] << 16)|(tmp[2] << 8)|(tmp[3]);
+				ret = decrypt_aes(data->encrypt_data_length, 16, aes_key, aes_iv, (unsigned char *)tmp);
+				if(ret == 4){	// int encrypt_data_length
+					encrypt_data_length = (tmp[0] << 24)|(tmp[1] << 16)|(tmp[2] << 8)|(tmp[3]);
 				}else{
 					free(tmp);
 					free(buffer2);
 					return -1;
 				}
 				
-				if(encryptDataLength <= rec-16){
-					ret = aesDecrypt(pData->encryptData, encryptDataLength, aes_key, aes_iv, (unsigned char *)buffer);
+				if(encrypt_data_length <= rec-16){
+					ret = decrypt_aes(data->encrypt_data, encrypt_data_length, aes_key, aes_iv, (unsigned char *)buffer);
 					if(ret > 0){
 						rec = ret;
 					}else{
@@ -336,7 +336,7 @@ int recvDataAes(int sock, void *buffer, int length, unsigned char *aes_key, unsi
 }
 
 
-int recvDataTls(int sock, SSL *ssl ,void *buffer, int length, long tv_sec, long tv_usec)
+int recv_data_tls(int sock, SSL *ssl ,void *buffer, int length, long tv_sec, long tv_usec)
 {
 	int rec = 0;
 	int err = 0;
@@ -366,7 +366,7 @@ int recvDataTls(int sock, SSL *ssl ,void *buffer, int length, long tv_sec, long 
 		t = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);	// microsecond
 		if(t >= (tv_sec * 1000000 + tv_usec)){
 #ifdef _DEBUG
-			printf("[I] recvDataTls timeout.\n");
+			printf("[I] recv_data_tls timeout.\n");
 #endif
 			return -2;
 		}
@@ -379,7 +379,7 @@ int recvDataTls(int sock, SSL *ssl ,void *buffer, int length, long tv_sec, long 
 		
 		if(select(nfds, &readfds, NULL, NULL, &tv) == 0){
 #ifdef _DEBUG
-			printf("[I] recvDataTls select timeout.\n");
+			printf("[I] recv_data_tls select timeout.\n");
 #endif
 			return -2;
 		}
@@ -409,10 +409,10 @@ int recvDataTls(int sock, SSL *ssl ,void *buffer, int length, long tv_sec, long 
 }
 
 
-int sendData(int sock, void *buffer, int length, long tv_sec, long tv_usec)
+int send_data(int sock, void *buffer, int length, long tv_sec, long tv_usec)
 {
 	int sen = 0;
-	int sendLength = 0;
+	int send_length = 0;
 	int len = length;
 	fd_set writefds;
 	int nfds = -1;
@@ -439,7 +439,7 @@ int sendData(int sock, void *buffer, int length, long tv_sec, long tv_usec)
 		t = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);	// microsecond
 		if(t >= (tv_sec * 1000000 + tv_usec)){
 #ifdef _DEBUG
-			printf("[I] sendData timeout.\n");
+			printf("[I] send_data timeout.\n");
 #endif
 			return -1;
 		}
@@ -452,13 +452,13 @@ int sendData(int sock, void *buffer, int length, long tv_sec, long tv_usec)
 		
 		if(select(nfds, NULL, &writefds, NULL, &tv) == 0){
 #ifdef _DEBUG
-			printf("[I] sendData select timeout.\n");
+			printf("[I] send_data select timeout.\n");
 #endif
 			return -1;
 		}
 		
 		if(FD_ISSET(sock, &writefds)){
-			sen = send(sock, buffer+sendLength, len, 0);
+			sen = send(sock, buffer+send_length, len, 0);
 			if(sen <= 0){
 				if(errno == EINTR){
 					continue;
@@ -469,7 +469,7 @@ int sendData(int sock, void *buffer, int length, long tv_sec, long tv_usec)
 					return -1;
 				}
 			}
-			sendLength += sen;
+			send_length += sen;
 			len -= sen;
 		}
 	}
@@ -478,10 +478,10 @@ int sendData(int sock, void *buffer, int length, long tv_sec, long tv_usec)
 }
 
 
-int sendDataAes(int sock, void *buffer, int length, unsigned char *aes_key, unsigned char *aes_iv, long tv_sec, long tv_usec)
+int send_data_aes(int sock, void *buffer, int length, unsigned char *aes_key, unsigned char *aes_iv, long tv_sec, long tv_usec)
 {
 	int sen = 0;
-	int sendLength = 0;
+	int send_length = 0;
 	int len = 0;
 	fd_set writefds;
 	int nfds = -1;
@@ -490,39 +490,39 @@ int sendDataAes(int sock, void *buffer, int length, unsigned char *aes_key, unsi
 	struct timeval end;
 	long t = 0;
 	int ret = 0;
-	pSEND_RECV_DATA_AES pData = (pSEND_RECV_DATA_AES)calloc(1, sizeof(SEND_RECV_DATA_AES));
-	int encryptDataLength = 0;
+	struct send_recv_data_aes *data = (struct send_recv_data_aes *)calloc(1, sizeof(struct send_recv_data_aes));
+	int encrypt_data_length = 0;
 	unsigned char *tmp = calloc(16, sizeof(unsigned char));
 	
-	ret = aesEncrypt((unsigned char *)buffer, length, aes_key, aes_iv, pData->encryptData);
+	ret = encrypt_aes((unsigned char *)buffer, length, aes_key, aes_iv, data->encrypt_data);
 	if(ret > 0){
-		encryptDataLength = ret;
+		encrypt_data_length = ret;
 	}else{
 		free(tmp);
-		free(pData);
+		free(data);
 		return -1;
 	}
 	
-	tmp[0] = (unsigned char)(encryptDataLength >> 24);
-	tmp[1] = (unsigned char)(encryptDataLength >> 16);
-	tmp[2] = (unsigned char)(encryptDataLength >> 8);
-	tmp[3] = (unsigned char)encryptDataLength;
+	tmp[0] = (unsigned char)(encrypt_data_length >> 24);
+	tmp[1] = (unsigned char)(encrypt_data_length >> 16);
+	tmp[2] = (unsigned char)(encrypt_data_length >> 8);
+	tmp[3] = (unsigned char)encrypt_data_length;
 	
-	ret = aesEncrypt((unsigned char *)tmp, 4, aes_key, aes_iv, pData->encryptDataLength);
-	if(ret != 16){	// unsigned char encryptDataLength[16]
+	ret = encrypt_aes((unsigned char *)tmp, 4, aes_key, aes_iv, data->encrypt_data_length);
+	if(ret != 16){	// unsigned char encrypt_data_length[16]
 		free(tmp);
-		free(pData);
+		free(data);
 		return -1;
 	}
 	
-	len = 16 + encryptDataLength;
+	len = 16 + encrypt_data_length;
 	
 	if(gettimeofday(&start, NULL) == -1){
 #ifdef _DEBUG
 		printf("[E] gettimeofday error.\n");
 #endif
 		free(tmp);
-		free(pData);
+		free(data);
 		return -1;
 	}
 	
@@ -532,17 +532,17 @@ int sendDataAes(int sock, void *buffer, int length, unsigned char *aes_key, unsi
 			printf("[E] gettimeofday error.\n");
 #endif
 			free(tmp);
-			free(pData);
+			free(data);
 			return -1;
 		}
 		
 		t = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);	// microsecond
 		if(t >= (tv_sec * 1000000 + tv_usec)){
 #ifdef _DEBUG
-			printf("[I] sendDataAes timeout.\n");
+			printf("[I] send_data_aes timeout.\n");
 #endif
 			free(tmp);
-			free(pData);
+			free(data);
 			return -1;
 		}
 		
@@ -554,15 +554,15 @@ int sendDataAes(int sock, void *buffer, int length, unsigned char *aes_key, unsi
 		
 		if(select(nfds, NULL, &writefds, NULL, &tv) == 0){
 #ifdef _DEBUG
-			printf("[I] sendDataAes select timeout.\n");
+			printf("[I] send_data_aes select timeout.\n");
 #endif
 			free(tmp);
-			free(pData);
+			free(data);
 			return -1;
 		}
 		
 		if(FD_ISSET(sock, &writefds)){
-			sen = send(sock, (unsigned char *)pData+sendLength, len, 0);
+			sen = send(sock, (unsigned char *)data+send_length, len, 0);
 			if(sen <= 0){
 				if(errno == EINTR){
 					continue;
@@ -571,22 +571,22 @@ int sendDataAes(int sock, void *buffer, int length, unsigned char *aes_key, unsi
 					continue;
 				}else{
 					free(tmp);
-					free(pData);
+					free(data);
 					return -1;
 				}
 			}
-			sendLength += sen;
+			send_length += sen;
 			len -= sen;
 		}
 	}
 	
 	free(tmp);
-	free(pData);
+	free(data);
 	return length;
 }
 
 
-int sendDataTls(int sock, SSL *ssl, void *buffer, int length, long tv_sec, long tv_usec)
+int send_data_tls(int sock, SSL *ssl, void *buffer, int length, long tv_sec, long tv_usec)
 {
 	int sen = 0;
 	int err = 0;
@@ -615,7 +615,7 @@ int sendDataTls(int sock, SSL *ssl, void *buffer, int length, long tv_sec, long 
 		t = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);	// microsecond
 		if(t >= (tv_sec * 1000000 + tv_usec)){
 #ifdef _DEBUG
-			printf("[I] sendDataTls timeout.\n");
+			printf("[I] send_data_tls timeout.\n");
 #endif
 			return -2;
 		}
@@ -628,7 +628,7 @@ int sendDataTls(int sock, SSL *ssl, void *buffer, int length, long tv_sec, long 
 		
 		if(select(nfds, NULL, &writefds, NULL, &tv) == 0){
 #ifdef _DEBUG
-			printf("[I] sendDataTls select timeout.\n");
+			printf("[I] send_data_tls select timeout.\n");
 #endif
 			return -2;
 		}
@@ -656,11 +656,11 @@ int sendDataTls(int sock, SSL *ssl, void *buffer, int length, long tv_sec, long 
 }
 
 
-int forwarder(int clientSock, int targetSock, long tv_sec, long tv_usec)
+int forwarder(int client_sock, int target_sock, long tv_sec, long tv_usec)
 {
 	int rec,sen;
 	int len = 0;
-	int sendLength = 0;
+	int send_length = 0;
 	fd_set readfds;
 	int nfds = -1;
 	struct timeval tv;
@@ -669,9 +669,9 @@ int forwarder(int clientSock, int targetSock, long tv_sec, long tv_usec)
 	
 	while(1){
 		FD_ZERO(&readfds);
-		FD_SET(clientSock, &readfds);
-		FD_SET(targetSock, &readfds);
-		nfds = (clientSock > targetSock ? clientSock : targetSock) + 1;
+		FD_SET(client_sock, &readfds);
+		FD_SET(target_sock, &readfds);
+		nfds = (client_sock > target_sock ? client_sock : target_sock) + 1;
 		tv.tv_sec = tv_sec;
 		tv.tv_usec = tv_usec;
 		
@@ -682,13 +682,13 @@ int forwarder(int clientSock, int targetSock, long tv_sec, long tv_usec)
 			break;
 		}
 		
-		if(FD_ISSET(clientSock, &readfds)){
-			if((rec = recv(clientSock, buffer, BUFFER_SIZE, 0)) > 0){
+		if(FD_ISSET(client_sock, &readfds)){
+			if((rec = recv(client_sock, buffer, BUFFER_SIZE, 0)) > 0){
 				len = rec;
-				sendLength = 0;
+				send_length = 0;
 				
 				while(len > 0){
-					sen = send(targetSock, buffer+sendLength, len, 0);
+					sen = send(target_sock, buffer+send_length, len, 0);
 					if(sen <= 0){
 						if(errno == EINTR){
 							continue;
@@ -699,7 +699,7 @@ int forwarder(int clientSock, int targetSock, long tv_sec, long tv_usec)
 							return -1;
 						}
 					}
-					sendLength += sen;
+					send_length += sen;
 					len -= sen;
 				}
 			}else{
@@ -707,13 +707,13 @@ int forwarder(int clientSock, int targetSock, long tv_sec, long tv_usec)
 			}
 		}
 		
-		if(FD_ISSET(targetSock, &readfds)){
-			if((rec = recv(targetSock, buffer, BUFFER_SIZE, 0)) > 0){
+		if(FD_ISSET(target_sock, &readfds)){
+			if((rec = recv(target_sock, buffer, BUFFER_SIZE, 0)) > 0){
 				len = rec;
-				sendLength = 0;
+				send_length = 0;
 				
 				while(len > 0){
-					sen = send(clientSock, buffer+sendLength, len, 0);
+					sen = send(client_sock, buffer+send_length, len, 0);
 					if(sen <= 0){
 						if(errno == EINTR){
 							continue;
@@ -724,7 +724,7 @@ int forwarder(int clientSock, int targetSock, long tv_sec, long tv_usec)
 							return -1;
 						}
 					}
-					sendLength += sen;
+					send_length += sen;
 					len -= sen;
 				}
 			}else{
@@ -737,72 +737,72 @@ int forwarder(int clientSock, int targetSock, long tv_sec, long tv_usec)
 }
 
 
-int forwarderAes(int clientSock, int targetSock, unsigned char *aes_key, unsigned char *aes_iv, long tv_sec, long tv_usec)
+int forwarder_aes(int client_sock, int target_sock, unsigned char *aes_key, unsigned char *aes_iv, long tv_sec, long tv_usec)
 {
 	int rec,sen;
 	int len = 0;
-	int sendLength = 0;
+	int send_length = 0;
 	fd_set readfds;
 	int nfds = -1;
 	struct timeval tv;
 	int ret = 0;
-	pSEND_RECV_DATA_AES pData = (pSEND_RECV_DATA_AES)calloc(1, sizeof(SEND_RECV_DATA_AES));
-	int encryptDataLength = 0;
+	struct send_recv_data_aes * data = (struct send_recv_data_aes *)calloc(1, sizeof(struct send_recv_data_aes));
+	int encrypt_data_length = 0;
 	unsigned char *tmp = calloc(16, sizeof(unsigned char));
 	unsigned char *buffer = calloc(BUFFER_SIZE*2, sizeof(unsigned char));
 	unsigned char *buffer2 = calloc(BUFFER_SIZE*2, sizeof(unsigned char));
 	
 	while(1){
 		FD_ZERO(&readfds);
-		FD_SET(clientSock, &readfds);
-		FD_SET(targetSock, &readfds);
-		nfds = (clientSock > targetSock ? clientSock : targetSock) + 1;
+		FD_SET(client_sock, &readfds);
+		FD_SET(target_sock, &readfds);
+		nfds = (client_sock > target_sock ? client_sock : target_sock) + 1;
 		tv.tv_sec = tv_sec;
 		tv.tv_usec = tv_usec;
 		
 		if(select(nfds, &readfds, NULL, NULL, &tv) == 0){
 #ifdef _DEBUG
-			printf("[I] forwarderAes select timeout.\n");
+			printf("[I] forwarder_aes select timeout.\n");
 #endif
 			break;
 		}
 		
-		if(FD_ISSET(clientSock, &readfds)){
+		if(FD_ISSET(client_sock, &readfds)){
 			bzero(tmp, 16);
-			bzero(pData, sizeof(SEND_RECV_DATA_AES));
+			bzero(data, sizeof(struct send_recv_data_aes));
 			bzero(buffer, BUFFER_SIZE*2);
 			
-			if((rec = recv(clientSock, buffer, BUFFER_SIZE, 0)) > 0){
-				ret = aesEncrypt((unsigned char *)buffer, rec, aes_key, aes_iv, pData->encryptData);
+			if((rec = recv(client_sock, buffer, BUFFER_SIZE, 0)) > 0){
+				ret = encrypt_aes((unsigned char *)buffer, rec, aes_key, aes_iv, data->encrypt_data);
 				if(ret > 0){
-					encryptDataLength = ret;
+					encrypt_data_length = ret;
 				}else{
 					free(tmp);
-					free(pData);
+					free(data);
 					free(buffer);
 					free(buffer2);
 					return -1;
 				}
 				
-				tmp[0] = (unsigned char)(encryptDataLength >> 24);
-				tmp[1] = (unsigned char)(encryptDataLength >> 16);
-				tmp[2] = (unsigned char)(encryptDataLength >> 8);
-				tmp[3] = (unsigned char)encryptDataLength;
+				tmp[0] = (unsigned char)(encrypt_data_length >> 24);
+				tmp[1] = (unsigned char)(encrypt_data_length >> 16);
+				tmp[2] = (unsigned char)(encrypt_data_length >> 8);
+				tmp[3] = (unsigned char)encrypt_data_length;
 				
-				ret = aesEncrypt((unsigned char *)tmp, 4, aes_key, aes_iv, pData->encryptDataLength);
-				if(ret != 16){	// unsigned char encryptDataLength[16]
+				ret = encrypt_aes((unsigned char *)tmp, 4, aes_key, aes_iv, data->encrypt_data_length);
+				if(ret != 16){	// unsigned char encrypt_data_length[16]
 					free(tmp);
-					free(pData);
+					free(data);
 					free(buffer);
 					free(buffer2);
 					return -1;
 				}
 				
-				len = 16 + encryptDataLength;
-				sendLength = 0;
+				len = 16 + encrypt_data_length;
+				send_length = 0;
 				
 				while(len > 0){
-					sen = send(targetSock, (unsigned char *)pData+sendLength, len, 0);
+					sen = send(target_sock, (unsigned char *)data+send_length, len, 0);
 					if(sen <= 0){
 						if(errno == EINTR){
 							continue;
@@ -811,13 +811,13 @@ int forwarderAes(int clientSock, int targetSock, unsigned char *aes_key, unsigne
 							continue;
 						}else{
 							free(tmp);
-							free(pData);
+							free(data);
 							free(buffer);
 							free(buffer2);
 							return -1;
 						}
 					}
-					sendLength += sen;
+					send_length += sen;
 					len -= sen;
 				}
 			}else{
@@ -825,29 +825,29 @@ int forwarderAes(int clientSock, int targetSock, unsigned char *aes_key, unsigne
 			}
 		}
 		
-		if(FD_ISSET(targetSock, &readfds)){
+		if(FD_ISSET(target_sock, &readfds)){
 			bzero(tmp, 16);
 			bzero(buffer, BUFFER_SIZE*2);
 			bzero(buffer2, BUFFER_SIZE*2);
 			
-			if((rec = recv(targetSock, buffer, 16, 0)) > 0){	// unsigned char encryptDataLength[16]
+			if((rec = recv(target_sock, buffer, 16, 0)) > 0){	// unsigned char encrypt_data_length[16]
 				if(rec != 16){
 					break;
 				}
 				
-				ret = aesDecrypt((unsigned char *)buffer, 16, aes_key, aes_iv, tmp);
-				if(ret != 4){	// int encryptDataLength
+				ret = decrypt_aes((unsigned char *)buffer, 16, aes_key, aes_iv, tmp);
+				if(ret != 4){	// int encrypt_data_length
 					free(tmp);
-					free(pData);
+					free(data);
 					free(buffer);
 					free(buffer2);
 					return -1;
 				}
-				encryptDataLength = (tmp[0] << 24)|(tmp[1] << 16)|(tmp[2] << 8)|(tmp[3]);
+				encrypt_data_length = (tmp[0] << 24)|(tmp[1] << 16)|(tmp[2] << 8)|(tmp[3]);
 				
-				if(encryptDataLength <= 0 || encryptDataLength > BUFFER_SIZE*2 || (encryptDataLength & 0xf) != 0){
+				if(encrypt_data_length <= 0 || encrypt_data_length > BUFFER_SIZE*2 || (encrypt_data_length & 0xf) != 0){
 					free(tmp);
-					free(pData);
+					free(data);
 					free(buffer);
 					free(buffer2);
 					return -1;
@@ -855,29 +855,29 @@ int forwarderAes(int clientSock, int targetSock, unsigned char *aes_key, unsigne
 				
 				bzero(buffer, BUFFER_SIZE*2);
 				
-				if((rec = recv(targetSock, buffer, encryptDataLength, 0)) > 0){
-					if(rec != encryptDataLength){
+				if((rec = recv(target_sock, buffer, encrypt_data_length, 0)) > 0){
+					if(rec != encrypt_data_length){
 						free(tmp);
-						free(pData);
+						free(data);
 						free(buffer);
 						free(buffer2);
 						return -1;
 					}
 					
-					ret = aesDecrypt((unsigned char *)buffer, encryptDataLength, aes_key, aes_iv, buffer2);
+					ret = decrypt_aes((unsigned char *)buffer, encrypt_data_length, aes_key, aes_iv, buffer2);
 					if(ret < 0){
 						free(tmp);
-						free(pData);
+						free(data);
 						free(buffer);
 						free(buffer2);
 						return -1;
 					}
 					
 					len = ret;
-					sendLength = 0;
+					send_length = 0;
 					
 					while(len > 0){
-						sen = send(clientSock, buffer2+sendLength, len, 0);
+						sen = send(client_sock, buffer2+send_length, len, 0);
 						if(sen <= 0){
 							if(errno == EINTR){
 								continue;
@@ -886,13 +886,13 @@ int forwarderAes(int clientSock, int targetSock, unsigned char *aes_key, unsigne
 								continue;
 							}else{
 								free(tmp);
-								free(pData);
+								free(data);
 								free(buffer);
 								free(buffer2);
 								return -1;
 							}
 						}
-						sendLength += sen;
+						send_length += sen;
 						len -= sen;
 					}
 				}else{
@@ -905,18 +905,18 @@ int forwarderAes(int clientSock, int targetSock, unsigned char *aes_key, unsigne
 	}
 	
 	free(tmp);
-	free(pData);
+	free(data);
 	free(buffer);
 	free(buffer2);
 	return 0;
 }
 
 
-int forwarderTls(int clientSock, int targetSock, SSL *targetSsl, long tv_sec, long tv_usec)
+int forwarder_tls(int client_sock, int target_sock, SSL *target_ssl, long tv_sec, long tv_usec)
 {
 	int rec,sen;
 	int len = 0;
-	int sendLength = 0;
+	int send_length = 0;
 	fd_set readfds;
 	int nfds = -1;
 	struct timeval tv;
@@ -926,24 +926,24 @@ int forwarderTls(int clientSock, int targetSock, SSL *targetSsl, long tv_sec, lo
 	
 	while(1){
 		FD_ZERO(&readfds);
-		FD_SET(clientSock, &readfds);
-		FD_SET(targetSock, &readfds);
-		nfds = (clientSock > targetSock ? clientSock : targetSock) + 1;
+		FD_SET(client_sock, &readfds);
+		FD_SET(target_sock, &readfds);
+		nfds = (client_sock > target_sock ? client_sock : target_sock) + 1;
 		tv.tv_sec = tv_sec;
 		tv.tv_usec = tv_usec;
 		
 		if(select(nfds, &readfds, NULL, NULL, &tv) == 0){
 #ifdef _DEBUG
-			printf("[I] forwarderTls select timeout.\n");
+			printf("[I] forwarder_tls select timeout.\n");
 #endif
 			break;
 		}
 		
-		if(FD_ISSET(clientSock, &readfds)){
-			if((rec = recv(clientSock, buffer, BUFFER_SIZE, 0)) > 0){
+		if(FD_ISSET(client_sock, &readfds)){
+			if((rec = recv(client_sock, buffer, BUFFER_SIZE, 0)) > 0){
 				while(1){
-					sen = SSL_write(targetSsl, buffer, rec);
-					err = SSL_get_error(targetSsl, sen);
+					sen = SSL_write(target_ssl, buffer, rec);
+					err = SSL_get_error(target_ssl, sen);
 					
 					if(err == SSL_ERROR_NONE){
 						break;
@@ -963,16 +963,16 @@ int forwarderTls(int clientSock, int targetSock, SSL *targetSsl, long tv_sec, lo
 			}
 		}
 		
-		if(FD_ISSET(targetSock, &readfds)){
-			rec = SSL_read(targetSsl, buffer, BUFFER_SIZE);
-			err = SSL_get_error(targetSsl, rec);
+		if(FD_ISSET(target_sock, &readfds)){
+			rec = SSL_read(target_ssl, buffer, BUFFER_SIZE);
+			err = SSL_get_error(target_ssl, rec);
 			
 			if(err == SSL_ERROR_NONE){
 				len = rec;
-				sendLength = 0;
+				send_length = 0;
 				
 				while(len > 0){
-					sen = send(clientSock, buffer+sendLength, len, 0);
+					sen = send(client_sock, buffer+send_length, len, 0);
 					if(sen <= 0){
 						if(errno == EINTR){
 							continue;
@@ -983,7 +983,7 @@ int forwarderTls(int clientSock, int targetSock, SSL *targetSsl, long tv_sec, lo
 							return -2;
 						}
 					}
-					sendLength += sen;
+					send_length += sen;
 					len -= sen;
 				}
 			}else if(err == SSL_ERROR_ZERO_RETURN){
@@ -1005,7 +1005,7 @@ int forwarderTls(int clientSock, int targetSock, SSL *targetSsl, long tv_sec, lo
 }
 
 
-int sslConnectNonBlock(int sock, SSL *ssl, long tv_sec, long tv_usec)
+int ssl_connect_non_blocking(int sock, SSL *ssl, long tv_sec, long tv_usec)
 {
 	fd_set readfds;
 	fd_set writefds;
@@ -1043,7 +1043,7 @@ int sslConnectNonBlock(int sock, SSL *ssl, long tv_sec, long tv_usec)
 		
 		if(select(nfds, &readfds, &writefds, NULL, &tv) == 0){
 #ifdef _DEBUG
-			printf("[I] sslConnectNonBlock select timeout.\n");
+			printf("[I] ssl_connect_non_blocking select timeout.\n");
 #endif
 			// blocking
 			flags = fcntl(sock, F_GETFL, 0);
@@ -1085,7 +1085,7 @@ int sslConnectNonBlock(int sock, SSL *ssl, long tv_sec, long tv_usec)
 		t = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);	// microsecond
 		if(t >= (tv_sec * 1000000 + tv_usec)){
 #ifdef _DEBUG
-			printf("[I] sslConnectNonBlock timeout.\n");
+			printf("[I] ssl_connect_non_blocking timeout.\n");
 #endif
 			// blocking
 			flags = fcntl(sock, F_GETFL, 0);
@@ -1102,33 +1102,33 @@ int sslConnectNonBlock(int sock, SSL *ssl, long tv_sec, long tv_usec)
 }
 
 
-void finiSsl(pSSLPARAM pSslParam)
+void fini_ssl(struct ssl_param *param)
 {
 	// Socks5 over TLS
-	if(pSslParam->targetSslSocks5 != NULL){
-		if(httpsFlag == 0 && socks5OverTlsFlag == 1){	// HTTP and Socks5 over TLS
-			SSL_shutdown(pSslParam->targetSslSocks5);
+	if(param->target_ssl_socks5 != NULL){
+		if(https_flag == 0 && socks5_over_tls_flag == 1){	// HTTP and Socks5 over TLS
+			SSL_shutdown(param->target_ssl_socks5);
 		}
-		SSL_free(pSslParam->targetSslSocks5);
+		SSL_free(param->target_ssl_socks5);
 	}
-	if(pSslParam->targetCtxSocks5 != NULL){
-		SSL_CTX_free(pSslParam->targetCtxSocks5);
+	if(param->target_ctx_socks5 != NULL){
+		SSL_CTX_free(param->target_ctx_socks5);
 	}
 	
 	// HTTPS
-	if(pSslParam->targetSslHttp != NULL){
-		SSL_shutdown(pSslParam->targetSslHttp);
-		SSL_free(pSslParam->targetSslHttp);
+	if(param->target_ssl_http != NULL){
+		SSL_shutdown(param->target_ssl_http);
+		SSL_free(param->target_ssl_http);
 	}
-	if(pSslParam->targetCtxHttp != NULL){
-		SSL_CTX_free(pSslParam->targetCtxHttp);
+	if(param->target_ctx_http != NULL){
+		SSL_CTX_free(param->target_ctx_http);
 	}
 
 	return;
 }
 
 
-void closeSocket(int sock)
+void close_socket(int sock)
 {
 	shutdown(sock, SHUT_RDWR);
 	usleep(500);
@@ -1140,44 +1140,44 @@ void closeSocket(int sock)
 
 int worker(void *ptr)
 {
-	pPARAM pParam = (pPARAM)ptr;
-	int clientSock = pParam->clientSock;
-	long tv_sec = pParam->tv_sec;		// recv send
-	long tv_usec = pParam->tv_usec;		// recv send
-	long forwarder_tv_sec = pParam->forwarder_tv_sec;
-	long forwarder_tv_usec = pParam->forwarder_tv_usec;
+	struct worker_param *worker_param = (struct worker_param *)ptr;
+	int client_sock = worker_param->client_sock;
+	long tv_sec = worker_param->tv_sec;		// recv send
+	long tv_usec = worker_param->tv_usec;		// recv send
+	long forwarder_tv_sec = worker_param->forwarder_tv_sec;
+	long forwarder_tv_usec = worker_param->forwarder_tv_usec;
 	free(ptr);
 	
-	int targetSock = -1;
-	struct sockaddr_in targetAddr, *pTmpIpv4;		// IPv4
-	memset(&targetAddr, 0, sizeof(struct sockaddr_in));
+	int target_sock = -1;
+	struct sockaddr_in target_addr, *tmp_ipv4;		// IPv4
+	memset(&target_addr, 0, sizeof(struct sockaddr_in));
 	
-	struct sockaddr_in6 targetAddr6, *pTmpIpv6;	// IPv6
-	memset(&targetAddr6, 0, sizeof(struct sockaddr_in6));
+	struct sockaddr_in6 target_addr6, *tmp_ipv6;	// IPv6
+	memset(&target_addr6, 0, sizeof(struct sockaddr_in6));
 
-	struct addrinfo hints, *pTargetHost;
-	memset(&hints, 0, sizeof(struct addrinfo));	
+	struct addrinfo hints, *target_host;
+	memset(&hints, 0, sizeof(struct addrinfo));
 
 	int family = 0;
-	char *domainname = socks5TargetIp;
-	u_short domainnameLength = strlen(domainname);
+	char *domainname = socks5_target_ip;
+	u_short domainname_length = strlen(domainname);
 	char *colon = NULL;
-	char *service = socks5TargetPort;
+	char *service = socks5_target_port;
 	int flags = 0;
 	
 	int ret = 0;
 	int err = 0;
 	
-	SSL_CTX *targetCtxHttp = NULL;
-	SSL *targetSslHttp = NULL;
-	SSL_CTX *targetCtxSocks5 = NULL;
-	SSL *targetSslSocks5 = NULL;
+	SSL_CTX *target_ctx_http = NULL;
+	SSL *target_ssl_http = NULL;
+	SSL_CTX *target_ctx_socks5 = NULL;
+	SSL *target_ssl_socks5 = NULL;
 
-	SSLPARAM sslParam;
-	sslParam.targetCtxHttp = NULL;
-	sslParam.targetSslHttp = NULL;
-	sslParam.targetCtxSocks5 = NULL;
-	sslParam.targetSslSocks5 = NULL;
+	struct ssl_param ssl_param;
+	ssl_param.target_ctx_http = NULL;
+	ssl_param.target_ssl_http = NULL;
+	ssl_param.target_ctx_socks5 = NULL;
+	ssl_param.target_ssl_socks5 = NULL;
 
 	char buffer[BUFFER_SIZE+1];
 	bzero(&buffer, BUFFER_SIZE+1);
@@ -1185,11 +1185,11 @@ int worker(void *ptr)
 	int count = 0;
 	int check = 0;
 	
-	char httpRequest[BUFFER_SIZE+1];
-	int httpRequestLength = 0;
-	bzero(httpRequest, BUFFER_SIZE+1);
+	char http_request[BUFFER_SIZE+1];
+	int http_request_length = 0;
+	bzero(http_request, BUFFER_SIZE+1);
 	
-	EVP_ENCODE_CTX *base64EncodeCtx = NULL;
+	EVP_ENCODE_CTX *base64_encode_ctx = NULL;
 	int length = 0;
 	unsigned char aes_key[33];
 	bzero(&aes_key, 33);
@@ -1198,16 +1198,16 @@ int worker(void *ptr)
 #ifdef _DEBUG
 		printf("[E] aes key generate error:%s.\n", ERR_error_string(ERR_peek_last_error(), NULL));
 #endif
-		closeSocket(clientSock);
+		close_socket(client_sock);
 		return -1;
 	}
 	unsigned char aes_key_b64[45];
 	bzero(&aes_key_b64, 45);
-	base64EncodeCtx = EVP_ENCODE_CTX_new();
-	EVP_EncodeInit(base64EncodeCtx);
-	EVP_EncodeUpdate(base64EncodeCtx, (unsigned char *)aes_key_b64, &length, (unsigned char *)aes_key, 32);
-	EVP_EncodeFinal(base64EncodeCtx, (unsigned char *)aes_key_b64, &length);
-	EVP_ENCODE_CTX_free(base64EncodeCtx);
+	base64_encode_ctx = EVP_ENCODE_CTX_new();
+	EVP_EncodeInit(base64_encode_ctx);
+	EVP_EncodeUpdate(base64_encode_ctx, (unsigned char *)aes_key_b64, &length, (unsigned char *)aes_key, 32);
+	EVP_EncodeFinal(base64_encode_ctx, (unsigned char *)aes_key_b64, &length);
+	EVP_ENCODE_CTX_free(base64_encode_ctx);
 	aes_key_b64[44] = 0x0;	// delete newline character
 #ifdef _DEBUG
 	printf("[I] aes key (base64):%s\n", aes_key_b64);
@@ -1220,16 +1220,16 @@ int worker(void *ptr)
 #ifdef _DEBUG
 		printf("[E] aes iv generate error:%s.\n", ERR_error_string(ERR_peek_last_error(), NULL));
 #endif
-		closeSocket(clientSock);
+		close_socket(client_sock);
 		return -1;
 	}
 	unsigned char aes_iv_b64[25];
 	bzero(&aes_iv_b64, 25);
-	base64EncodeCtx = EVP_ENCODE_CTX_new();
-	EVP_EncodeInit(base64EncodeCtx);
-	EVP_EncodeUpdate(base64EncodeCtx, (unsigned char *)aes_iv_b64, &length, (unsigned char *)aes_iv, 16);
-	EVP_EncodeFinal(base64EncodeCtx, (unsigned char *)aes_iv_b64, &length);
-	EVP_ENCODE_CTX_free(base64EncodeCtx);
+	base64_encode_ctx = EVP_ENCODE_CTX_new();
+	EVP_EncodeInit(base64_encode_ctx);
+	EVP_EncodeUpdate(base64_encode_ctx, (unsigned char *)aes_iv_b64, &length, (unsigned char *)aes_iv, 16);
+	EVP_EncodeFinal(base64_encode_ctx, (unsigned char *)aes_iv_b64, &length);
+	EVP_ENCODE_CTX_free(base64_encode_ctx);
 	aes_iv_b64[24] = 0x0;	// delete newline character
 #ifdef _DEBUG
 	printf("[I] aes iv  (base64):%s\n", aes_iv_b64);
@@ -1237,167 +1237,167 @@ int worker(void *ptr)
 	
 	
 #ifdef _DEBUG
-	printf("[I] Domainname:%s, Length:%d.\n", domainname, domainnameLength);
+	printf("[I] Domainname:%s, Length:%d.\n", domainname, domainname_length);
 #endif
 	colon = strstr(domainname, ":");	// check ipv6 address
 	if(colon == NULL){	// ipv4 address or domainname
 		hints.ai_family = AF_INET;	// IPv4
-		if(getaddrinfo(domainname, service, &hints, &pTargetHost) != 0){
+		if(getaddrinfo(domainname, service, &hints, &target_host) != 0){
 			hints.ai_family = AF_INET6;	// IPv6
-			if(getaddrinfo(domainname, service, &hints, &pTargetHost) != 0){
+			if(getaddrinfo(domainname, service, &hints, &target_host) != 0){
 #ifdef _DEBUG
 				printf("[E] Cannot resolv the domain name:%s.\n", domainname);
 #endif
-				closeSocket(clientSock);
+				close_socket(client_sock);
 				return -1;
 			}
 		}
 	}else{	// ipv6 address
 		hints.ai_family = AF_INET6;	// IPv6
-		if(getaddrinfo(domainname, service, &hints, &pTargetHost) != 0){
+		if(getaddrinfo(domainname, service, &hints, &target_host) != 0){
 #ifdef _DEBUG
 			printf("[E] Cannot resolv the domain name:%s.\n", domainname);
 #endif
-			closeSocket(clientSock);
+			close_socket(client_sock);
 			return -1;
 		}
 	}
 
-	if(pTargetHost->ai_family == AF_INET){
+	if(target_host->ai_family == AF_INET){
 		family = AF_INET;
-		targetAddr.sin_family = AF_INET;
-		pTmpIpv4 = (struct sockaddr_in *)pTargetHost->ai_addr;
-		memcpy(&targetAddr.sin_addr, &pTmpIpv4->sin_addr, sizeof(unsigned long));
-		memcpy(&targetAddr.sin_port, &pTmpIpv4->sin_port, 2);
-		freeaddrinfo(pTargetHost);
-	}else if(pTargetHost->ai_family == AF_INET6){
+		target_addr.sin_family = AF_INET;
+		tmp_ipv4 = (struct sockaddr_in *)target_host->ai_addr;
+		memcpy(&target_addr.sin_addr, &tmp_ipv4->sin_addr, sizeof(unsigned long));
+		memcpy(&target_addr.sin_port, &tmp_ipv4->sin_port, 2);
+		freeaddrinfo(target_host);
+	}else if(target_host->ai_family == AF_INET6){
 		family = AF_INET6;
-		targetAddr6.sin6_family = AF_INET6;
-		pTmpIpv6 = (struct sockaddr_in6 *)pTargetHost->ai_addr;
-		memcpy(&targetAddr6.sin6_addr, &pTmpIpv6->sin6_addr, sizeof(struct in6_addr));		
-		memcpy(&targetAddr6.sin6_port, &pTmpIpv6->sin6_port, 2);;
-		freeaddrinfo(pTargetHost);
+		target_addr6.sin6_family = AF_INET6;
+		tmp_ipv6 = (struct sockaddr_in6 *)target_host->ai_addr;
+		memcpy(&target_addr6.sin6_addr, &tmp_ipv6->sin6_addr, sizeof(struct in6_addr));
+		memcpy(&target_addr6.sin6_port, &tmp_ipv6->sin6_port, 2);;
+		freeaddrinfo(target_host);
 	}else{
 #ifdef _DEBUG
 		printf("[E] Not implemented.\n");
 #endif
-		freeaddrinfo(pTargetHost);
-		closeSocket(clientSock);
+		freeaddrinfo(target_host);
+		close_socket(client_sock);
 		return -1;
 	}
 
 	if(family == AF_INET){	// IPv4
-		targetSock = socket(AF_INET, SOCK_STREAM, 0);
+		target_sock = socket(AF_INET, SOCK_STREAM, 0);
 
-		flags = fcntl(targetSock, F_GETFL, 0);
+		flags = fcntl(target_sock, F_GETFL, 0);
 		flags &= ~O_NONBLOCK;
-		fcntl(targetSock, F_SETFL, flags);
+		fcntl(target_sock, F_SETFL, flags);
 				
-		if(err = connect(targetSock, (struct sockaddr *)&targetAddr, sizeof(targetAddr)) < 0){
+		if(err = connect(target_sock, (struct sockaddr *)&target_addr, sizeof(target_addr)) < 0){
 #ifdef _DEBUG
 			printf("[E] Connect failed. errno:%d\n", err);
 #endif
-			closeSocket(targetSock);
-			closeSocket(clientSock);
+			close_socket(target_sock);
+			close_socket(client_sock);
 			return -1;
 		}
 	}else if(family == AF_INET6){	// IPv6
-		targetSock = socket(AF_INET6, SOCK_STREAM, 0);
+		target_sock = socket(AF_INET6, SOCK_STREAM, 0);
 		
-		flags = fcntl(targetSock, F_GETFL, 0);
+		flags = fcntl(target_sock, F_GETFL, 0);
 		flags &= ~O_NONBLOCK;
-		fcntl(targetSock, F_SETFL, flags);
+		fcntl(target_sock, F_SETFL, flags);
 				
-		if(err = connect(targetSock, (struct sockaddr *)&targetAddr6, sizeof(targetAddr6)) < 0){
+		if(err = connect(target_sock, (struct sockaddr *)&target_addr6, sizeof(target_addr6)) < 0){
 #ifdef _DEBUG
 			printf("[E] Connect failed. errno:%d\n", err);
 #endif
-			closeSocket(targetSock);
-			closeSocket(clientSock);
+			close_socket(target_sock);
+			close_socket(client_sock);
 			return -1;
 		}
 	}else{
 #ifdef _DEBUG
 		printf("[E] Not implemented.\n");
 #endif
-		closeSocket(clientSock);
+		close_socket(client_sock);
 		return -1;
 	}
 #ifdef _DEBUG
 	printf("[I] Connect target socks5 server.\n");
 #endif
 
-	if(socks5OverTlsFlag == 0){	// Socks5 over AES
-		httpRequestLength = snprintf(httpRequest, BUFFER_SIZE+1, "GET / HTTP/1.1\r\nHost: %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\r\nAccept-Language: en-US,en;q=0.5\r\nAccept-Encoding: gzip, deflate\r\n%s: %s\r\n%s: %s\r\n%s: %s\r\n%s: %ld\r\n%s: %ld\r\n%s: %ld\r\n%s: %ld\r\nConnection: close\r\n\r\n", domainname, HTTP_REQUEST_HEADER_SOCKS5_KEY, HTTP_REQUEST_HEADER_SOCKS5_VALUE, HTTP_REQUEST_HEADER_AESKEY_KEY, aes_key_b64, HTTP_REQUEST_HEADER_AESIV_KEY, aes_iv_b64, HTTP_REQUEST_HEADER_TVSEC_KEY, tv_sec, HTTP_REQUEST_HEADER_TVUSEC_KEY, tv_usec, HTTP_REQUEST_HEADER_FORWARDER_TVSEC_KEY, forwarder_tv_sec, HTTP_REQUEST_HEADER_FORWARDER_TVUSEC_KEY, forwarder_tv_usec);
+	if(socks5_over_tls_flag == 0){	// Socks5 over AES
+		http_request_length = snprintf(http_request, BUFFER_SIZE+1, "GET / HTTP/1.1\r\nHost: %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\r\nAccept-Language: en-US,en;q=0.5\r\nAccept-Encoding: gzip, deflate\r\n%s: %s\r\n%s: %s\r\n%s: %s\r\n%s: %ld\r\n%s: %ld\r\n%s: %ld\r\n%s: %ld\r\nConnection: close\r\n\r\n", domainname, HTTP_REQUEST_HEADER_SOCKS5_KEY, HTTP_REQUEST_HEADER_SOCKS5_VALUE, HTTP_REQUEST_HEADER_AESKEY_KEY, aes_key_b64, HTTP_REQUEST_HEADER_AESIV_KEY, aes_iv_b64, HTTP_REQUEST_HEADER_TVSEC_KEY, tv_sec, HTTP_REQUEST_HEADER_TVUSEC_KEY, tv_usec, HTTP_REQUEST_HEADER_FORWARDER_TVSEC_KEY, forwarder_tv_sec, HTTP_REQUEST_HEADER_FORWARDER_TVUSEC_KEY, forwarder_tv_usec);
 	}else{	// Socks5 over TLS
-		httpRequestLength = snprintf(httpRequest, BUFFER_SIZE+1, "GET / HTTP/1.1\r\nHost: %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\r\nAccept-Language: en-US,en;q=0.5\r\nAccept-Encoding: gzip, deflate\r\n%s: %s\r\n%s: %s\r\n%s: %s\r\n%s: %s\r\n%s: %ld\r\n%s: %ld\r\n%s: %ld\r\n%s: %ld\r\nConnection: close\r\n\r\n", domainname, HTTP_REQUEST_HEADER_SOCKS5_KEY, HTTP_REQUEST_HEADER_SOCKS5_VALUE, HTTP_REQUEST_HEADER_AESKEY_KEY, aes_key_b64, HTTP_REQUEST_HEADER_AESIV_KEY, aes_iv_b64, HTTP_REQUEST_HEADER_TLS_KEY, HTTP_REQUEST_HEADER_TLS_VALUE2, HTTP_REQUEST_HEADER_TVSEC_KEY, tv_sec, HTTP_REQUEST_HEADER_TVUSEC_KEY, tv_usec, HTTP_REQUEST_HEADER_FORWARDER_TVSEC_KEY, forwarder_tv_sec, HTTP_REQUEST_HEADER_FORWARDER_TVUSEC_KEY, forwarder_tv_usec);
+		http_request_length = snprintf(http_request, BUFFER_SIZE+1, "GET / HTTP/1.1\r\nHost: %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\r\nAccept-Language: en-US,en;q=0.5\r\nAccept-Encoding: gzip, deflate\r\n%s: %s\r\n%s: %s\r\n%s: %s\r\n%s: %s\r\n%s: %ld\r\n%s: %ld\r\n%s: %ld\r\n%s: %ld\r\nConnection: close\r\n\r\n", domainname, HTTP_REQUEST_HEADER_SOCKS5_KEY, HTTP_REQUEST_HEADER_SOCKS5_VALUE, HTTP_REQUEST_HEADER_AESKEY_KEY, aes_key_b64, HTTP_REQUEST_HEADER_AESIV_KEY, aes_iv_b64, HTTP_REQUEST_HEADER_TLS_KEY, HTTP_REQUEST_HEADER_TLS_VALUE2, HTTP_REQUEST_HEADER_TVSEC_KEY, tv_sec, HTTP_REQUEST_HEADER_TVUSEC_KEY, tv_usec, HTTP_REQUEST_HEADER_FORWARDER_TVSEC_KEY, forwarder_tv_sec, HTTP_REQUEST_HEADER_FORWARDER_TVUSEC_KEY, forwarder_tv_usec);
 	}
 	
-	if(httpsFlag == 1){	// HTTPS
+	if(https_flag == 1){	// HTTPS
 		// SSL Initialize
 		OPENSSL_init_ssl(OPENSSL_INIT_LOAD_SSL_STRINGS, NULL);
 
 		// SSL TLS connection
-		targetCtxHttp = SSL_CTX_new(TLS_client_method());
-		if(targetCtxHttp == NULL){
+		target_ctx_http = SSL_CTX_new(TLS_client_method());
+		if(target_ctx_http == NULL){
 #ifdef _DEBUG
 			printf("[E] SSL_CTX_new error.\n");
 #endif
-			closeSocket(targetSock);
-			closeSocket(clientSock);
+			close_socket(target_sock);
+			close_socket(client_sock);
 			return -2;
 		}
-		sslParam.targetCtxHttp = targetCtxHttp;
+		ssl_param.target_ctx_http = target_ctx_http;
 
-//		SSL_CTX_set_mode(targetCtxHttp, SSL_MODE_AUTO_RETRY);
+//		SSL_CTX_set_mode(target_ctx_http, SSL_MODE_AUTO_RETRY);
 		
-		if(SSL_CTX_set_min_proto_version(targetCtxHttp, TLS1_2_VERSION) == 0){
+		if(SSL_CTX_set_min_proto_version(target_ctx_http, TLS1_2_VERSION) == 0){
 #ifdef _DEBUG
 			printf("[E] SSL_CTX_set_min_proto_version error.\n");
 #endif
-			finiSsl(&sslParam);
-			closeSocket(targetSock);
-			closeSocket(clientSock);
+			fini_ssl(&ssl_param);
+			close_socket(target_sock);
+			close_socket(client_sock);
 			return -2;
 		}
 		
-		SSL_CTX_set_default_verify_paths(targetCtxHttp);
-		SSL_CTX_load_verify_locations(targetCtxHttp, serverCertificateFilenameHttps, serverCertificateFileDirectoryPathHttps);
-		SSL_CTX_set_verify(targetCtxHttp, SSL_VERIFY_PEER, NULL);
+		SSL_CTX_set_default_verify_paths(target_ctx_http);
+		SSL_CTX_load_verify_locations(target_ctx_http, server_certificate_filename_https, server_certificate_file_directory_path_https);
+		SSL_CTX_set_verify(target_ctx_http, SSL_VERIFY_PEER, NULL);
 		
-		targetSslHttp = SSL_new(targetCtxHttp);
-		if(targetSslHttp == NULL){
+		target_ssl_http = SSL_new(target_ctx_http);
+		if(target_ssl_http == NULL){
 #ifdef _DEBUG
 			printf("[E] SSL_new error.\n");
 #endif
-			finiSsl(&sslParam);
-			closeSocket(targetSock);
-			closeSocket(clientSock);
+			fini_ssl(&ssl_param);
+			close_socket(target_sock);
+			close_socket(client_sock);
 			return -2;
 		}
-		sslParam.targetSslHttp = targetSslHttp;
+		ssl_param.target_ssl_http = target_ssl_http;
 	
-		if(SSL_set_fd(targetSslHttp, targetSock) == 0){
+		if(SSL_set_fd(target_ssl_http, target_sock) == 0){
 #ifdef _DEBUG
 			printf("[E] SSL_set_fd error.\n");
 #endif
-			finiSsl(&sslParam);
-			closeSocket(targetSock);
-			closeSocket(clientSock);
+			fini_ssl(&ssl_param);
+			close_socket(target_sock);
+			close_socket(client_sock);
 			return -2;
 		}
 		
 #ifdef _DEBUG
 		printf("[I] Try HTTPS connection. (SSL_connect)\n");
 #endif
-		ret = sslConnectNonBlock(targetSock, targetSslHttp, tv_sec, tv_usec);
+		ret = ssl_connect_non_blocking(target_sock, target_ssl_http, tv_sec, tv_usec);
 		if(ret == -2){
 #ifdef _DEBUG
 			printf("[E] SSL_connect error.\n");
 #endif
-			finiSsl(&sslParam);
-			closeSocket(targetSock);
-			closeSocket(clientSock);
+			fini_ssl(&ssl_param);
+			close_socket(target_sock);
+			close_socket(client_sock);
 			return -2;
 		}
 #ifdef _DEBUG
@@ -1405,14 +1405,14 @@ int worker(void *ptr)
 #endif
 		
 		// HTTP Request
-		sen = sendDataTls(targetSock, targetSslHttp, httpRequest, httpRequestLength, tv_sec, tv_usec);
+		sen = send_data_tls(target_sock, target_ssl_http, http_request, http_request_length, tv_sec, tv_usec);
 		if(sen <= 0){
 #ifdef _DEBUG
 			printf("[E] Send http request.\n");
 #endif
-			finiSsl(&sslParam);
-			closeSocket(targetSock);
-			closeSocket(clientSock);
+			fini_ssl(&ssl_param);
+			close_socket(target_sock);
+			close_socket(client_sock);
 			return -2;
 		}
 #ifdef _DEBUG
@@ -1420,14 +1420,14 @@ int worker(void *ptr)
 #endif
 	}else{
 		// HTTP Request
-		sen = sendData(targetSock, httpRequest, httpRequestLength, tv_sec, tv_usec);
+		sen = send_data(target_sock, http_request, http_request_length, tv_sec, tv_usec);
 		if(sen <= 0){
 #ifdef _DEBUG
 			printf("[E] Send http request.\n");
 #endif
-			finiSsl(&sslParam);
-			closeSocket(targetSock);
-			closeSocket(clientSock);
+			fini_ssl(&ssl_param);
+			close_socket(target_sock);
+			close_socket(client_sock);
 			return -1;
 		}
 #ifdef _DEBUG
@@ -1441,7 +1441,7 @@ int worker(void *ptr)
 	check = 0;
 	do{
 		count++;
-		rec = recvDataAes(targetSock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec);
+		rec = recv_data_aes(target_sock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec);
 #ifdef _DEBUG
 		printf("[I] count:%d rec:%d\n", count, rec);
 #endif
@@ -1458,79 +1458,79 @@ int worker(void *ptr)
 #ifdef _DEBUG
 		printf("[E] Server Socks5 NG.\n");
 #endif
-		finiSsl(&sslParam);
-		closeSocket(targetSock);
-		closeSocket(clientSock);
+		fini_ssl(&ssl_param);
+		close_socket(target_sock);
+		close_socket(client_sock);
 		return -1;
 	}
 
 	
-	if(socks5OverTlsFlag == 1){	// Socks5 over TLS
+	if(socks5_over_tls_flag == 1){	// Socks5 over TLS
 		// SSL Initialize
 		OPENSSL_init_ssl(OPENSSL_INIT_LOAD_SSL_STRINGS, NULL);
 		
 		// SSL TLS connection
-		targetCtxSocks5 = SSL_CTX_new(TLS_client_method());
-		if(targetCtxSocks5 == NULL){
+		target_ctx_socks5 = SSL_CTX_new(TLS_client_method());
+		if(target_ctx_socks5 == NULL){
 #ifdef _DEBUG
 			printf("[E] SSL_CTX_new error.\n");
 #endif
-			finiSsl(&sslParam);
-			closeSocket(targetSock);
-			closeSocket(clientSock);
+			fini_ssl(&ssl_param);
+			close_socket(target_sock);
+			close_socket(client_sock);
 			return -2;
 		}
-		sslParam.targetCtxSocks5 = targetCtxSocks5;
+		ssl_param.target_ctx_socks5 = target_ctx_socks5;
 
-//		SSL_CTX_set_mode(targetCtxSocks5, SSL_MODE_AUTO_RETRY);
+//		SSL_CTX_set_mode(target_ctx_socks5, SSL_MODE_AUTO_RETRY);
 		
-		if(SSL_CTX_set_min_proto_version(targetCtxSocks5, TLS1_2_VERSION) == 0){
+		if(SSL_CTX_set_min_proto_version(target_ctx_socks5, TLS1_2_VERSION) == 0){
 #ifdef _DEBUG
 			printf("[E] SSL_CTX_set_min_proto_version error.\n");
 #endif
-			finiSsl(&sslParam);
-			closeSocket(targetSock);
-			closeSocket(clientSock);
+			fini_ssl(&ssl_param);
+			close_socket(target_sock);
+			close_socket(client_sock);
 			return -2;
 		}
 
-		SSL_CTX_set_default_verify_paths(targetCtxSocks5);
-		SSL_CTX_load_verify_locations(targetCtxSocks5, serverCertificateFilenameSocks5, serverCertificateFileDirectoryPathSocks5);
-		SSL_CTX_set_verify(targetCtxSocks5, SSL_VERIFY_PEER, NULL);
+		SSL_CTX_set_default_verify_paths(target_ctx_socks5);
+		SSL_CTX_load_verify_locations(target_ctx_socks5, server_certificate_filename_socks5, server_certificate_file_directory_path_socks5);
+		SSL_CTX_set_verify(target_ctx_socks5, SSL_VERIFY_PEER, NULL);
 		
-		targetSslSocks5 = SSL_new(targetCtxSocks5);
-		if(targetSslSocks5 == NULL){
+		target_ssl_socks5 = SSL_new(target_ctx_socks5);
+		if(target_ssl_socks5 == NULL){
 #ifdef _DEBUG
 			printf("[E] SSL_new error.\n");
 #endif
-			finiSsl(&sslParam);
-			closeSocket(targetSock);
-			closeSocket(clientSock);
+			fini_ssl(&ssl_param);
+			close_socket(target_sock);
+			close_socket(client_sock);
 			return -2;
 		}
-		sslParam.targetSslSocks5 = targetSslSocks5;
+		ssl_param.target_ssl_socks5 = target_ssl_socks5;
 
-		if(SSL_set_fd(targetSslSocks5, targetSock) == 0){
+		if(SSL_set_fd(target_ssl_socks5, target_sock) == 0){
 #ifdef _DEBUG
 			printf("[E] SSL_set_fd error.\n");
 #endif
-			finiSsl(&sslParam);
-			closeSocket(targetSock);
-			closeSocket(clientSock);
+			fini_ssl(&ssl_param);
+			close_socket(target_sock);
+			close_socket(client_sock);
 			return -2;
 		}
 		
 #ifdef _DEBUG
 		printf("[I] Try Socks5 over TLS connection. (SSL_connect)\n");
 #endif
-		ret = sslConnectNonBlock(targetSock, targetSslSocks5, tv_sec, tv_usec);
+		ret = ssl_connect_non_blocking(target_sock, target_ssl_socks5, tv_sec, tv_usec);
 		if(ret == -2){
 #ifdef _DEBUG
 			printf("[E] SSL_connect error.\n");
 #endif
-			finiSsl(&sslParam);
-			closeSocket(targetSock);
-			closeSocket(clientSock);
+			fini_ssl(&ssl_param);
+			close_socket(target_sock);
+			close_socket(client_sock);
 			return -2;
 		}
 #ifdef _DEBUG
@@ -1539,14 +1539,14 @@ int worker(void *ptr)
 	}
 
 
-	// socks SELECTION_REQUEST	client -> server
-	if((rec = recvData(clientSock, buffer, BUFFER_SIZE, tv_sec, tv_usec)) <= 0){
+	// socks selection_request	client -> server
+	if((rec = recv_data(client_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec)) <= 0){
 #ifdef _DEBUG
 		printf("[E] Receive selection request. client -> server\n");
 #endif
-		finiSsl(&sslParam);
-		closeSocket(targetSock);
-		closeSocket(clientSock);
+		fini_ssl(&ssl_param);
+		close_socket(target_sock);
+		close_socket(client_sock);
 		return -1;
 	}
 #ifdef _DEBUG
@@ -1554,19 +1554,19 @@ int worker(void *ptr)
 #endif
 
 
-	// socks SELECTION_REQUEST	server -> target
-	if(socks5OverTlsFlag == 0){
-		sen = sendDataAes(targetSock, buffer, rec, aes_key, aes_iv, tv_sec, tv_usec);
+	// socks selection_request	server -> target
+	if(socks5_over_tls_flag == 0){
+		sen = send_data_aes(target_sock, buffer, rec, aes_key, aes_iv, tv_sec, tv_usec);
 	}else{
-		sen = sendDataTls(targetSock, targetSslSocks5, buffer, rec, tv_sec, tv_usec);
+		sen = send_data_tls(target_sock, target_ssl_socks5, buffer, rec, tv_sec, tv_usec);
 	}
 	if(sen <= 0){
 #ifdef _DEBUG
 		printf("[E] Send selection request. server -> target.\n");
 #endif
-		finiSsl(&sslParam);
-		closeSocket(targetSock);
-		closeSocket(clientSock);
+		fini_ssl(&ssl_param);
+		close_socket(target_sock);
+		close_socket(client_sock);
 		return -1;
 	}
 #ifdef _DEBUG
@@ -1574,19 +1574,19 @@ int worker(void *ptr)
 #endif
 
 
-	// socks SELECTION_RESPONSE	server <- target
-	if(socks5OverTlsFlag == 0){
-		rec = recvDataAes(targetSock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec);
+	// socks selection_response	server <- target
+	if(socks5_over_tls_flag == 0){
+		rec = recv_data_aes(target_sock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec);
 	}else{
-		rec = recvDataTls(targetSock, targetSslSocks5, buffer, BUFFER_SIZE, tv_sec, tv_usec);
+		rec = recv_data_tls(target_sock, target_ssl_socks5, buffer, BUFFER_SIZE, tv_sec, tv_usec);
 	}
-	if(rec != sizeof(SELECTION_RESPONSE)){
+	if(rec != sizeof(struct selection_response)){
 #ifdef _DEBUG
 		printf("[E] Receive selection response. server <- target\n");
 #endif
-		finiSsl(&sslParam);
-		closeSocket(targetSock);
-		closeSocket(clientSock);
+		fini_ssl(&ssl_param);
+		close_socket(target_sock);
+		close_socket(client_sock);
 		return -1;
 	}
 #ifdef _DEBUG
@@ -1594,36 +1594,36 @@ int worker(void *ptr)
 #endif
 
 
-	// socks SELECTION_RESPONSE	client <- server
-	sen = sendData(clientSock, buffer, rec, tv_sec, tv_usec);
+	// socks selection_response	client <- server
+	sen = send_data(client_sock, buffer, rec, tv_sec, tv_usec);
 	if(sen <= 0){
 #ifdef _DEBUG
 		printf("[E] Send selection response. client <- server\n");
 #endif
-		finiSsl(&sslParam);
-		closeSocket(targetSock);
-		closeSocket(clientSock);
+		fini_ssl(&ssl_param);
+		close_socket(target_sock);
+		close_socket(client_sock);
 		return -1;
 	}
 #ifdef _DEBUG
 	printf("[I] Send selection response:%d bytes. client <- server\n", sen);
 #endif
-	pSELECTION_RESPONSE pSelectionResponse = (pSELECTION_RESPONSE)&buffer;
-	if((unsigned char)pSelectionResponse->method == 0xFF){
+	struct selection_response *selection_response = (struct selection_response *)&buffer;
+	if((unsigned char)selection_response->method == 0xFF){
 #ifdef _DEBUG
 		printf("[E] Target socks5server Authentication Method error.\n");
 #endif
 	}
 
-	if(pSelectionResponse->method == 0x2){	// USERNAME_PASSWORD_AUTHENTICATION
-		// socks USERNAME_PASSWORD_AUTHENTICATION_REQUEST		client -> server
-		if((rec = recvData(clientSock, buffer, BUFFER_SIZE, tv_sec, tv_usec)) <= 0){
+	if(selection_response->method == 0x2){	// username_password_authentication
+		// socks username_password_authentication_request		client -> server
+		if((rec = recv_data(client_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec)) <= 0){
 #ifdef _DEBUG
 			printf("[E] Receive username password authentication request. client -> server\n");
 #endif
-			finiSsl(&sslParam);
-			closeSocket(targetSock);
-			closeSocket(clientSock);
+			fini_ssl(&ssl_param);
+			close_socket(target_sock);
+			close_socket(client_sock);
 			return -1;
 		}
 #ifdef _DEBUG
@@ -1631,19 +1631,19 @@ int worker(void *ptr)
 #endif
 
 
-		// socks USERNAME_PASSWORD_AUTHENTICATION_REQUEST		server -> target
-		if(socks5OverTlsFlag == 0){
-			sen = sendDataAes(targetSock, buffer, rec, aes_key, aes_iv, tv_sec, tv_usec);
+		// socks username_password_authentication_request		server -> target
+		if(socks5_over_tls_flag == 0){
+			sen = send_data_aes(target_sock, buffer, rec, aes_key, aes_iv, tv_sec, tv_usec);
 		}else{
-			sen = sendDataTls(targetSock, targetSslSocks5, buffer, rec, tv_sec, tv_usec);
+			sen = send_data_tls(target_sock, target_ssl_socks5, buffer, rec, tv_sec, tv_usec);
 		}
 		if(sen <= 0){
 #ifdef _DEBUG
 			printf("[E] Send username password authentication request. server -> target\n");
 #endif
-			finiSsl(&sslParam);
-			closeSocket(targetSock);
-			closeSocket(clientSock);
+			fini_ssl(&ssl_param);
+			close_socket(target_sock);
+			close_socket(client_sock);
 			return -1;
 		}
 #ifdef _DEBUG
@@ -1651,19 +1651,19 @@ int worker(void *ptr)
 #endif
 		
 
-		// socks USERNAME_PASSWORD_AUTHENTICATION_RESPONSE	server <- target
-		if(socks5OverTlsFlag == 0){
-			rec = recvDataAes(targetSock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec);
+		// socks username_password_authentication_response	server <- target
+		if(socks5_over_tls_flag == 0){
+			rec = recv_data_aes(target_sock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec);
 		}else{
-			rec = recvDataTls(targetSock, targetSslSocks5, buffer, BUFFER_SIZE, tv_sec, tv_usec);
+			rec = recv_data_tls(target_sock, target_ssl_socks5, buffer, BUFFER_SIZE, tv_sec, tv_usec);
 		}
 		if(rec <= 0){
 #ifdef _DEBUG
 			printf("[E] Receive username password authentication response. server <- target\n");
 #endif
-			finiSsl(&sslParam);
-			closeSocket(targetSock);
-			closeSocket(clientSock);
+			fini_ssl(&ssl_param);
+			close_socket(target_sock);
+			close_socket(client_sock);
 			return -1;
 		}
 #ifdef _DEBUG
@@ -1671,15 +1671,15 @@ int worker(void *ptr)
 #endif
 
 
-		// socks USERNAME_PASSWORD_AUTHENTICATION_RESPONSE	client <- server
-		sen = sendData(clientSock, buffer, rec, tv_sec, tv_usec);
+		// socks username_password_authentication_response	client <- server
+		sen = send_data(client_sock, buffer, rec, tv_sec, tv_usec);
 		if(sen <= 0){
 #ifdef _DEBUG
 			printf("[E] Send username password authentication response. client <- server\n");
 #endif
-			finiSsl(&sslParam);
-			closeSocket(targetSock);
-			closeSocket(clientSock);
+			fini_ssl(&ssl_param);
+			close_socket(target_sock);
+			close_socket(client_sock);
 			return -1;
 		}
 #ifdef _DEBUG
@@ -1688,14 +1688,14 @@ int worker(void *ptr)
 	}
 
 
-	// socks SOCKS_REQUEST	client -> server
-	if((rec = recvData(clientSock, buffer, BUFFER_SIZE, tv_sec, tv_usec)) <= 0){
+	// socks socks_request	client -> server
+	if((rec = recv_data(client_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec)) <= 0){
 #ifdef _DEBUG
 		printf("[E] Receive socks request. client -> server\n");
 #endif
-		finiSsl(&sslParam);
-		closeSocket(targetSock);
-		closeSocket(clientSock);
+		fini_ssl(&ssl_param);
+		close_socket(target_sock);
+		close_socket(client_sock);
 		return -1;
 	}
 #ifdef _DEBUG
@@ -1703,19 +1703,19 @@ int worker(void *ptr)
 #endif
 
 
-	// socks SOCKS_REQUEST	server -> target
-	if(socks5OverTlsFlag == 0){
-		sen = sendDataAes(targetSock, buffer, rec, aes_key, aes_iv, tv_sec, tv_usec);
+	// socks socks_request	server -> target
+	if(socks5_over_tls_flag == 0){
+		sen = send_data_aes(target_sock, buffer, rec, aes_key, aes_iv, tv_sec, tv_usec);
 	}else{
-		sen = sendDataTls(targetSock, targetSslSocks5, buffer, rec, tv_sec, tv_usec);
+		sen = send_data_tls(target_sock, target_ssl_socks5, buffer, rec, tv_sec, tv_usec);
 	}
 	if(sen <= 0){
 #ifdef _DEBUG
 		printf("[E] Send socks request. server -> target\n");
 #endif
-		finiSsl(&sslParam);
-		closeSocket(targetSock);
-		closeSocket(clientSock);
+		fini_ssl(&ssl_param);
+		close_socket(target_sock);
+		close_socket(client_sock);
 		return -1;
 	}
 #ifdef _DEBUG
@@ -1723,19 +1723,19 @@ int worker(void *ptr)
 #endif
 	
 
-	// socks SOCKS_RESPONSE	server <- target
-	if(socks5OverTlsFlag == 0){
-		rec = recvDataAes(targetSock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec);
+	// socks socks_response	server <- target
+	if(socks5_over_tls_flag == 0){
+		rec = recv_data_aes(target_sock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec);
 	}else{
-		rec = recvDataTls(targetSock, targetSslSocks5, buffer, BUFFER_SIZE, tv_sec, tv_usec);
+		rec = recv_data_tls(target_sock, target_ssl_socks5, buffer, BUFFER_SIZE, tv_sec, tv_usec);
 	}
 	if(rec <= 0){
 #ifdef _DEBUG
 		printf("[E] Receive socks response. server <- target\n");
 #endif
-		finiSsl(&sslParam);
-		closeSocket(targetSock);
-		closeSocket(clientSock);
+		fini_ssl(&ssl_param);
+		close_socket(target_sock);
+		close_socket(client_sock);
 		return -1;
 	}
 #ifdef _DEBUG
@@ -1743,15 +1743,15 @@ int worker(void *ptr)
 #endif
 
 
-	// socks SOCKS_RESPONSE	client <- server
-	sen = sendData(clientSock, buffer, rec, tv_sec, tv_usec);
+	// socks socks_response	client <- server
+	sen = send_data(client_sock, buffer, rec, tv_sec, tv_usec);
 	if(sen <= 0){
 #ifdef _DEBUG
 		printf("[E] Send socks response. client <- server\n");
 #endif
-		finiSsl(&sslParam);
-		closeSocket(targetSock);
-		closeSocket(clientSock);
+		fini_ssl(&ssl_param);
+		close_socket(target_sock);
+		close_socket(client_sock);
 		return -1;
 	}
 #ifdef _DEBUG
@@ -1763,10 +1763,10 @@ int worker(void *ptr)
 #ifdef _DEBUG
 	printf("[I] Forwarder.\n");
 #endif
-	if(socks5OverTlsFlag == 0){
-		err = forwarderAes(clientSock, targetSock, aes_key, aes_iv, forwarder_tv_sec, forwarder_tv_usec);
+	if(socks5_over_tls_flag == 0){
+		err = forwarder_aes(client_sock, target_sock, aes_key, aes_iv, forwarder_tv_sec, forwarder_tv_usec);
 	}else{
-		err = forwarderTls(clientSock, targetSock, targetSslSocks5, forwarder_tv_sec, forwarder_tv_usec);
+		err = forwarder_tls(client_sock, target_sock, target_ssl_socks5, forwarder_tv_sec, forwarder_tv_usec);
 	}
 
 
@@ -1774,9 +1774,9 @@ int worker(void *ptr)
 	printf("[I] Worker exit.\n");
 #endif
 	sleep(5);
-	finiSsl(&sslParam);
-	closeSocket(targetSock);
-	closeSocket(clientSock);
+	fini_ssl(&ssl_param);
+	close_socket(target_sock);
+	close_socket(client_sock);
 
 	return 0;
 }
@@ -1805,27 +1805,27 @@ int main(int argc, char **argv)
 	while((opt=getopt(argc, argv, optstring)) != -1){
 		switch(opt){
 		case 'h':
-			socks5ServerIp = optarg;
+			socks5_server_ip = optarg;
 			break;
 			
 		case 'p':
-			socks5ServerPort = optarg;
+			socks5_server_port = optarg;
 			break;
 		
 		case 'H':
-			socks5TargetIp = optarg;
+			socks5_target_ip = optarg;
 			break;
 			
 		case 'P':
-			socks5TargetPort = optarg;
+			socks5_target_port = optarg;
 			break;
 			
 		case 's':
-			httpsFlag = 1;
+			https_flag = 1;
 			break;
 			
 		case 't':
-			socks5OverTlsFlag = 1;
+			socks5_over_tls_flag = 1;
 			break;
 			
 		case 'A':
@@ -1850,7 +1850,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	if(socks5ServerIp == NULL || socks5ServerPort == NULL || socks5TargetIp == NULL || socks5TargetPort == NULL){
+	if(socks5_server_ip == NULL || socks5_server_port == NULL || socks5_target_ip == NULL || socks5_target_port == NULL){
 		usage(argv[0]);
 		exit(1);
 	}
@@ -1871,7 +1871,7 @@ int main(int argc, char **argv)
 		forwarder_tv_usec = 0;
 	}
 	
-	if(httpsFlag == 0){	// HTTP
+	if(https_flag == 0){	// HTTP
 #ifdef _DEBUG
 		printf("[I] HTTPS:off\n");
 #endif
@@ -1881,7 +1881,7 @@ int main(int argc, char **argv)
 #endif
 	}
 	
-	if(socks5OverTlsFlag == 0){	// Socks5 over AES
+	if(socks5_over_tls_flag == 0){	// Socks5 over AES
 #ifdef _DEBUG
 		printf("[I] Socks5 over AES\n");
 #endif
@@ -1897,19 +1897,19 @@ int main(int argc, char **argv)
 #endif
 	
 	
-	int serverSock, clientSock;
-	struct sockaddr_in serverAddr, clientAddr;
+	int server_sock, client_sock;
+	struct sockaddr_in server_addr, client_addr;
 
-	serverAddr.sin_family = AF_INET;
-	serverAddr.sin_addr.s_addr = inet_addr(socks5ServerIp);
-	serverAddr.sin_port = htons(atoi(socks5ServerPort));
+	server_addr.sin_family = AF_INET;
+	server_addr.sin_addr.s_addr = inet_addr(socks5_server_ip);
+	server_addr.sin_port = htons(atoi(socks5_server_port));
 	
-	serverSock = socket(AF_INET, SOCK_STREAM, 0);
+	server_sock = socket(AF_INET, SOCK_STREAM, 0);
 	int reuse = 1;
-	setsockopt(serverSock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(int));
+	setsockopt(server_sock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(int));
 	
 	// bind
-	if(bind(serverSock, (struct sockaddr *)&serverAddr, sizeof(serverAddr)) == -1) {
+	if(bind(server_sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
 #ifdef _DEBUG
 		printf("[E] bind error.\n");
 #endif
@@ -1917,42 +1917,42 @@ int main(int argc, char **argv)
 	}
 	
 	// listen
-	listen(serverSock, 5);
+	listen(server_sock, 5);
 #ifdef _DEBUG
-	printf("[I] Listenning port %d on %s.\n", ntohs(serverAddr.sin_port), inet_ntoa(serverAddr.sin_addr));
+	printf("[I] Listenning port %d on %s.\n", ntohs(server_addr.sin_port), inet_ntoa(server_addr.sin_addr));
 #endif
 
 	// accept
-	int clientAddrLen = sizeof(clientAddr);
-	while((clientSock = accept(serverSock, (struct sockaddr *)&clientAddr, (socklen_t *)&clientAddrLen))){
+	int client_addr_length = sizeof(client_addr);
+	while((client_sock = accept(server_sock, (struct sockaddr *)&client_addr, (socklen_t *)&client_addr_length))){
 #ifdef _DEBUG
-		printf("[I] Connected from %s.\n", inet_ntoa(clientAddr.sin_addr));
+		printf("[I] Connected from %s.\n", inet_ntoa(client_addr.sin_addr));
 #endif
 
-		int flags = fcntl(clientSock, F_GETFL, 0);
+		int flags = fcntl(client_sock, F_GETFL, 0);
 		flags &= ~O_NONBLOCK;
-		fcntl(clientSock, F_SETFL, flags);
+		fcntl(client_sock, F_SETFL, flags);
 		
 		pthread_t thread;
-		pPARAM pParam = (pPARAM)calloc(1, sizeof(PARAM));
-		pParam->clientSock = clientSock;
-		pParam->tv_sec = tv_sec;
-		pParam->tv_usec = tv_usec;
-		pParam->forwarder_tv_sec = forwarder_tv_sec;
-		pParam->forwarder_tv_usec = forwarder_tv_usec;
+		struct worker_param *worker_param = (struct worker_param *)calloc(1, sizeof(struct worker_param));
+		worker_param->client_sock = client_sock;
+		worker_param->tv_sec = tv_sec;
+		worker_param->tv_usec = tv_usec;
+		worker_param->forwarder_tv_sec = forwarder_tv_sec;
+		worker_param->forwarder_tv_usec = forwarder_tv_usec;
 		
-		if(pthread_create(&thread, NULL, (void *)worker, pParam))
+		if(pthread_create(&thread, NULL, (void *)worker, worker_param))
 		{
 #ifdef _DEBUG
 			printf("[E] pthread_create failed.\n");
 #endif
-			closeSocket(clientSock);
+			close_socket(client_sock);
 		}else{
 			pthread_detach(thread);
 		}
 	}
 
-	closeSocket(serverSock);
+	close_socket(server_sock);
 
 	return 0;
 }

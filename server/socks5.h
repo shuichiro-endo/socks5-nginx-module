@@ -12,35 +12,35 @@
 #ifndef SOCKS5_H
 #define SOCKS5_H
 
-#define DATASIZE 2000
+#define DATA_SIZE 2000
 
 
 /*
    The client connects to the server, and sends a version identifier/method selection message:
 
-                   +-----+-------------+-------------+
-              |VER | NMETHODS | METHODS  |
-                   +----+--------------+-------------+
-              | 1  |    1     | 1 to 255 |
-                   +-----+-------------+-------------+
+   +-----+-------------+-------------+
+   | VER |   NMETHODS  |   METHODS   |
+   +-----+-------------+-------------+
+   |  1  |      1      |   1 to 255  |
+   +-----+-------------+-------------+
 */
-typedef struct
+struct selection_request
 {
 	char ver;
 	char nmethods;
 	char methods[255];
-} SELECTION_REQUEST, *pSELECTION_REQUEST;
+};
 
 
 
 /*
    The server selects from one of the methods given in METHODS, and sends a METHOD selection message:
 
-                         +-----+----------+
-                   |VER | METHOD |
-                         +-----+----------+
-                         | 1   |   1      |
-                         +-----+----------+
+   +-----+----------+
+   | VER |  METHOD  |
+   +-----+----------+
+   | 1   |   1      |
+   +-----+----------+
 
    If the selected METHOD is X'FF', none of the methods listed by the
    client are acceptable, and the client MUST close the connection.
@@ -55,11 +55,11 @@ typedef struct
           o  X'FF' NO ACCEPTABLE METHODS
 
 */
-typedef struct
+struct selection_response
 {
 	char ver;
 	char method;
-} SELECTION_RESPONSE, *pSELECTION_RESPONSE;
+};
 
 
 
@@ -69,11 +69,11 @@ typedef struct
    subnegotiation begins.  This begins with the client producing a
    Username/Password request:
 
-           +-----+--------+-------------+--------+-------------+
-        |VER | ULEN |  UNAME   | PLEN |  PASSWD  |
-           +-----+--------+-------------+--------+-------------+
-        | 1  |  1   | 1 to 255 |  1   | 1 to 255 |
-           +-----+--------+-------------+--------+-------------+
+   +-----+--------+-------------+--------+-------------+
+   | VER |  ULEN  |    UNAME    |  PLEN  |    PASSWD   |
+   +-----+--------+-------------+--------+-------------+
+   |  1  |   1    |   1 to 255  |   1    |   1 to 255  |
+   +-----+--------+-------------+--------+-------------+
 
 
    The VER field contains the current version of the subnegotiation,
@@ -83,45 +83,45 @@ typedef struct
    PASSWD field that follows. The PASSWD field contains the password
    association with the given UNAME.
 */
-typedef struct
+struct username_password_authentication_request
 {
 	char ver;
 	char ulen;
 	char uname[256];
 	char plen;
 	char passwd[256];
-} USERNAME_PASSWORD_AUTHENTICATION_REQUEST, *pUSERNAME_PASSWORD_AUTHENTICATION_REQUEST;
+};
 
 
 /*
    The server verifies the supplied UNAME and PASSWD, and sends the
    following response:
 
-                        +-----+----------+
-                  |VER | STATUS |
-                        +-----+----------+
-                        | 1   |   1      |
-                        +-----+----------+
+   +-----+----------+
+   | VER |  STATUS  |
+   +-----+----------+
+   | 1   |   1      |
+   +-----+----------+
 
    A STATUS field of X'00' indicates success. If the server returns a
    `failure' (STATUS value other than X'00') status, it MUST close the
    connection.
 */
-typedef struct
+struct username_password_authentication_response
 {
 	char ver;
 	char status;
-} USERNAME_PASSWORD_AUTHENTICATION_RESPONSE, *pUSERNAME_PASSWORD_AUTHENTICATION_RESPONSE;
+};
 
 
 /*
    The SOCKS request is formed as follows:
 
-        +-----+-------+---------+--------+-------------+-------------+
-      |VER | CMD |  RSV  | ATYP | DST.ADDR | DST.PORT |
-        +-----+-------+---------+--------+-------------+-------------+
-      | 1  |  1  | X'00' |  1   | Variable |    2     |
-        +-----+-------+---------+--------+-------------+-------------+
+   +-----+-------+---------+--------+-------------+-------------+
+   | VER |  CMD  |   RSV   |  ATYP  |   DST.ADDR  |   DST.PORT  |
+   +-----+-------+---------+--------+-------------+-------------+
+   |  1  |   1   |  X'00'  |   1    |   Variable  |      2      |
+   +-----+-------+---------+--------+-------------+-------------+
 
      Where:
 
@@ -139,46 +139,46 @@ typedef struct
           o  DST.PORT desired destination port in network octet
              order
 */
-typedef struct
+struct socks_request
 {
 	char ver;
 	char cmd;
 	char rsv;
 	char atyp;
-	char dstAddr;
+	char dst_addr;
 	// variable
-} SOCKS_REQUEST, *pSOCKS_REQUEST;
+};
 
-typedef struct
+struct socks_request_ipv4
 {
 	char ver;
 	char cmd;
 	char rsv;
 	char atyp;
-	char dstAddr[4];
-	char dstPort[2];
-} SOCKS_REQUEST_IPV4, *pSOCKS_REQUEST_IPV4;
+	char dst_addr[4];
+	char dst_port[2];
+};
 
-typedef struct
+struct socks_request_domainname
 {
 	char ver;
 	char cmd;
 	char rsv;
 	char atyp;
-	char dstAddrLen;
-	char dstAddr[256];	// the maximum length of FQDN is 255.
-	char dstPort[2];
-} SOCKS_REQUEST_DOMAINNAME, *pSOCKS_REQUEST_DOMAINNAME;
+	char dst_addr_len;
+	char dst_addr[256];	// the maximum length of FQDN is 255.
+	char dst_port[2];
+};
 
-typedef struct
+struct socks_request_ipv6
 {
 	char ver;
 	char cmd;
 	char rsv;
 	char atyp;
-	char dstAddr[16];
-	char dstPort[2];
-} SOCKS_REQUEST_IPV6, *pSOCKS_REQUEST_IPV6;
+	char dst_addr[16];
+	char dst_port[2];
+};
 
 
 
@@ -188,11 +188,11 @@ typedef struct
    authentication negotiations.  The server evaluates the request, and
    returns a reply formed as follows:
 
-        +-----+-------+---------+--------+-------------+-------------+
-      |VER | REP |  RSV  | ATYP | BND.ADDR | BND.PORT |
-        +-----+-------+---------+--------+-------------+-------------+
-      | 1  |  1  | X'00' |  1   | Variable |    2     |
-        +-----+-------+---------+--------+-------------+-------------+
+   +-----+-------+---------+--------+-------------+-------------+
+   | VER |  REP  |   RSV   |  ATYP  |   BND.ADDR  |   BND.PORT  |
+   +-----+-------+---------+--------+-------------+-------------+
+   |  1  |   1   |  X'00'  |   1    |   Variable  |      2      |
+   +-----+-------+---------+--------+-------------+-------------+
 
      Where:
 
@@ -216,45 +216,45 @@ typedef struct
           o  BND.ADDR       server bound address
           o  BND.PORT       server bound port in network octet order
 */
-typedef struct
+struct socks_response
 {
 	char ver;
 	char req;
 	char rsv;
 	char atyp;
-	char bndAddr;
+	char bnd_addr;
 	// variable
-} SOCKS_RESPONSE, *pSOCKS_RESPONSE;
+};
 
-typedef struct
+struct socks_response_ipv4
 {
 	char ver;
 	char req;
 	char rsv;
 	char atyp;
-	char bndAddr[4];
-	char bndPort[2];
-} SOCKS_RESPONSE_IPV4, *pSOCKS_RESPONSE_IPV4;
+	char bnd_addr[4];
+	char bnd_port[2];
+};
 
-typedef struct
+struct socks_response_domainname
 {
 	char ver;
 	char req;
 	char rsv;
 	char atyp;
-	char bndAddr[256];	// the maximum length of FQDN is 255.
-	char bndPort[2];
-} SOCKS_RESPONSE_DOMAINNAME, *pSOCKS_RESPONSE_DOMAINNAME;
+	char bnd_addr[256];	// the maximum length of FQDN is 255.
+	char bnd_port[2];
+};
 
-typedef struct
+struct socks_response_ipv6
 {
 	char ver;
 	char req;
 	char rsv;
 	char atyp;
-	char bndAddr[16];
-	char bndPort[2];
-} SOCKS_RESPONSE_IPV6, *pSOCKS_RESPONSE_IPV6;
+	char bnd_addr[16];
+	char bnd_port[2];
+};
 
 
 /*
@@ -266,11 +266,11 @@ typedef struct
    appropriate encapsulation.  Each UDP datagram carries a UDP request
    header with it:
 
-      +----+--------+--------+-------------+--------------+-------------+
-    |RSV | FRAG | ATYP | DST.ADDR | DST.PORT |   DATA   |
-      +----+--------+--------+-------------+--------------+-------------+
-    | 2  |  1   |  1   | Variable |    2     | Variable |
-      +----+--------+--------+-------------+--------------+-------------+
+   +-----+--------+--------+-------------+--------------+-------------+
+   | RSV |  FRAG  |  ATYP  |   DST.ADDR  |   DST.PORT   |     DATA    |
+   +-----+--------+--------+-------------+--------------+-------------+
+   |  2  |   1    |   1    |   Variable  |      2       |   Variable  |
+   +-----+--------+--------+-------------+--------------+-------------+
 
      The fields in the UDP request header are:
 
@@ -284,44 +284,44 @@ typedef struct
           o  DST.PORT       desired destination port
           o  DATA     user data
 */
-typedef struct
+struct socks_udp_associate_response
 {
 	char rsv[2];
 	char flag;
 	char atyp;
-	char dstAddr;
+	char dst_addr;
 	// variable
-} SOCKS_UDP_ASSOCIATE_RESPONSE, *pSOCKS_UDP_ASSOCIATE_RESPONSE;
+};
 
-typedef struct
+struct socks_udp_associate_response_ipv4
 {
 	char rsv[2];
 	char flag;
 	char atyp;
-	char dstAddr[4];
-	char dstPort[2];
-	char data[DATASIZE];
-} SOCKS_UDP_ASSOCIATE_RESPONSE_IPV4, *pSOCKS_UDP_ASSOCIATE_RESPONSE_IPV4;
+	char dst_addr[4];
+	char dst_port[2];
+	char data[DATA_SIZE];
+};
 
-typedef struct
+struct socks_udp_associate_response_domainname
 {
 	char rsv[2];
 	char flag;
 	char atyp;
-	char dstAddr[256];	// the maximum length of FQDN is 255.
-	char dstPort[2];
-	char data[DATASIZE];
-} SOCKS_UDP_ASSOCIATE_RESPONSE_DOMAINNAME, *pSOCKS_UDP_ASSOCIATE_RESPONSE_DOMAINNAME;
+	char dst_addr[256];	// the maximum length of FQDN is 255.
+	char dst_port[2];
+	char data[DATA_SIZE];
+};
 
-typedef struct
+struct socks_udp_associate_response_ipv6
 {
 	char rsv[2];
 	char flag;
 	char atyp;
 	char dstAddr[16];
 	char dstPort[2];
-	char data[DATASIZE];
-} SOCKS_UDP_ASSOCIATE_RESPONSE_IPV6, *pSOCKS_UDP_ASSOCIATE_RESPONSE_IPV6;
+	char data[DATA_SIZE];
+};
 
 #endif /* SOCKS5_H */
 

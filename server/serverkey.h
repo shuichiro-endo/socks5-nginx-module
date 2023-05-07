@@ -21,13 +21,13 @@ cat server.crt | sed -e 's/^/"/g' -e 's/$/\\n"\\/g' -e 's/"-----END CERTIFICATE-
 */
 
 
-char serverPrivateKey[] = "-----BEGIN EC PRIVATE KEY-----\n"\
+char server_privatekey_socks5[] = "-----BEGIN EC PRIVATE KEY-----\n"\
 "MHcCAQEEIPAB7VXkdlfWvOL1YKr+cxGLhx69g/eqUjncU1D9hkUdoAoGCCqGSM49\n"\
 "AwEHoUQDQgAErAWMtToIcsL5fGF+DKZhMRy9m1WR3ViC7nrLokou9A/TMPr2DMz9\n"\
 "O7kldBsGkxFXSbXcUfjk6wyrgarKndpK0A==\n"\
 "-----END EC PRIVATE KEY-----\n";
 
-char serverCertificate[] = "-----BEGIN CERTIFICATE-----\n"\
+char server_certificate_socks5[] = "-----BEGIN CERTIFICATE-----\n"\
 "MIIBhTCCASsCFB47Pqx2Ko4ZXD5bCsGaaTP1Zjh8MAoGCCqGSM49BAMCMEUxCzAJ\n"\
 "BgNVBAYTAkFVMRMwEQYDVQQIDApTb21lLVN0YXRlMSEwHwYDVQQKDBhJbnRlcm5l\n"\
 "dCBXaWRnaXRzIFB0eSBMdGQwHhcNMjMwMTE1MTIwODA3WhcNMzMwMTEyMTIwODA3\n"\
