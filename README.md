@@ -183,12 +183,12 @@ If there are many connections in CLOSE_WAIT state, you can do the following.
     net.ipv4.tcp_keepalive_intvl = 3
     net.ipv4.tcp_keepalive_probes = 2
     ```
-    2. check the value and server
+    2. check the value
     ```
     sudo sysctl -p
     ```
     3. reboot
-    4. start client
+    4. start client and server
 
 - restart client and server
 
