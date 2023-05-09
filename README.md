@@ -4,6 +4,7 @@ socks5 proxy(nginx module) and client with socks5 over tls
 
 This module hides socks5 proxy in an http server.
 
+This supports CONNECT of the socks5 command only. (BIND and UDP ASSOCIATE are not available.)
 
 ## How it works
 ```mermaid

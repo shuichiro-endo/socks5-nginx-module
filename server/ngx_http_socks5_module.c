@@ -1437,7 +1437,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 	}
 	
 	char cmd = socks_request->cmd;
-	if(cmd != 0x1 && cmd != 0x3){
+	if(cmd != 0x1){	// CONNECT only
 #ifdef _DEBUG
 		printf("[E] Socks request cmd(%d) error.\n", cmd);
 		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Socks request cmd(%d) error.", cmd);
@@ -1716,64 +1716,23 @@ int worker(ngx_http_request_t *r, void *ptr)
 #ifdef _DEBUG
 			printf("[I] SOCKS_RESPONSE cmd:UDP ASSOCIATE.\n");
 			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] SOCKS_RESPONSE cmd:UDP ASSOCIATE.");
-#endif
-			target_sock = socket(AF_INET, SOCK_DGRAM, 0);
-			
-			// blocking
-			flags = fcntl(target_sock, F_GETFL, 0);
-			fcntl(target_sock, F_SETFL, flags & ~O_NONBLOCK);
-		
-			if((err = connect(target_sock, (struct sockaddr *)&target_addr, sizeof(target_addr))) < 0){
-#ifdef _DEBUG
-				printf("[E] Cannot connect. errno:%d\n", err);
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Cannot connect. errno:%d", err);
-#endif
-				
-				if(socks5_over_tls_flag == 0){	// Socks5 over AES
-					sen = send_socks_response_ipv4_aes(r, client_sock, 0x5, 0x5, 0x0, 0x1, aes_key, aes_iv, tv_sec, tv_usec);
-				}else{	// Socks5 over TLS
-					sen = send_socks_response_ipv4_tls(r, client_sock, client_ssl_socks5, 0x5, 0x5, 0x0, 0x1, tv_sec, tv_usec);
-				}
-				if(sen <= 0){
-#ifdef _DEBUG
-					printf("[E] Send socks response.\n");
-					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
-#endif				
-				}else{
-#ifdef _DEBUG
-					printf("[I] Socks Request:%d bytes, Socks Response:%d bytes.\n", rec, sen);
-					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Socks Request:%d bytes, Socks Response:%d bytes.", rec, sen);
-#endif
-				}
-				
-				close_socket(target_sock);
-				return -1;
-			}
-
-#ifdef _DEBUG
-			printf("[I] Connected. ip:%s port:%d\n", inet_ntoa(target_addr.sin_addr), ntohs(target_addr.sin_port));
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Connected. ip:%s port:%d", inet_ntoa(target_addr.sin_addr), ntohs(target_addr.sin_port));
+			printf("[E] Not implemented.\n");
+			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Not implemented.");
 #endif
 			
 			if(socks5_over_tls_flag == 0){	// Socks5 over AES
-				sen = send_socks_response_ipv4_aes(r, client_sock, 0x5, 0x0, 0x0, 0x1, aes_key, aes_iv, tv_sec, tv_usec);
+				sen = send_socks_response_ipv4_aes(r, client_sock, 0x5, 0x7, 0x0, 0x1, aes_key, aes_iv, tv_sec, tv_usec);
 			}else{	// Socks5 over TLS
-				sen = send_socks_response_ipv4_tls(r, client_sock, client_ssl_socks5, 0x5, 0x0, 0x0, 0x1, tv_sec, tv_usec);
+				sen = send_socks_response_ipv4_tls(r, client_sock, client_ssl_socks5, 0x5, 0x7, 0x0, 0x1, tv_sec, tv_usec);
 			}
 			if(sen <= 0){
 #ifdef _DEBUG
 				printf("[E] Send socks response.\n");
 				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
-				
-				close_socket(target_sock);
-				return -1;
-			}else{
-#ifdef _DEBUG
-				printf("[I] Socks Request:%d bytes, Socks Response:%d bytes.\n", rec, sen);
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Socks Request:%d bytes, Socks Response:%d bytes.", rec, sen);
-#endif
 			}
+			
+			return -1;
 			
 		}else{
 #ifdef _DEBUG
@@ -1886,69 +1845,29 @@ int worker(ngx_http_request_t *r, void *ptr)
 				}
 				
 				return -1;
+				
 			}else if(cmd == 0x3){	// UDP ASSOCIATE
 #ifdef _DEBUG
 				printf("[I] SOCKS_RESPONSE cmd:UDP ASSOCIATE.\n");
 				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] SOCKS_RESPONSE cmd:UDP ASSOCIATE.");
-#endif
-				target_sock = socket(AF_INET, SOCK_DGRAM, 0);
-				
-				// blocking
-				flags = fcntl(target_sock, F_GETFL, 0);
-				fcntl(target_sock, F_SETFL, flags & ~O_NONBLOCK);
-			
-				if((err = connect(target_sock, (struct sockaddr *)&target_addr, sizeof(target_addr))) < 0){
-#ifdef _DEBUG
-					printf("[E] Cannot connect. errno:%d\n", err);
-					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Cannot connect. errno:%d", err);
-#endif
-					
-					if(socks5_over_tls_flag == 0){	// Socks5 over AES
-						sen = send_socks_response_ipv4_aes(r, client_sock, 0x5, 0x5, 0x0, 0x1, aes_key, aes_iv, tv_sec, tv_usec);
-					}else{	// Socks5 over TLS
-						sen = send_socks_response_ipv4_tls(r, client_sock, client_ssl_socks5, 0x5, 0x5, 0x0, 0x1, tv_sec, tv_usec);
-					}
-					if(sen <= 0){
-#ifdef _DEBUG
-						printf("[E] Send socks response.\n");
-						ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
-#endif
-					}else{
-#ifdef _DEBUG
-						printf("[I] Socks Request:%d bytes, Socks Response:%d bytes.\n", rec, sen);
-						ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Socks Request:%d bytes, Socks Response:%d bytes.", rec, sen);
-#endif
-					}
-					
-					close_socket(target_sock);
-					return -1;
-				}
-
-#ifdef _DEBUG
-				printf("[I] Connected. ip:%s port:%d\n", inet_ntoa(target_addr.sin_addr), ntohs(target_addr.sin_port));
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Connected. ip:%s port:%d", inet_ntoa(target_addr.sin_addr), ntohs(target_addr.sin_port));
+				printf("[E] Not implemented.\n");
+				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Not implemented.");
 #endif
 				
 				if(socks5_over_tls_flag == 0){	// Socks5 over AES
-					sen = send_socks_response_ipv4_aes(r, client_sock, 0x5, 0x0, 0x0, 0x1, aes_key, aes_iv, tv_sec, tv_usec);
+					sen = send_socks_response_ipv4_aes(r, client_sock, 0x5, 0x7, 0x0, 0x1, aes_key, aes_iv, tv_sec, tv_usec);
 				}else{	// Socks5 over TLS
-					sen = send_socks_response_ipv4_tls(r, client_sock, client_ssl_socks5, 0x5, 0x0, 0x0, 0x1, tv_sec, tv_usec);
+					sen = send_socks_response_ipv4_tls(r, client_sock, client_ssl_socks5, 0x5, 0x7, 0x0, 0x1, tv_sec, tv_usec);
 				}
 				if(sen <= 0){
 #ifdef _DEBUG
 					printf("[E] Send socks response.\n");
 					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
-					
-					close_socket(target_sock);
-					return -1;
-				}else{
-#ifdef _DEBUG
-					printf("[I] Socks Request:%d bytes, Socks Response:%d bytes.\n", rec, sen);
-					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Socks Request:%d bytes, Socks Response:%d bytes.", rec, sen);
-#endif
 				}
-			
+				
+				return -1;
+				
 			}else{
 #ifdef _DEBUG
 				printf("[E] Not implemented.\n");
@@ -1968,6 +1887,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 				}
 				
 				return -1;
+				
 			}
 		}else if(family == AF_INET6){	// IPv6
 			inet_ntop(AF_INET6, &target_addr6.sin6_addr, target_addr6_string_pointer, INET6_ADDRSTRLEN);
@@ -2060,68 +1980,28 @@ int worker(ngx_http_request_t *r, void *ptr)
 				}
 				
 				return -1;
+				
 			}else if(cmd == 0x3){	// UDP ASSOCIATE
 #ifdef _DEBUG
 				printf("[I] SOCKS_RESPONSE cmd:UDP ASSOCIATE.\n");
 				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] SOCKS_RESPONSE cmd:UDP ASSOCIATE.");
-#endif
-				target_sock = socket(AF_INET6, SOCK_DGRAM, 0);
-				
-				// blocking
-				flags = fcntl(target_sock, F_GETFL, 0);
-				fcntl(target_sock, F_SETFL, flags & ~O_NONBLOCK);
-				
-				if((err = connect(target_sock, (struct sockaddr *)&target_addr6, sizeof(target_addr6))) < 0){
-#ifdef _DEBUG
-					printf("[E] Cannot connect. errno:%d\n", err);
-					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Cannot connect. errno:%d", err);
-#endif
-					
-					if(socks5_over_tls_flag == 0){	// Socks5 over AES
-						sen = send_socks_response_ipv6_aes(r, client_sock, 0x5, 0x5, 0x0, 0x4, aes_key, aes_iv, tv_sec, tv_usec);
-					}else{	// Socks5 over TLS
-						sen = send_socks_response_ipv6_tls(r, client_sock, client_ssl_socks5, 0x5, 0x5, 0x0, 0x4, tv_sec, tv_usec);
-					}
-					if(sen <= 0){
-#ifdef _DEBUG
-						printf("[E] Send socks response.\n");
-						ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
-#endif
-					}else{
-#ifdef _DEBUG
-						printf("[I] Socks Request:%d bytes, Socks Response:%d bytes.\n", rec, sen);
-						ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Socks Request:%d bytes, Socks Response:%d bytes.", rec, sen);
-#endif
-					}
-					
-					close_socket(target_sock);
-					return -1;
-				}
-
-#ifdef _DEBUG
-				printf("[I] Connected. ip:%s port:%d\n", target_addr6_string_pointer, ntohs(target_addr6.sin6_port));
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Connected. ip:%s port:%d", target_addr6_string_pointer, ntohs(target_addr6.sin6_port));
+				printf("[E] Not implemented.\n");
+				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Not implemented.");
 #endif
 				
 				if(socks5_over_tls_flag == 0){	// Socks5 over AES
-					sen = send_socks_response_ipv6_aes(r, client_sock, 0x5, 0x0, 0x0, 0x4, aes_key, aes_iv, tv_sec, tv_usec);
+					sen = send_socks_response_ipv6_aes(r, client_sock, 0x5, 0x7, 0x0, 0x4, aes_key, aes_iv, tv_sec, tv_usec);
 				}else{	// Socks5 over TLS
-					sen = send_socks_response_ipv6_tls(r, client_sock, client_ssl_socks5, 0x5, 0x0, 0x0, 0x4, tv_sec, tv_usec);
+					sen = send_socks_response_ipv6_tls(r, client_sock, client_ssl_socks5, 0x5, 0x7, 0x0, 0x4, tv_sec, tv_usec);
 				}
 				if(sen <= 0){
 #ifdef _DEBUG
 					printf("[E] Send socks response.\n");
 					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
-					
-					close_socket(target_sock);
-					return -1;
-				}else{
-#ifdef _DEBUG
-					printf("[I] Socks Request:%d bytes, Socks Response:%d bytes.\n", rec, sen);
-					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Socks Request:%d bytes, Socks Response:%d bytes.", rec, sen);
-#endif
 				}
+				
+				return -1;
 				
 			}else{
 #ifdef _DEBUG
@@ -2142,6 +2022,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 				}
 				
 				return -1;
+				
 			}		
 		}else{
 #ifdef _DEBUG
@@ -2162,6 +2043,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 			}
 			
 			return -1;
+			
 		}
 	}else if(atyp == 0x4){	// IPv6
 		inet_ntop(AF_INET6, &target_addr6.sin6_addr, target_addr6_string_pointer, INET6_ADDRSTRLEN);
@@ -2254,68 +2136,28 @@ int worker(ngx_http_request_t *r, void *ptr)
 			}
 			
 			return -1;
+			
 		}else if(cmd == 0x3){	// UDP ASSOCIATE
 #ifdef _DEBUG
 			printf("[I] SOCKS_RESPONSE cmd:UDP ASSOCIATE.\n");
 			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] SOCKS_RESPONSE cmd:UDP ASSOCIATE.");
-#endif
-			target_sock = socket(AF_INET6, SOCK_DGRAM, 0);
-
-			// blocking
-			flags = fcntl(target_sock, F_GETFL, 0);
-			fcntl(target_sock, F_SETFL, flags & ~O_NONBLOCK);
-		
-			if(connect(target_sock, (struct sockaddr *)&target_addr6, sizeof(target_addr6)) < 0){
-#ifdef _DEBUG
-				printf("[E] Cannot connect. errno:%d\n", err);
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Cannot connect. errno:%d", err);
-#endif
-				
-				if(socks5_over_tls_flag == 0){	// Socks5 over AES
-					sen = send_socks_response_ipv6_aes(r, client_sock, 0x5, 0x5, 0x0, 0x4, aes_key, aes_iv, tv_sec, tv_usec);
-				}else{	// Socks5 over TLS
-					sen = send_socks_response_ipv6_tls(r, client_sock, client_ssl_socks5, 0x5, 0x5, 0x0, 0x4, tv_sec, tv_usec);
-				}
-				if(sen <= 0){
-#ifdef _DEBUG
-					printf("[E] Send socks response.\n");
-					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
-#endif
-				}else{
-#ifdef _DEBUG
-					printf("[I] Socks Request:%d bytes, Socks Response:%d bytes.\n", rec, sen);
-					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Socks Request:%d bytes, Socks Response:%d bytes.", rec, sen);
-#endif
-				}
-				
-				close_socket(target_sock);
-				return -1;
-			}
-
-#ifdef _DEBUG
-			printf("[I] Connected. ip:%s port:%d\n", target_addr6_string_pointer, ntohs(target_addr6.sin6_port));
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Connected. ip:%s port:%d", target_addr6_string_pointer, ntohs(target_addr6.sin6_port));
+			printf("[E] Not implemented.\n");
+			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Not implemented.");
 #endif
 			
 			if(socks5_over_tls_flag == 0){	// Socks5 over AES
-				sen = send_socks_response_ipv6_aes(r, client_sock, 0x5, 0x0, 0x0, 0x4, aes_key, aes_iv, tv_sec, tv_usec);
+				sen = send_socks_response_ipv6_aes(r, client_sock, 0x5, 0x7, 0x0, 0x4, aes_key, aes_iv, tv_sec, tv_usec);
 			}else{	// Socks5 over TLS
-				sen = send_socks_response_ipv6_tls(r, client_sock, client_ssl_socks5, 0x5, 0x0, 0x0, 0x4, tv_sec, tv_usec);
+				sen = send_socks_response_ipv6_tls(r, client_sock, client_ssl_socks5, 0x5, 0x7, 0x0, 0x4, tv_sec, tv_usec);
 			}
 			if(sen <= 0){
 #ifdef _DEBUG
 				printf("[E] Send socks response.\n");
 				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
 #endif
-				
-				close_socket(target_sock);
-				return -1;
-			}else{
-#ifdef _DEBUG
-				printf("[I] Socks Request:%d bytes, Socks Response:%d bytes.\n", rec, sen);
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Socks Request:%d bytes, Socks Response:%d bytes.", rec, sen);
-#endif
 			}
+			
+			return -1;
 			
 		}else{
 #ifdef _DEBUG
