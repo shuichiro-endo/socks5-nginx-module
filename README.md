@@ -42,12 +42,12 @@ sequenceDiagram
         C-->>-B: socks5 socks response (Socks5 over AES or Socks5 over TLS)
         B-->>-A: socks5 socks response (Socks5)
         loop until communication ends
-            A->>+B: request (Socks5)
-            B->>+C: request (Socks5 over AES or Socks5 over TLS)
+            A->>+B: request
+            B->>+C: request (encrypt with AES or TLS)
             C->>+D: request
             D-->>-C: response
-            C-->>-B: response (Socks5 over AES or Socks5 over TLS)
-            B-->>-A: response (Socks5)
+            C-->>-B: response (encrypt with AES or TLS)
+            B-->>-A: response
         end
         C-->>-B: HTTP GET Response (HTTP or HTTPS)
     end
