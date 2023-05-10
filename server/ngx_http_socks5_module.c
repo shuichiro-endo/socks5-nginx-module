@@ -11,6 +11,7 @@
 #include <fcntl.h>
 #include <netdb.h>
 #include <time.h>
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/time.h>
