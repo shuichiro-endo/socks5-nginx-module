@@ -953,7 +953,7 @@ int forwarder_tls(int client_sock, int target_sock, SSL *target_ssl, long tv_sec
 						usleep(5000);
 					}else{
 #ifdef _DEBUG
-						printf("[E] SSL_read error:%d:%s.\n", err, ERR_error_string(ERR_peek_last_error(), NULL));
+						printf("[E] SSL_write error:%d:%s.\n", err, ERR_error_string(ERR_peek_last_error(), NULL));
 #endif
 						return -2;
 					}
@@ -994,7 +994,7 @@ int forwarder_tls(int client_sock, int target_sock, SSL *target_ssl, long tv_sec
 				usleep(5000);
 			}else{
 #ifdef _DEBUG
-				printf("[E] SSL_write error:%d:%s.\n", err, ERR_error_string(ERR_peek_last_error(), NULL));
+				printf("[E] SSL_read error:%d:%s.\n", err, ERR_error_string(ERR_peek_last_error(), NULL));
 #endif
 				return -2;
 			}
