@@ -101,7 +101,7 @@ int encrypt_aes(ngx_http_request_t *r, unsigned char *plaintext, int plaintext_l
 	if(ctx == NULL){
 #ifdef _DEBUG
 //		printf("[E] EVP_CIPHER_CTX_new error.\n");
-//		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] EVP_CIPHER_CTX_new error.");
+//		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] EVP_CIPHER_CTX_new error.");
 #endif
 		return -1;
 	}
@@ -110,7 +110,7 @@ int encrypt_aes(ngx_http_request_t *r, unsigned char *plaintext, int plaintext_l
 	if(ret != 1){
 #ifdef _DEBUG
 //		printf("[E] EVP_EncryptInit_ex error.\n");
-//		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] EVP_EncryptInit_ex error.");
+//		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] EVP_EncryptInit_ex error.");
 #endif
 		return -1;
 	}
@@ -119,7 +119,7 @@ int encrypt_aes(ngx_http_request_t *r, unsigned char *plaintext, int plaintext_l
 	if(ret != 1){
 #ifdef _DEBUG
 //		printf("[E] EVP_EncryptUpdate error.\n");
-//		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] EVP_EncryptUpdate error.");
+//		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] EVP_EncryptUpdate error.");
 #endif
 		return -1;
 	}
@@ -129,7 +129,7 @@ int encrypt_aes(ngx_http_request_t *r, unsigned char *plaintext, int plaintext_l
 	if(ret != 1){
 #ifdef _DEBUG
 //		printf("[E] EVP_EncryptFinal_ex error.\n");
-//		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] EVP_EncryptFinal_ex error.");
+//		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] EVP_EncryptFinal_ex error.");
 #endif
 		return -1;
 	}
@@ -152,7 +152,7 @@ int decrypt_aes(ngx_http_request_t *r, unsigned char *ciphertext, int ciphertext
 	if(ctx == NULL){
 #ifdef _DEBUG
 //		printf("[E] EVP_CIPHER_CTX_new error.\n");
-//		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] EVP_CIPHER_CTX_new error.");
+//		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] EVP_CIPHER_CTX_new error.");
 #endif
 		return -1;
 	}
@@ -161,7 +161,7 @@ int decrypt_aes(ngx_http_request_t *r, unsigned char *ciphertext, int ciphertext
 	if(ret != 1){
 #ifdef _DEBUG
 //		printf("[E] EVP_DecryptInit_ex error.\n");
-//		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] EVP_DecryptInit_ex error.");
+//		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] EVP_DecryptInit_ex error.");
 #endif
 		return -1;
 	}
@@ -170,7 +170,7 @@ int decrypt_aes(ngx_http_request_t *r, unsigned char *ciphertext, int ciphertext
 	if(ret != 1){
 #ifdef _DEBUG
 //		printf("[E] EVP_DecryptUpdate error.\n");
-//		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] EVP_DecryptUpdate error.");
+//		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] EVP_DecryptUpdate error.");
 #endif
 		return -1;
 	}
@@ -180,7 +180,7 @@ int decrypt_aes(ngx_http_request_t *r, unsigned char *ciphertext, int ciphertext
 	if(ret != 1){
 #ifdef _DEBUG
 //		printf("[E] EVP_DecryptFinal_ex error.\n");
-//		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] EVP_DecryptFinal_ex error.");
+//		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] EVP_DecryptFinal_ex error.");
 #endif
 		return -1;
 	}
@@ -206,7 +206,7 @@ int recv_data(ngx_http_request_t *r, int sock, void *buffer, int length, long tv
 	if(gettimeofday(&start, NULL) == -1){
 #ifdef _DEBUG
 		printf("[E] gettimeofday error.\n");
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] gettimeofday error.");
+		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] gettimeofday error.");
 #endif
 		return -1;
 	}
@@ -215,7 +215,7 @@ int recv_data(ngx_http_request_t *r, int sock, void *buffer, int length, long tv
 		if(gettimeofday(&end, NULL) == -1){
 #ifdef _DEBUG
 			printf("[E] gettimeofday error.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] gettimeofday error.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] gettimeofday error.");
 #endif
 			return -1;
 		}
@@ -224,7 +224,7 @@ int recv_data(ngx_http_request_t *r, int sock, void *buffer, int length, long tv
 		if(t >= (tv_sec * 1000000 + tv_usec)){
 #ifdef _DEBUG
 			printf("[I] recv_data_aes timeout.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] recv_data_aes timeout.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] recv_data_aes timeout.");
 #endif
 			return -1;
 		}
@@ -238,7 +238,7 @@ int recv_data(ngx_http_request_t *r, int sock, void *buffer, int length, long tv
 		if(select(nfds, &readfds, NULL, NULL, &tv) == 0){
 #ifdef _DEBUG
 			printf("[I] recv_data select timeout.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] recv_data select timeout.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] recv_data select timeout.");
 #endif
 			return -1;
 		}
@@ -283,7 +283,7 @@ int recv_data_aes(ngx_http_request_t *r, int sock, void *buffer, int length, uns
 	if(gettimeofday(&start, NULL) == -1){
 #ifdef _DEBUG
 		printf("[E] gettimeofday error.\n");
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] gettimeofday error.");
+		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] gettimeofday error.");
 #endif
 		free(tmp);
 		free(buffer2);
@@ -294,7 +294,7 @@ int recv_data_aes(ngx_http_request_t *r, int sock, void *buffer, int length, uns
 		if(gettimeofday(&end, NULL) == -1){
 #ifdef _DEBUG
 			printf("[E] gettimeofday error.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] gettimeofday error.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] gettimeofday error.");
 #endif
 			free(tmp);
 			free(buffer2);
@@ -305,7 +305,7 @@ int recv_data_aes(ngx_http_request_t *r, int sock, void *buffer, int length, uns
 		if(t >= (tv_sec * 1000000 + tv_usec)){
 #ifdef _DEBUG
 			printf("[I] recv_data_aes timeout.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] recv_data_aes timeout.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] recv_data_aes timeout.");
 #endif
 			free(tmp);
 			free(buffer2);
@@ -321,7 +321,7 @@ int recv_data_aes(ngx_http_request_t *r, int sock, void *buffer, int length, uns
 		if(select(nfds, &readfds, NULL, NULL, &tv) == 0){
 #ifdef _DEBUG
 			printf("[I] recv_data_aes select timeout.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] recv_data_aes select timeout.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] recv_data_aes select timeout.");
 #endif
 			free(tmp);
 			free(buffer2);
@@ -394,7 +394,7 @@ int recv_data_tls(ngx_http_request_t *r, int sock, SSL *ssl ,void *buffer, int l
 	if(gettimeofday(&start, NULL) == -1){
 #ifdef _DEBUG
 		printf("[E] gettimeofday error.\n");
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] gettimeofday error.");
+		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] gettimeofday error.");
 #endif
 		return -2;
 	}
@@ -403,7 +403,7 @@ int recv_data_tls(ngx_http_request_t *r, int sock, SSL *ssl ,void *buffer, int l
 		if(gettimeofday(&end, NULL) == -1){
 #ifdef _DEBUG
 			printf("[E] gettimeofday error.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] gettimeofday error.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] gettimeofday error.");
 #endif
 			return -2;
 		}
@@ -412,7 +412,7 @@ int recv_data_tls(ngx_http_request_t *r, int sock, SSL *ssl ,void *buffer, int l
 		if(t >= (tv_sec * 1000000 + tv_usec)){
 #ifdef _DEBUG
 			printf("[I] recv_data_tls timeout.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] recv_data_tls timeout.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] recv_data_tls timeout.");
 #endif
 			return -2;
 		}
@@ -426,7 +426,7 @@ int recv_data_tls(ngx_http_request_t *r, int sock, SSL *ssl ,void *buffer, int l
 		if(select(nfds, &readfds, NULL, NULL, &tv) == 0){
 #ifdef _DEBUG
 			printf("[I] recv_data_tls select timeout.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] recv_data_tls select timeout.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] recv_data_tls select timeout.");
 #endif
 			return -2;
 		}
@@ -446,7 +446,7 @@ int recv_data_tls(ngx_http_request_t *r, int sock, SSL *ssl ,void *buffer, int l
 			}else{
 #ifdef _DEBUG
 				printf("[E] SSL_read error:%d:%s.\n", err, ERR_error_string(ERR_peek_last_error(), NULL));
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] SSL_read error:%d:%s.", err, ERR_error_string(ERR_peek_last_error(), NULL));
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] SSL_read error:%d:%s.", err, ERR_error_string(ERR_peek_last_error(), NULL));
 #endif
 				return -2;
 			}
@@ -472,7 +472,7 @@ int send_data(ngx_http_request_t *r, int sock, void *buffer, int length, long tv
 	if(gettimeofday(&start, NULL) == -1){
 #ifdef _DEBUG
 		printf("[E] gettimeofday error.\n");
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] gettimeofday error.");
+		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] gettimeofday error.");
 #endif
 		return -1;
 	}
@@ -481,7 +481,7 @@ int send_data(ngx_http_request_t *r, int sock, void *buffer, int length, long tv
 		if(gettimeofday(&end, NULL) == -1){
 #ifdef _DEBUG
 			printf("[E] gettimeofday error.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] gettimeofday error.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] gettimeofday error.");
 #endif
 			return -1;
 		}
@@ -490,7 +490,7 @@ int send_data(ngx_http_request_t *r, int sock, void *buffer, int length, long tv
 		if(t >= (tv_sec * 1000000 + tv_usec)){
 #ifdef _DEBUG
 			printf("[I] send_data timeout.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] send_data timeout.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] send_data timeout.");
 #endif
 			return -1;
 		}
@@ -504,7 +504,7 @@ int send_data(ngx_http_request_t *r, int sock, void *buffer, int length, long tv
 		if(select(nfds, NULL, &writefds, NULL, &tv) == 0){
 #ifdef _DEBUG
 			printf("[I] send_data select timeout.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] send_data select timeout.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] send_data select timeout.");
 #endif
 			return -1;
 		}
@@ -572,7 +572,7 @@ int send_data_aes(ngx_http_request_t *r, int sock, void *buffer, int length, uns
 	if(gettimeofday(&start, NULL) == -1){
 #ifdef _DEBUG
 		printf("[E] gettimeofday error.\n");
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] gettimeofday error.");
+		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] gettimeofday error.");
 #endif
 		free(tmp);
 		free(data);
@@ -583,7 +583,7 @@ int send_data_aes(ngx_http_request_t *r, int sock, void *buffer, int length, uns
 		if(gettimeofday(&end, NULL) == -1){
 #ifdef _DEBUG
 			printf("[E] gettimeofday error.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] gettimeofday error.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] gettimeofday error.");
 #endif
 			free(tmp);
 			free(data);
@@ -594,7 +594,7 @@ int send_data_aes(ngx_http_request_t *r, int sock, void *buffer, int length, uns
 		if(t >= (tv_sec * 1000000 + tv_usec)){
 #ifdef _DEBUG
 			printf("[I] send_data_aes timeout.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] send_data_aes timeout.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] send_data_aes timeout.");
 #endif
 			free(tmp);
 			free(data);
@@ -610,7 +610,7 @@ int send_data_aes(ngx_http_request_t *r, int sock, void *buffer, int length, uns
 		if(select(nfds, NULL, &writefds, NULL, &tv) == 0){
 #ifdef _DEBUG
 			printf("[I] send_data_aes select timeout.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] send_data_aes select timeout.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] send_data_aes select timeout.");
 #endif
 			free(tmp);
 			free(data);
@@ -656,7 +656,7 @@ int send_data_tls(ngx_http_request_t *r, int sock, SSL *ssl, void *buffer, int l
 	if(gettimeofday(&start, NULL) == -1){
 #ifdef _DEBUG
 		printf("[E] gettimeofday error.\n");
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] gettimeofday error.");
+		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] gettimeofday error.");
 #endif
 		return -2;
 	}
@@ -665,7 +665,7 @@ int send_data_tls(ngx_http_request_t *r, int sock, SSL *ssl, void *buffer, int l
 		if(gettimeofday(&end, NULL) == -1){
 #ifdef _DEBUG
 			printf("[E] gettimeofday error.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] gettimeofday error.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] gettimeofday error.");
 #endif
 			return -2;
 		}
@@ -674,7 +674,7 @@ int send_data_tls(ngx_http_request_t *r, int sock, SSL *ssl, void *buffer, int l
 		if(t >= (tv_sec * 1000000 + tv_usec)){
 #ifdef _DEBUG
 			printf("[I] send_data_tls timeout.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] send_data_tls timeout.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] send_data_tls timeout.");
 #endif
 			return -2;
 		}
@@ -688,7 +688,7 @@ int send_data_tls(ngx_http_request_t *r, int sock, SSL *ssl, void *buffer, int l
 		if(select(nfds, NULL, &writefds, NULL, &tv) == 0){
 #ifdef _DEBUG
 			printf("[I] send_data_tls select timeout.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] send_data_tls select timeout.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] send_data_tls select timeout.");
 #endif
 			return -2;
 		}
@@ -706,7 +706,7 @@ int send_data_tls(ngx_http_request_t *r, int sock, SSL *ssl, void *buffer, int l
 			}else{
 #ifdef _DEBUG
 				printf("[E] SSL_write error:%d:%s.\n", err, ERR_error_string(ERR_peek_last_error(), NULL));
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] SSL_write error:%d:%s.", err, ERR_error_string(ERR_peek_last_error(), NULL));
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] SSL_write error:%d:%s.", err, ERR_error_string(ERR_peek_last_error(), NULL));
 #endif
 				return -2;
 			}
@@ -739,7 +739,7 @@ int forwarder(ngx_http_request_t *r, int client_sock, int target_sock, long tv_s
 		if(select(nfds, &readfds, NULL, NULL, &tv) == 0){
 #ifdef _DEBUG
 			printf("[I] forwarder select timeout.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] forwarder select timeout.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] forwarder select timeout.");
 #endif
 			break;
 		}
@@ -825,7 +825,7 @@ int forwarder_aes(ngx_http_request_t *r, int client_sock, int target_sock, unsig
 		if(select(nfds, &readfds, NULL, NULL, &tv) == 0){
 #ifdef _DEBUG
 			printf("[I] forwarder_aes select timeout.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] forwarder_aes select timeout.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] forwarder_aes select timeout.");
 #endif
 			break;
 		}
@@ -998,7 +998,7 @@ int forwarder_tls(ngx_http_request_t *r, int client_sock, int target_sock, SSL *
 		if(select(nfds, &readfds, NULL, NULL, &tv) == 0){
 #ifdef _DEBUG
 			printf("[I] forwarder_tls select timeout.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] forwarder_tls select timeout.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] forwarder_tls select timeout.");
 #endif
 			break;
 		}
@@ -1035,7 +1035,7 @@ int forwarder_tls(ngx_http_request_t *r, int client_sock, int target_sock, SSL *
 			}else{
 #ifdef _DEBUG
 				printf("[E] SSL_read error:%d:%s.\n", err, ERR_error_string(ERR_peek_last_error(), NULL));
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] SSL_read error:%d:%s.", err, ERR_error_string(ERR_peek_last_error(), NULL));
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] SSL_read error:%d:%s.", err, ERR_error_string(ERR_peek_last_error(), NULL));
 #endif
 				return -2;
 			}
@@ -1056,7 +1056,7 @@ int forwarder_tls(ngx_http_request_t *r, int client_sock, int target_sock, SSL *
 					}else{
 #ifdef _DEBUG
 						printf("[E] SSL_write error:%d:%s.\n", err, ERR_error_string(ERR_peek_last_error(), NULL));
-						ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] SSL_write error:%d:%s.", err, ERR_error_string(ERR_peek_last_error(), NULL));
+						ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] SSL_write error:%d:%s.", err, ERR_error_string(ERR_peek_last_error(), NULL));
 #endif
 						return -2;
 					}
@@ -1214,7 +1214,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 	// socks selection_request
 #ifdef _DEBUG
 	printf("[I] Receive selection request.\n");
-	ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Receive selection request.");
+	ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Receive selection request.");
 #endif
 	if(socks5_over_tls_flag == 0){	// Socks5 over AES
 		rec = recv_data_aes(r, client_sock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec);
@@ -1224,13 +1224,13 @@ int worker(ngx_http_request_t *r, void *ptr)
 	if(rec <= 0){
 #ifdef _DEBUG
 		printf("[E] Receive selection request.\n");
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Receive selection request.");
+		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Receive selection request.");
 #endif
 		return -1;
 	}
 #ifdef _DEBUG
 	printf("[I] Receive selection request:%d bytes.\n", rec);
-	ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Receive selection request:%d bytes.", rec);
+	ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Receive selection request:%d bytes.", rec);
 #endif
 	struct selection_request *selection_request = (struct selection_request *)buffer;
 	unsigned char method = 0xFF;
@@ -1243,7 +1243,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 	if(method == 0xFF){
 #ifdef _DEBUG
 		printf("[E] Selection request method error.\n");
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Selection request method error.");
+		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Selection request method error.");
 #endif
 	}
 
@@ -1263,7 +1263,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 	if(sen <= 0){
 #ifdef _DEBUG
 		printf("[E] Send selection response.\n");
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send selection response.");
+		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Send selection response.");
 #endif
 		free(selection_response);
 		return -1;
@@ -1272,13 +1272,13 @@ int worker(ngx_http_request_t *r, void *ptr)
 	free(selection_response);
 #ifdef _DEBUG
 	printf("[I] Send selection response:%d bytes.\n", sen);
-	ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Send selection response:%d bytes.", sen);
+	ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Send selection response:%d bytes.", sen);
 #endif
 	
 	if(authentication_method != method){
 #ifdef _DEBUG
 		printf("[E] Authentication method error. server:0x%x client:0x%x\n", authentication_method, method);
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Authentication method error. server:0x%x client:0x%x", authentication_method, method);
+		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Authentication method error. server:0x%x client:0x%x", authentication_method, method);
 #endif
 		return -1;
 	}
@@ -1293,7 +1293,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 		// socks username_password_authentication_request
 #ifdef _DEBUG
 		printf("[I] Receive username password authentication request.\n");
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Receive username password authentication request.");
+		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Receive username password authentication request.");
 #endif
 		if(socks5_over_tls_flag == 0){	// Socks5 over AES
 			rec = recv_data_aes(r, client_sock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec);
@@ -1303,13 +1303,13 @@ int worker(ngx_http_request_t *r, void *ptr)
 		if(rec <= 0){
 #ifdef _DEBUG
 			printf("[E] Receive username password authentication request.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Receive username password authentication request.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Receive username password authentication request.");
 #endif
 			return -1;
 		}
 #ifdef _DEBUG
 		printf("[I] Receive username password authentication request:%d bytes.\n", rec);
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Receive username password authentication request:%d bytes.", rec);
+		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Receive username password authentication request:%d bytes.", rec);
 #endif
 		struct username_password_authentication_request_tmp *username_password_authentication_request = (struct username_password_authentication_request_tmp *)buffer;
 
@@ -1319,7 +1319,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 		memcpy(passwd, &username_password_authentication_request->uname + ulen + 1, plen);
 #ifdef _DEBUG
 		printf("[I] uname:%s ulen:%d, passwd:%s plen:%d\n", uname, ulen, passwd, plen);
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] uname:%s ulen:%d, passwd:%s plen:%d", uname, ulen, passwd, plen);
+		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] uname:%s ulen:%d, passwd:%s plen:%d", uname, ulen, passwd, plen);
 #endif
 
 
@@ -1330,7 +1330,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 		if(username_password_authentication_request->ver == 0x1 && !strncmp(uname, username, sizeof(username)) && !strncmp(passwd, password, sizeof(password))){
 #ifdef _DEBUG
 			printf("[I] Succeed username password authentication.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Succeed username password authentication.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Succeed username password authentication.");
 #endif
 			username_password_authentication_response->status = 0x0;
 			
@@ -1342,7 +1342,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 			if(sen <= 0){
 #ifdef _DEBUG
 				printf("[E] Send username password authentication response.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send username password authentication response.");
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Send username password authentication response.");
 #endif
 				
 				free(username_password_authentication_response);
@@ -1350,14 +1350,14 @@ int worker(ngx_http_request_t *r, void *ptr)
 			}
 #ifdef _DEBUG
 			printf("[I] Send username password authentication response:%d bytes.\n", sen);
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Send username password authentication response:%d bytes.", sen);
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Send username password authentication response:%d bytes.", sen);
 #endif
 			
 			free(username_password_authentication_response);
 		}else{
 #ifdef _DEBUG
 			printf("[E] Fail username password authentication.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Fail username password authentication.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Fail username password authentication.");
 #endif
 			username_password_authentication_response->status = 0xFF;
 			
@@ -1369,12 +1369,12 @@ int worker(ngx_http_request_t *r, void *ptr)
 			if(sen <= 0){
 #ifdef _DEBUG
 				printf("[E] Send username password authentication response.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send username password authentication response.");
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Send username password authentication response.");
 #endif
 			}else{
 #ifdef _DEBUG
 				printf("[I] Send username password authentication response:%d bytes.\n", sen);
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Send username password authentication response:%d bytes.", sen);
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Send username password authentication response:%d bytes.", sen);
 #endif
 			}
 			
@@ -1387,7 +1387,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 	// socks socks_request
 #ifdef _DEBUG
 	printf("[I] Receive socks request.\n");
-	ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Receive socks request.");
+	ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Receive socks request.");
 #endif
 	bzero(buffer, BUFFER_SIZE+1);
 	if(socks5_over_tls_flag == 0){	// Socks5 over AES
@@ -1398,13 +1398,13 @@ int worker(ngx_http_request_t *r, void *ptr)
 	if(rec <= 0){
 #ifdef _DEBUG
 		printf("[E] Receive socks request.\n");
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Receive socks request.");
+		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Receive socks request.");
 #endif
 		return -1;
 	}
 #ifdef _DEBUG
 	printf("[I] Receive socks request:%d bytes.\n", rec);
-	ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Receive socks request:%d bytes.", rec);
+	ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Receive socks request:%d bytes.", rec);
 #endif
 	
 	struct socks_request *socks_request = (struct socks_request *)buffer;
@@ -1416,9 +1416,9 @@ int worker(ngx_http_request_t *r, void *ptr)
 	if(atyp != 0x1 && atyp != 0x3 && atyp != 0x4){
 #ifdef _DEBUG
 		printf("[E] Socks request atyp(%d) error.\n", atyp);
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Socks request atyp(%d) error.", atyp);
+		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Socks request atyp(%d) error.", atyp);
 		printf("[E] Not implemented.\n");
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Not implemented.");
+		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Not implemented.");
 #endif
 
 		// socks socks_response
@@ -1430,7 +1430,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 		if(sen <= 0){
 #ifdef _DEBUG
 			printf("[E] Send socks response.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Send socks response.");
 #endif
 		}
 
@@ -1441,9 +1441,9 @@ int worker(ngx_http_request_t *r, void *ptr)
 	if(cmd != 0x1){	// CONNECT only
 #ifdef _DEBUG
 		printf("[E] Socks request cmd(%d) error.\n", cmd);
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Socks request cmd(%d) error.", cmd);
+		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Socks request cmd(%d) error.", cmd);
 		printf("[E] Not implemented.\n");
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Not implemented.");
+		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Not implemented.");
 #endif
 		
 		// socks socks_response
@@ -1463,7 +1463,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 		if(sen <= 0){
 #ifdef _DEBUG
 			printf("[E] Send socks response.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Send socks response.");
 #endif
 		}
 		
@@ -1496,7 +1496,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 		memcpy(&domainname, &socks_request_domainname->dst_addr, domainname_length);
 #ifdef _DEBUG
 		printf("[I] Domainname:%s, Length:%d.\n", domainname, domainname_length);
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Domainname:%s, Length:%d.", domainname, domainname_length);
+		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Domainname:%s, Length:%d.", domainname, domainname_length);
 #endif
 
 		colon = strstr(domainname, ":");	// check ipv6 address
@@ -1507,7 +1507,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 				if(getaddrinfo(domainname, NULL, &hints, &target_host) != 0){
 #ifdef _DEBUG
 					printf("[E] Cannot resolv the domain name:%s.\n", (char *)domainname);
-					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Cannot resolv the domain name:%s.", (char *)domainname);
+					ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Cannot resolv the domain name:%s.", (char *)domainname);
 #endif
 					
 					// socks socks_response
@@ -1519,7 +1519,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 					if(sen <= 0){
 #ifdef _DEBUG
 						printf("[E] Send socks response.\n");
-						ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
+						ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Send socks response.");
 #endif
 					}
 					
@@ -1531,7 +1531,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 			if(getaddrinfo(domainname, NULL, &hints, &target_host) != 0){
 #ifdef _DEBUG
 				printf("[E] Cannot resolv the domain name:%s.\n", (char *)domainname);
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Cannot resolv the domain name:%s.", (char *)domainname);
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Cannot resolv the domain name:%s.", (char *)domainname);
 #endif
 				
 				// socks socks_response
@@ -1543,7 +1543,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 				if(sen <= 0){
 #ifdef _DEBUG
 					printf("[E] Send socks response.\n");
-					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
+					ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Send socks response.");
 #endif
 				}
 
@@ -1568,7 +1568,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 		}else{
 #ifdef _DEBUG
 			printf("[E] Not implemented.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Not implemented.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Not implemented.");
 #endif
 
 			// socks socks_response
@@ -1580,7 +1580,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 			if(sen <= 0){
 #ifdef _DEBUG
 				printf("[E] Send socks response.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Send socks response.");
 #endif
 			}
 			
@@ -1596,7 +1596,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 	}else {
 #ifdef _DEBUG
 		printf("[E] Not implemented.\n");
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Not implemented.");
+		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Not implemented.");
 #endif
 
 		// socks socks_response
@@ -1608,7 +1608,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 		if(sen <= 0){
 #ifdef _DEBUG
 			printf("[E] Send socks response.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Send socks response.");
 #endif
 		}
 		
@@ -1625,13 +1625,13 @@ int worker(ngx_http_request_t *r, void *ptr)
 	if(atyp == 0x1){	// IPv4
 #ifdef _DEBUG
 		printf("[I] Connecting. ip:%s port:%d\n", inet_ntoa(target_addr.sin_addr), ntohs(target_addr.sin_port));
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Connecting. ip:%s port:%d", inet_ntoa(target_addr.sin_addr), ntohs(target_addr.sin_port));
+		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Connecting. ip:%s port:%d", inet_ntoa(target_addr.sin_addr), ntohs(target_addr.sin_port));
 #endif
 
 		if(cmd == 0x1){	// CONNECT
 #ifdef _DEBUG
 			printf("[I] SOCKS_RESPONSE cmd:CONNECT.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] SOCKS_RESPONSE cmd:CONNECT.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] SOCKS_RESPONSE cmd:CONNECT.");
 #endif
 			target_sock = socket(AF_INET, SOCK_STREAM, 0);
 			
@@ -1642,7 +1642,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 			if((err = connect(target_sock, (struct sockaddr *)&target_addr, sizeof(target_addr))) < 0){
 #ifdef _DEBUG
 				printf("[E] Cannot connect. errno:%d\n", err);
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Cannot connect. errno:%d", err);
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Cannot connect. errno:%d", err);
 #endif
 				
 				if(socks5_over_tls_flag == 0){	// Socks5 over AES
@@ -1653,12 +1653,12 @@ int worker(ngx_http_request_t *r, void *ptr)
 				if(sen <= 0){
 #ifdef _DEBUG
 					printf("[E] Send socks response.\n");
-					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
+					ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Send socks response.");
 #endif
 				}else{
 #ifdef _DEBUG
 					printf("[I] Socks Request:%d bytes, Socks Response:%d bytes.\n", rec, sen);
-					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Socks Request:%d bytes, Socks Response:%d bytes.", rec, sen);
+					ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Socks Request:%d bytes, Socks Response:%d bytes.", rec, sen);
 #endif
 				}
 				
@@ -1668,7 +1668,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 
 #ifdef _DEBUG
 			printf("[I] Connected. ip:%s port:%d\n", inet_ntoa(target_addr.sin_addr), ntohs(target_addr.sin_port));
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Connected. ip:%s port:%d", inet_ntoa(target_addr.sin_addr), ntohs(target_addr.sin_port));
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Connected. ip:%s port:%d", inet_ntoa(target_addr.sin_addr), ntohs(target_addr.sin_port));
 #endif
 			
 			if(socks5_over_tls_flag == 0){	// Socks5 over AES
@@ -1679,7 +1679,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 			if(sen <= 0){
 #ifdef _DEBUG
 				printf("[E] Send socks response.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Send socks response.");
 #endif
 				
 				close_socket(target_sock);
@@ -1687,16 +1687,16 @@ int worker(ngx_http_request_t *r, void *ptr)
 			}else{
 #ifdef _DEBUG
 				printf("[I] Socks Request:%d bytes, Socks Response:%d bytes.\n", rec, sen);
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Socks Request:%d bytes, Socks Response:%d bytes.", rec, sen);
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Socks Request:%d bytes, Socks Response:%d bytes.", rec, sen);
 #endif
 			}
 			
 		}else if(cmd == 0x2){	// BIND
 #ifdef _DEBUG
 			printf("[I] SOCKS_RESPONSE cmd:BIND.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] SOCKS_RESPONSE cmd:BIND.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] SOCKS_RESPONSE cmd:BIND.");
 			printf("[E] Not implemented.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Not implemented.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Not implemented.");
 #endif
 			
 			if(socks5_over_tls_flag == 0){	// Socks5 over AES
@@ -1707,7 +1707,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 			if(sen <= 0){
 #ifdef _DEBUG
 				printf("[E] Send socks response.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Send socks response.");
 #endif
 			}
 			
@@ -1716,9 +1716,9 @@ int worker(ngx_http_request_t *r, void *ptr)
 		}else if(cmd == 0x3){	// UDP ASSOCIATE
 #ifdef _DEBUG
 			printf("[I] SOCKS_RESPONSE cmd:UDP ASSOCIATE.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] SOCKS_RESPONSE cmd:UDP ASSOCIATE.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] SOCKS_RESPONSE cmd:UDP ASSOCIATE.");
 			printf("[E] Not implemented.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Not implemented.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Not implemented.");
 #endif
 			
 			if(socks5_over_tls_flag == 0){	// Socks5 over AES
@@ -1729,7 +1729,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 			if(sen <= 0){
 #ifdef _DEBUG
 				printf("[E] Send socks response.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Send socks response.");
 #endif
 			}
 			
@@ -1738,7 +1738,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 		}else{
 #ifdef _DEBUG
 			printf("[E] Not implemented.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Not implemented.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Not implemented.");
 #endif
 			
 			if(socks5_over_tls_flag == 0){	// Socks5 over AES
@@ -1749,7 +1749,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 			if(sen <= 0){
 #ifdef _DEBUG
 				printf("[E] Send socks response.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Send socks response.");
 #endif
 			}
 			
@@ -1759,13 +1759,13 @@ int worker(ngx_http_request_t *r, void *ptr)
 		if(family == AF_INET){	// IPv4
 #ifdef _DEBUG
 			printf("[I] Connecting. ip:%s port:%d\n", inet_ntoa(target_addr.sin_addr), ntohs(target_addr.sin_port));
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Connecting. ip:%s port:%d", inet_ntoa(target_addr.sin_addr), ntohs(target_addr.sin_port));
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Connecting. ip:%s port:%d", inet_ntoa(target_addr.sin_addr), ntohs(target_addr.sin_port));
 #endif
 
 			if(cmd == 0x1){	// CONNECT
 #ifdef _DEBUG
 				printf("[I] SOCKS_RESPONSE cmd:CONNECT.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] SOCKS_RESPONSE cmd:CONNECT.");
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] SOCKS_RESPONSE cmd:CONNECT.");
 #endif
 				target_sock = socket(AF_INET, SOCK_STREAM, 0);
 				
@@ -1776,7 +1776,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 				if((err = connect(target_sock, (struct sockaddr *)&target_addr, sizeof(target_addr))) < 0){
 #ifdef _DEBUG
 					printf("[E] Cannot connect. errno:%d\n", err);
-					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Cannot connect. errno:%d", err);
+					ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Cannot connect. errno:%d", err);
 #endif
 					
 					if(socks5_over_tls_flag == 0){	// Socks5 over AES
@@ -1787,12 +1787,12 @@ int worker(ngx_http_request_t *r, void *ptr)
 					if(sen <= 0){
 #ifdef _DEBUG
 						printf("[E] Send socks response.\n");
-						ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
+						ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Send socks response.");
 #endif
 					}else{
 #ifdef _DEBUG
 						printf("[I] Socks Request:%d bytes, Socks Response:%d bytes.\n", rec, sen);
-						ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Socks Request:%d bytes, Socks Response:%d bytes.", rec, sen);
+						ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Socks Request:%d bytes, Socks Response:%d bytes.", rec, sen);
 #endif
 					}
 					
@@ -1802,7 +1802,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 
 #ifdef _DEBUG
 				printf("[I] Connected. ip:%s port:%d\n", inet_ntoa(target_addr.sin_addr), ntohs(target_addr.sin_port));
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Connected. ip:%s port:%d", inet_ntoa(target_addr.sin_addr), ntohs(target_addr.sin_port));
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Connected. ip:%s port:%d", inet_ntoa(target_addr.sin_addr), ntohs(target_addr.sin_port));
 #endif
 				
 				if(socks5_over_tls_flag == 0){	// Socks5 over AES
@@ -1813,7 +1813,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 				if(sen <= 0){
 #ifdef _DEBUG
 					printf("[E] Send socks response.\n");
-					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
+					ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Send socks response.");
 #endif
 					
 					close_socket(target_sock);
@@ -1821,16 +1821,16 @@ int worker(ngx_http_request_t *r, void *ptr)
 				}else{
 #ifdef _DEBUG
 					printf("[I] Socks Request:%d bytes, Socks Response:%d bytes.\n", rec, sen);
-					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Socks Request:%d bytes, Socks Response:%d bytes.", rec, sen);
+					ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Socks Request:%d bytes, Socks Response:%d bytes.", rec, sen);
 #endif
 				}
 				
 			}else if(cmd == 0x2){	// BIND
 #ifdef _DEBUG
 				printf("[I] SOCKS_RESPONSE cmd:BIND.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] SOCKS_RESPONSE cmd:BIND.");
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] SOCKS_RESPONSE cmd:BIND.");
 				printf("[E] Not implemented.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Not implemented.");
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Not implemented.");
 #endif
 				
 				if(socks5_over_tls_flag == 0){	// Socks5 over AES
@@ -1841,7 +1841,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 				if(sen <= 0){
 #ifdef _DEBUG
 					printf("[E] Send socks response.\n");
-					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
+					ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Send socks response.");
 #endif
 				}
 				
@@ -1850,9 +1850,9 @@ int worker(ngx_http_request_t *r, void *ptr)
 			}else if(cmd == 0x3){	// UDP ASSOCIATE
 #ifdef _DEBUG
 				printf("[I] SOCKS_RESPONSE cmd:UDP ASSOCIATE.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] SOCKS_RESPONSE cmd:UDP ASSOCIATE.");
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] SOCKS_RESPONSE cmd:UDP ASSOCIATE.");
 				printf("[E] Not implemented.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Not implemented.");
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Not implemented.");
 #endif
 				
 				if(socks5_over_tls_flag == 0){	// Socks5 over AES
@@ -1863,7 +1863,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 				if(sen <= 0){
 #ifdef _DEBUG
 					printf("[E] Send socks response.\n");
-					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
+					ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Send socks response.");
 #endif
 				}
 				
@@ -1872,7 +1872,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 			}else{
 #ifdef _DEBUG
 				printf("[E] Not implemented.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Not implemented.");
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Not implemented.");
 #endif
 				
 				if(socks5_over_tls_flag == 0){	// Socks5 over AES
@@ -1883,7 +1883,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 				if(sen <= 0){
 #ifdef _DEBUG
 					printf("[E] Send socks response.\n");
-					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
+					ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Send socks response.");
 #endif
 				}
 				
@@ -1894,13 +1894,13 @@ int worker(ngx_http_request_t *r, void *ptr)
 			inet_ntop(AF_INET6, &target_addr6.sin6_addr, target_addr6_string_pointer, INET6_ADDRSTRLEN);
 #ifdef _DEBUG
 			printf("[I] Connecting. ip:%s port:%d\n", target_addr6_string_pointer, ntohs(target_addr6.sin6_port));
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Connecting. ip:%s port:%d", target_addr6_string_pointer, ntohs(target_addr6.sin6_port));
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Connecting. ip:%s port:%d", target_addr6_string_pointer, ntohs(target_addr6.sin6_port));
 #endif
 
 			if(cmd == 0x1){	// CONNECT
 #ifdef _DEBUG
 				printf("[I] SOCKS_RESPONSE cmd:CONNECT.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] SOCKS_RESPONSE cmd:CONNECT.");
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] SOCKS_RESPONSE cmd:CONNECT.");
 #endif
 				target_sock = socket(AF_INET6, SOCK_STREAM, 0);
 
@@ -1911,7 +1911,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 				if((err = connect(target_sock, (struct sockaddr *)&target_addr6, sizeof(target_addr6))) < 0){
 #ifdef _DEBUG
 					printf("[E] Cannot connect. errno:%d\n", err);
-					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Cannot connect. errno:%d", err);
+					ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Cannot connect. errno:%d", err);
 #endif
 					
 					if(socks5_over_tls_flag == 0){	// Socks5 over AES
@@ -1922,12 +1922,12 @@ int worker(ngx_http_request_t *r, void *ptr)
 					if(sen <= 0){
 #ifdef _DEBUG
 						printf("[E] Send socks response.\n");
-						ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
+						ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Send socks response.");
 #endif
 					}else{
 #ifdef _DEBUG
 						printf("[I] Socks Request:%d bytes, Socks Response:%d bytes.\n", rec, sen);
-						ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Socks Request:%d bytes, Socks Response:%d bytes.", rec, sen);
+						ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Socks Request:%d bytes, Socks Response:%d bytes.", rec, sen);
 #endif
 					}
 					
@@ -1937,7 +1937,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 
 #ifdef _DEBUG
 				printf("[I] Connected. ip:%s port:%d\n", target_addr6_string_pointer, ntohs(target_addr6.sin6_port));
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Connected. ip:%s port:%d", target_addr6_string_pointer, ntohs(target_addr6.sin6_port));
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Connected. ip:%s port:%d", target_addr6_string_pointer, ntohs(target_addr6.sin6_port));
 #endif
 				
 				if(socks5_over_tls_flag == 0){	// Socks5 over AES
@@ -1948,7 +1948,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 				if(sen <= 0){
 #ifdef _DEBUG
 					printf("[E] Send socks response.\n");
-					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
+					ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Send socks response.");
 #endif
 					
 					close_socket(target_sock);
@@ -1956,16 +1956,16 @@ int worker(ngx_http_request_t *r, void *ptr)
 				}else{
 #ifdef _DEBUG
 					printf("[I] Socks Request:%d bytes, Socks Response:%d bytes.\n", rec, sen);
-					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Socks Request:%d bytes, Socks Response:%d bytes.", rec, sen);
+					ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Socks Request:%d bytes, Socks Response:%d bytes.", rec, sen);
 #endif
 				}
 				
 			}else if(cmd == 0x2){	// BIND
 #ifdef _DEBUG
 				printf("[I] SOCKS_RESPONSE cmd:BIND.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] SOCKS_RESPONSE cmd:BIND.");
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] SOCKS_RESPONSE cmd:BIND.");
 				printf("[E] Not implemented.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Not implemented.");
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Not implemented.");
 #endif
 				
 				if(socks5_over_tls_flag == 0){	// Socks5 over AES
@@ -1976,7 +1976,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 				if(sen <= 0){
 #ifdef _DEBUG
 					printf("[E] Send socks response.\n");
-					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
+					ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Send socks response.");
 #endif
 				}
 				
@@ -1985,9 +1985,9 @@ int worker(ngx_http_request_t *r, void *ptr)
 			}else if(cmd == 0x3){	// UDP ASSOCIATE
 #ifdef _DEBUG
 				printf("[I] SOCKS_RESPONSE cmd:UDP ASSOCIATE.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] SOCKS_RESPONSE cmd:UDP ASSOCIATE.");
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] SOCKS_RESPONSE cmd:UDP ASSOCIATE.");
 				printf("[E] Not implemented.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Not implemented.");
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Not implemented.");
 #endif
 				
 				if(socks5_over_tls_flag == 0){	// Socks5 over AES
@@ -1998,7 +1998,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 				if(sen <= 0){
 #ifdef _DEBUG
 					printf("[E] Send socks response.\n");
-					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
+					ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Send socks response.");
 #endif
 				}
 				
@@ -2007,7 +2007,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 			}else{
 #ifdef _DEBUG
 				printf("[E] Not implemented.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Not implemented.");
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Not implemented.");
 #endif
 				
 				if(socks5_over_tls_flag == 0){	// Socks5 over AES
@@ -2018,7 +2018,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 				if(sen <= 0){
 #ifdef _DEBUG
 					printf("[E] Send socks response.\n");
-					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
+					ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Send socks response.");
 #endif
 				}
 				
@@ -2028,7 +2028,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 		}else{
 #ifdef _DEBUG
 			printf("[E] Not implemented.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Not implemented.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Not implemented.");
 #endif
 			
 			if(socks5_over_tls_flag == 0){	// Socks5 over AES
@@ -2039,7 +2039,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 			if(sen <= 0){
 #ifdef _DEBUG
 				printf("[E] Send socks response.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Send socks response.");
 #endif
 			}
 			
@@ -2050,13 +2050,13 @@ int worker(ngx_http_request_t *r, void *ptr)
 		inet_ntop(AF_INET6, &target_addr6.sin6_addr, target_addr6_string_pointer, INET6_ADDRSTRLEN);
 #ifdef _DEBUG
 		printf("[I] Connecting. ip:%s port:%d\n", target_addr6_string_pointer, ntohs(target_addr6.sin6_port));
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Connecting. ip:%s port:%d", target_addr6_string_pointer, ntohs(target_addr6.sin6_port));
+		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Connecting. ip:%s port:%d", target_addr6_string_pointer, ntohs(target_addr6.sin6_port));
 #endif
 
 		if(cmd == 0x1){	// CONNECT
 #ifdef _DEBUG
 			printf("[I] SOCKS_RESPONSE cmd:CONNECT.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] SOCKS_RESPONSE cmd:CONNECT.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] SOCKS_RESPONSE cmd:CONNECT.");
 #endif
 			target_sock = socket(AF_INET6, SOCK_STREAM, 0);
 			
@@ -2067,7 +2067,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 			if((err = connect(target_sock, (struct sockaddr *)&target_addr6, sizeof(target_addr6))) < 0){
 #ifdef _DEBUG
 				printf("[E] Cannot connect. errno:%d\n", err);
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Cannot connect. errno:%d", err);
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Cannot connect. errno:%d", err);
 #endif
 				
 				if(socks5_over_tls_flag == 0){	// Socks5 over AES
@@ -2078,12 +2078,12 @@ int worker(ngx_http_request_t *r, void *ptr)
 				if(sen <= 0){
 #ifdef _DEBUG
 					printf("[E] Send socks response.\n");
-					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
+					ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Send socks response.");
 #endif
 				}else{
 #ifdef _DEBUG
 					printf("[I] Socks Request:%d bytes, Socks Response:%d bytes.\n", rec, sen);
-					ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Socks Request:%d bytes, Socks Response:%d bytes.", rec, sen);
+					ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Socks Request:%d bytes, Socks Response:%d bytes.", rec, sen);
 #endif
 				}
 				
@@ -2093,7 +2093,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 
 #ifdef _DEBUG
 			printf("[I] Connected. ip:%s port:%d\n", target_addr6_string_pointer, ntohs(target_addr6.sin6_port));
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Connected. ip:%s port:%d", target_addr6_string_pointer, ntohs(target_addr6.sin6_port));
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Connected. ip:%s port:%d", target_addr6_string_pointer, ntohs(target_addr6.sin6_port));
 #endif
 			
 			if(socks5_over_tls_flag == 0){	// Socks5 over AES
@@ -2104,7 +2104,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 			if(sen <= 0){
 #ifdef _DEBUG
 				printf("[E] Send socks response.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Send socks response.");
 #endif
 				
 				close_socket(target_sock);
@@ -2112,16 +2112,16 @@ int worker(ngx_http_request_t *r, void *ptr)
 			}else{
 #ifdef _DEBUG
 				printf("[I] Socks Request:%d bytes, Socks Response:%d bytes.\n", rec, sen);
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Socks Request:%d bytes, Socks Response:%d bytes.", rec, sen);
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Socks Request:%d bytes, Socks Response:%d bytes.", rec, sen);
 #endif
 			}
 			
 		}else if(cmd == 0x2){	// BIND
 #ifdef _DEBUG
 			printf("[I] SOCKS_RESPONSE cmd:BIND.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] SOCKS_RESPONSE cmd:BIND.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] SOCKS_RESPONSE cmd:BIND.");
 			printf("[E] Not implemented.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Not implemented.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Not implemented.");
 #endif
 			
 			if(socks5_over_tls_flag == 0){	// Socks5 over AES
@@ -2132,7 +2132,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 			if(sen <= 0){
 #ifdef _DEBUG
 				printf("[E] Send socks response.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Send socks response.");
 #endif
 			}
 			
@@ -2141,9 +2141,9 @@ int worker(ngx_http_request_t *r, void *ptr)
 		}else if(cmd == 0x3){	// UDP ASSOCIATE
 #ifdef _DEBUG
 			printf("[I] SOCKS_RESPONSE cmd:UDP ASSOCIATE.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] SOCKS_RESPONSE cmd:UDP ASSOCIATE.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] SOCKS_RESPONSE cmd:UDP ASSOCIATE.");
 			printf("[E] Not implemented.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Not implemented.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Not implemented.");
 #endif
 			
 			if(socks5_over_tls_flag == 0){	// Socks5 over AES
@@ -2154,7 +2154,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 			if(sen <= 0){
 #ifdef _DEBUG
 				printf("[E] Send socks response.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Send socks response.");
 #endif
 			}
 			
@@ -2163,7 +2163,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 		}else{
 #ifdef _DEBUG
 			printf("[E] Not implemented.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Not implemented.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Not implemented.");
 #endif
 			
 			if(socks5_over_tls_flag == 0){	// Socks5 over AES
@@ -2174,7 +2174,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 			if(sen <= 0){
 #ifdef _DEBUG
 				printf("[E] Send socks response.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Send socks response.");
 #endif
 			}
 			
@@ -2183,7 +2183,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 	}else{
 #ifdef _DEBUG
 		printf("[E] Not implemented.\n");
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Not implemented.");
+		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Not implemented.");
 #endif
 		
 		if(socks5_over_tls_flag == 0){	// Socks5 over AES
@@ -2194,7 +2194,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 		if(sen <= 0){
 #ifdef _DEBUG
 				printf("[E] Send socks response.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send socks response.");
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Send socks response.");
 #endif
 		}
 		
@@ -2205,7 +2205,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 	// forwarder
 #ifdef _DEBUG
 	printf("[I] Forwarder.\n");
-	ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Forwarder.");
+	ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Forwarder.");
 #endif
 	if(socks5_over_tls_flag == 0){	// Socks5 over AES
 		err = forwarder_aes(r, client_sock, target_sock, aes_key, aes_iv, forwarder_tv_sec, forwarder_tv_usec);
@@ -2215,7 +2215,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 	
 #ifdef _DEBUG
 	printf("[I] Worker exit.\n");
-	ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Worker exit.");
+	ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Worker exit.");
 #endif
 	close_socket(target_sock);
 	
@@ -2245,7 +2245,7 @@ int ssl_sccept_non_blocking(ngx_http_request_t *r, int sock, SSL *ssl, long tv_s
 	if(gettimeofday(&start, NULL) == -1){
 #ifdef _DEBUG
 		printf("[E] gettimeofday error.\n");
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] gettimeofday error.");
+		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] gettimeofday error.");
 #endif
 		// blocking
 		flags = fcntl(sock, F_GETFL, 0);
@@ -2263,7 +2263,7 @@ int ssl_sccept_non_blocking(ngx_http_request_t *r, int sock, SSL *ssl, long tv_s
 		if(select(nfds, &readfds, &writefds, NULL, &tv) == 0){
 #ifdef _DEBUG
 			printf("[I] ssl_sccept_non_blocking select timeout.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] ssl_sccept_non_blocking select timeout.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] ssl_sccept_non_blocking select timeout.");
 #endif
 			// blocking
 			flags = fcntl(sock, F_GETFL, 0);
@@ -2284,7 +2284,7 @@ int ssl_sccept_non_blocking(ngx_http_request_t *r, int sock, SSL *ssl, long tv_s
 			}else{
 #ifdef _DEBUG
 				printf("[E] SSL_accept error:%d:%s.\n", err, ERR_error_string(ERR_peek_last_error(), NULL));
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] SSL_accept error:%d:%s.", err, ERR_error_string(ERR_peek_last_error(), NULL));
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] SSL_accept error:%d:%s.", err, ERR_error_string(ERR_peek_last_error(), NULL));
 #endif
 				// blocking
 				flags = fcntl(sock, F_GETFL, 0);
@@ -2296,7 +2296,7 @@ int ssl_sccept_non_blocking(ngx_http_request_t *r, int sock, SSL *ssl, long tv_s
 		if(gettimeofday(&end, NULL) == -1){
 #ifdef _DEBUG
 			printf("[E] gettimeofday error.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] gettimeofday error.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] gettimeofday error.");
 #endif
 			// blocking
 			flags = fcntl(sock, F_GETFL, 0);
@@ -2308,7 +2308,7 @@ int ssl_sccept_non_blocking(ngx_http_request_t *r, int sock, SSL *ssl, long tv_s
 		if(t >= (tv_sec * 1000000 + tv_usec)){
 #ifdef _DEBUG
 			printf("[I] ssl_sccept_non_blocking timeout.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] ssl_sccept_non_blocking timeout.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] ssl_sccept_non_blocking timeout.");
 #endif
 			// blocking
 			flags = fcntl(sock, F_GETFL, 0);
@@ -2435,7 +2435,7 @@ static ngx_int_t ngx_http_socks5_header_filter(ngx_http_request_t *r)
 		EVP_ENCODE_CTX_free(base64_encode_ctx);
 #ifdef _DEBUG
 		printf("[I] aes_key_b64:%s\n", aes_key_b64);
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] aes_key_b64:%s", aes_key_b64);
+		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] aes_key_b64:%s", aes_key_b64);
 #endif
 	}
 	
@@ -2449,7 +2449,7 @@ static ngx_int_t ngx_http_socks5_header_filter(ngx_http_request_t *r)
 		EVP_ENCODE_CTX_free(base64_encode_ctx);
 #ifdef _DEBUG
 		printf("[I] aes_iv_b64:%s\n", aes_iv_b64);
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] aes_iv_b64:%s", aes_iv_b64);
+		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] aes_iv_b64:%s", aes_iv_b64);
 #endif
 	}
 	
@@ -2483,7 +2483,7 @@ static ngx_int_t ngx_http_socks5_header_filter(ngx_http_request_t *r)
 	if(socks5_flag == 1){	// socks5
 #ifdef _DEBUG
 		printf("[I] Socks5 start.\n");
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Socks5 start.");
+		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Socks5 start.");
 #endif
 		
 		if(tv_sec < 0 || tv_sec > 10 || tv_usec < 0 || tv_usec > 1000000){
@@ -2503,9 +2503,9 @@ static ngx_int_t ngx_http_socks5_header_filter(ngx_http_request_t *r)
 		}
 #ifdef _DEBUG
 		printf("[I] Timeout recv/send tv_sec:%ld sec recv/send tv_usec:%ld microsec.\n", tv_sec, tv_usec);
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Timeout recv/send tv_sec:%l sec recv/send tv_usec:%l microsec.", tv_sec, tv_usec);
+		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Timeout recv/send tv_sec:%l sec recv/send tv_usec:%l microsec.", tv_sec, tv_usec);
 		printf("[I] Timeout forwarder tv_sec:%ld sec forwarder tv_usec:%ld microsec.\n", forwarder_tv_sec, forwarder_tv_usec);
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Timeout forwarder tv_sec:%l sec forwarder tv_usec:%l microsec.", forwarder_tv_sec, forwarder_tv_usec);
+		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Timeout forwarder tv_sec:%l sec forwarder tv_usec:%l microsec.", forwarder_tv_sec, forwarder_tv_usec);
 #endif
 
 		// blocking
@@ -2517,13 +2517,13 @@ static ngx_int_t ngx_http_socks5_header_filter(ngx_http_request_t *r)
 		if(ret <= 0){
 #ifdef _DEBUG
 			printf("[E] Send OK message error.\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] Send OK message error.");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Send OK message error.");
 #endif
 			return ngx_http_next_header_filter(r);
 		}
 #ifdef _DEBUG
 		printf("[I] Send OK message.\n");
-		ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Send OK message.");
+		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Send OK message.");
 #endif
 		
 		if(socks5_over_tls_flag == 1){	// Socks5 over TLS
@@ -2535,7 +2535,7 @@ static ngx_int_t ngx_http_socks5_header_filter(ngx_http_request_t *r)
 			if(client_ctx_socks5 == NULL){
 #ifdef _DEBUG
 				printf("[E] SSL_CTX_new error.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] SSL_CTX_new error.");
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] SSL_CTX_new error.");
 #endif
 				return ngx_http_next_header_filter(r);
 			}
@@ -2559,7 +2559,7 @@ static ngx_int_t ngx_http_socks5_header_filter(ngx_http_request_t *r)
 			if(err != 1){
 #ifdef _DEBUG
 				printf("[E] SSL_CTX_check_private_key error.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] SSL_CTX_check_private_key error.");
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] SSL_CTX_check_private_key error.");
 #endif
 				fini_ssl(&ssl_param);
 				return ngx_http_next_header_filter(r);
@@ -2570,7 +2570,7 @@ static ngx_int_t ngx_http_socks5_header_filter(ngx_http_request_t *r)
 			if(SSL_CTX_set_min_proto_version(client_ctx_socks5, TLS1_2_VERSION) == 0){
 #ifdef _DEBUG
 				printf("[E] SSL_CTX_set_min_proto_version error.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] SSL_CTX_set_min_proto_version error.");
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] SSL_CTX_set_min_proto_version error.");
 #endif
 				fini_ssl(&ssl_param);
 				return ngx_http_next_header_filter(r);
@@ -2580,7 +2580,7 @@ static ngx_int_t ngx_http_socks5_header_filter(ngx_http_request_t *r)
 			if(ret == 0){
 #ifdef _DEBUG
 				printf("[E] SSL_CTX_set_cipher_list error.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] SSL_CTX_set_cipher_list error.");
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] SSL_CTX_set_cipher_list error.");
 #endif
 				fini_ssl(&ssl_param);
 				return ngx_http_next_header_filter(r);
@@ -2590,7 +2590,7 @@ static ngx_int_t ngx_http_socks5_header_filter(ngx_http_request_t *r)
 			if(ret == 0){
 #ifdef _DEBUG
 				printf("[E] SSL_CTX_set_ciphersuites error.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] SSL_CTX_set_ciphersuites error.");
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] SSL_CTX_set_ciphersuites error.");
 #endif
 				fini_ssl(&ssl_param);
 				return ngx_http_next_header_filter(r);
@@ -2600,7 +2600,7 @@ static ngx_int_t ngx_http_socks5_header_filter(ngx_http_request_t *r)
 			if(client_ssl_socks5 == NULL){
 #ifdef _DEBUG
 				printf("[E] SSL_new error.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] SSL_new error.");
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] SSL_new error.");
 #endif
 				fini_ssl(&ssl_param);
 				return ngx_http_next_header_filter(r);
@@ -2610,7 +2610,7 @@ static ngx_int_t ngx_http_socks5_header_filter(ngx_http_request_t *r)
 			if(SSL_set_fd(client_ssl_socks5, client_sock) == 0){
 #ifdef _DEBUG
 				printf("[E] SSL_set_fd error.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] SSL_set_fd error.");
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] SSL_set_fd error.");
 #endif
 				fini_ssl(&ssl_param);
 				return ngx_http_next_header_filter(r);
@@ -2619,20 +2619,20 @@ static ngx_int_t ngx_http_socks5_header_filter(ngx_http_request_t *r)
 			// accept
 #ifdef _DEBUG
 			printf("[I] Try Socks5 over TLS connection. (SSL_accept)\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Try Socks5 over TLS connection. (SSL_accept)");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Try Socks5 over TLS connection. (SSL_accept)");
 #endif
 			ret = ssl_sccept_non_blocking(r, client_sock, client_ssl_socks5, tv_sec, tv_usec);
 			if(ret == -2){
 #ifdef _DEBUG
 				printf("[E] SSL_accept error.\n");
-				ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[E] SSL_accept error.");
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] SSL_accept error.");
 #endif
 				fini_ssl(&ssl_param);
 				return ngx_http_next_header_filter(r);
 			}
 #ifdef _DEBUG
 			printf("[I] Succeed Socks5 over TLS connection. (SSL_accept)\n");
-			ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "[I] Succeed Socks5 over TLS connection. (SSL_accept)");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Succeed Socks5 over TLS connection. (SSL_accept)");
 #endif
 		}
 		
