@@ -5,6 +5,10 @@
 
 //#define _DEBUG
 
+#include <ngx_config.h>
+#include <ngx_core.h>
+#include <ngx_http.h>
+
 #include <stdio.h>
 #include <strings.h>
 #include <errno.h>
@@ -17,10 +21,6 @@
 #include <sys/time.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-
-#include <ngx_config.h>
-#include <ngx_core.h>
-#include <ngx_http.h>
 
 #include <openssl/bio.h>
 #include <openssl/ssl.h>
