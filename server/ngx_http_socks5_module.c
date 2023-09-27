@@ -2223,7 +2223,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 }
 
 
-int ssl_sccept_non_blocking(ngx_http_request_t *r, int sock, SSL *ssl, long tv_sec, long tv_usec)
+int ssl_accept_non_blocking(ngx_http_request_t *r, int sock, SSL *ssl, long tv_sec, long tv_usec)
 {
 	fd_set readfds;
 	fd_set writefds;
@@ -2262,8 +2262,8 @@ int ssl_sccept_non_blocking(ngx_http_request_t *r, int sock, SSL *ssl, long tv_s
 		
 		if(select(nfds, &readfds, &writefds, NULL, &tv) == 0){
 #ifdef _DEBUG
-			printf("[I] ssl_sccept_non_blocking select timeout.\n");
-			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] ssl_sccept_non_blocking select timeout.");
+			printf("[I] ssl_accept_non_blocking select timeout.\n");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] ssl_accept_non_blocking select timeout.");
 #endif
 			// blocking
 			flags = fcntl(sock, F_GETFL, 0);
@@ -2307,8 +2307,8 @@ int ssl_sccept_non_blocking(ngx_http_request_t *r, int sock, SSL *ssl, long tv_s
 		t = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);	// microsecond
 		if(t >= (tv_sec * 1000000 + tv_usec)){
 #ifdef _DEBUG
-			printf("[I] ssl_sccept_non_blocking timeout.\n");
-			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] ssl_sccept_non_blocking timeout.");
+			printf("[I] ssl_accept_non_blocking timeout.\n");
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] ssl_accept_non_blocking timeout.");
 #endif
 			// blocking
 			flags = fcntl(sock, F_GETFL, 0);
@@ -2621,7 +2621,7 @@ static ngx_int_t ngx_http_socks5_header_filter(ngx_http_request_t *r)
 			printf("[I] Try Socks5 over TLS connection. (SSL_accept)\n");
 			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Try Socks5 over TLS connection. (SSL_accept)");
 #endif
-			ret = ssl_sccept_non_blocking(r, client_sock, client_ssl_socks5, tv_sec, tv_usec);
+			ret = ssl_accept_non_blocking(r, client_sock, client_ssl_socks5, tv_sec, tv_usec);
 			if(ret == -2){
 #ifdef _DEBUG
 				printf("[E] SSL_accept error.\n");
