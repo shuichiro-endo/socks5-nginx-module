@@ -920,8 +920,7 @@ int forwarder_tls(int client_sock, int target_sock, SSL *target_ssl, long tv_sec
 	fd_set readfds;
 	int nfds = -1;
 	struct timeval tv;
-	char buffer[BUFFER_SIZE+1];
-	bzero(buffer, BUFFER_SIZE+1);
+	unsigned char *buffer = calloc(BUFFER_SIZE*2, sizeof(unsigned char));
 	int err = 0;
 	
 	while(1){
@@ -940,7 +939,20 @@ int forwarder_tls(int client_sock, int target_sock, SSL *target_ssl, long tv_sec
 		}
 		
 		if(FD_ISSET(client_sock, &readfds)){
-			if((rec = recv(client_sock, buffer, BUFFER_SIZE, 0)) > 0){
+			bzero(buffer, BUFFER_SIZE*2);
+
+			rec = recv(client_sock, buffer, BUFFER_SIZE, 0);
+			if(rec <= 0){
+				if(errno == EINTR){
+					continue;
+				}else if(errno == EAGAIN){
+					usleep(5000);
+					continue;
+				}else{
+					free(buffer);
+					return -2;
+				}
+			}else{
 				while(1){
 					sen = SSL_write(target_ssl, buffer, rec);
 					err = SSL_get_error(target_ssl, sen);
@@ -955,15 +967,16 @@ int forwarder_tls(int client_sock, int target_sock, SSL *target_ssl, long tv_sec
 #ifdef _DEBUG
 						printf("[E] SSL_write error:%d:%s.\n", err, ERR_error_string(ERR_peek_last_error(), NULL));
 #endif
+						free(buffer);
 						return -2;
 					}
 				}
-			}else{
-				break;
 			}
 		}
 		
 		if(FD_ISSET(target_sock, &readfds)){
+			bzero(buffer, BUFFER_SIZE*2);
+
 			rec = SSL_read(target_ssl, buffer, BUFFER_SIZE);
 			err = SSL_get_error(target_ssl, rec);
 			
@@ -972,7 +985,7 @@ int forwarder_tls(int client_sock, int target_sock, SSL *target_ssl, long tv_sec
 				send_length = 0;
 				
 				while(len > 0){
-					sen = send(client_sock, buffer+send_length, len, 0);
+					sen = send(client_sock, (unsigned char *)buffer+send_length, len, 0);
 					if(sen <= 0){
 						if(errno == EINTR){
 							continue;
@@ -980,6 +993,7 @@ int forwarder_tls(int client_sock, int target_sock, SSL *target_ssl, long tv_sec
 							usleep(5000);
 							continue;
 						}else{
+							free(buffer);
 							return -2;
 						}
 					}
@@ -996,11 +1010,13 @@ int forwarder_tls(int client_sock, int target_sock, SSL *target_ssl, long tv_sec
 #ifdef _DEBUG
 				printf("[E] SSL_read error:%d:%s.\n", err, ERR_error_string(ERR_peek_last_error(), NULL));
 #endif
+				free(buffer);
 				return -2;
 			}
 		}
 	}
 
+	free(buffer);
 	return 0;
 }
 
