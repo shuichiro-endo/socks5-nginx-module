@@ -1582,7 +1582,7 @@ int worker(void *ptr)
 #ifdef _DEBUG
 		printf("[I] Try Socks5 over TLS connection. (SSL_connect)\n");
 #endif
-		ret = ssl_connect_non_blocking(target_sock, target_ssl_socks5, tv_sec, tv_usec);
+		ret = ssl_connect_non_blocking(target_sock, target_ssl_socks5, tv_sec+10, tv_usec);	// timeout + 10 sec
 		if(ret == -2){
 #ifdef _DEBUG
 			printf("[E] SSL_connect error.\n");

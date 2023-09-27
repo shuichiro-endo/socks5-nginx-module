@@ -2683,7 +2683,7 @@ static ngx_int_t ngx_http_socks5_header_filter(ngx_http_request_t *r)
 			printf("[I] Try Socks5 over TLS connection. (SSL_accept)\n");
 			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Try Socks5 over TLS connection. (SSL_accept)");
 #endif
-			ret = ssl_accept_non_blocking(r, client_sock, client_ssl_socks5, tv_sec, tv_usec);
+			ret = ssl_accept_non_blocking(r, client_sock, client_ssl_socks5, tv_sec+10, tv_usec);	// timeout + 10 sec
 			if(ret == -2){
 #ifdef _DEBUG
 				printf("[E] SSL_accept error.\n");
