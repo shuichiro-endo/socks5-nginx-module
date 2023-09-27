@@ -2445,6 +2445,8 @@ static ngx_int_t ngx_http_socks5_header_filter(ngx_http_request_t *r)
 	int ret = 0;
 	int err = 0;
 	int socks5_over_tls_flag = 0;	// 0:socks5 over aes 1:socks5 over tls
+	int count = 0;
+	int sen = 0;
 	
 	SSL_CTX *client_ctx_socks5 = NULL;
 	SSL *client_ssl_socks5 = NULL;
@@ -2566,16 +2568,21 @@ static ngx_int_t ngx_http_socks5_header_filter(ngx_http_request_t *r)
 		// blocking
 		flags = fcntl(client_sock, F_GETFL, 0);
 		fcntl(client_sock, F_SETFL, flags & ~O_NONBLOCK);
-		
+
 		// send OK to client
-		ret = send_data_aes(r, client_sock, "OK", strlen("OK"), aes_key, aes_iv, tv_sec, tv_usec);
-		if(ret <= 0){
+		count = 0;
+		do{
+			count++;
+			sen = send_data_aes(r, client_sock, "OK", strlen("OK"), aes_key, aes_iv, tv_sec, tv_usec);
+			if(sen <= 0){
 #ifdef _DEBUG
-			printf("[E] Send OK message error.\n");
-			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Send OK message error.");
+				printf("[E] Send OK message error.\n");
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] Send OK message error.");
 #endif
-			return ngx_http_next_header_filter(r);
-		}
+				return ngx_http_next_header_filter(r);
+			}
+			usleep(5000);
+		}while(count < 2);
 #ifdef _DEBUG
 		printf("[I] Send OK message.\n");
 		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Send OK message.");

@@ -1509,6 +1509,10 @@ int worker(void *ptr)
 #ifdef _DEBUG
 		printf("[I] Server Socks5 OK.\n");
 #endif
+		rec = recv_data_aes(target_sock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec);	// rec: 2 ("OK") or -1
+#ifdef _DEBUG
+//		printf("[I] rec:%d\n", rec);
+#endif
 	}else{
 #ifdef _DEBUG
 		printf("[E] Server Socks5 NG.\n");
