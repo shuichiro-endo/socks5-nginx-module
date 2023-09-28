@@ -158,6 +158,42 @@ int decrypt_aes(unsigned char *ciphertext, int ciphertext_length, unsigned char 
 }
 
 
+void enable_blocking_socket(int sock)	// blocking
+{
+	int flags = 0;
+	int ret = 0;
+
+	flags = fcntl(sock, F_GETFL, 0);
+	ret = fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
+	usleep(5000);
+	if(ret == -1){
+#ifdef _DEBUG
+		printf("[E] enable_blocking_socket error:%d\n", errno);
+#endif
+	}
+
+	return;
+}
+
+
+void disable_blocking_socket(int sock)	// non blocking
+{
+	int flags = 0;
+	int ret = 0;
+
+	flags = fcntl(sock, F_GETFL, 0);
+	ret = fcntl(sock, F_SETFL, flags | O_NONBLOCK);
+	usleep(5000);
+	if(ret == -1){
+#ifdef _DEBUG
+		printf("[E] disable_blocking_socket error:%d\n", errno);
+#endif
+	}
+
+	return;
+}
+
+
 int recv_data(int sock, void *buffer, int length, long tv_sec, long tv_usec)
 {
 	int rec = 0;
@@ -1072,19 +1108,14 @@ int ssl_connect_non_blocking(int sock, SSL *ssl, long tv_sec, long tv_usec)
 	long t = 0;
 	int ret = 0;
 	int err = 0;
-	int flags = 0;
 	
-	// non blocking
-	flags = fcntl(sock, F_GETFL, 0);
-	fcntl(sock, F_SETFL, flags | O_NONBLOCK);
+	disable_blocking_socket(sock);	// non blocking
 	
 	if(gettimeofday(&start, NULL) == -1){
 #ifdef _DEBUG
 		printf("[E] gettimeofday error.\n");
 #endif
-		// blocking
-		flags = fcntl(sock, F_GETFL, 0);
-		fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
+		enable_blocking_socket(sock);	// blocking
 		return -2;
 	}
 
@@ -1101,9 +1132,7 @@ int ssl_connect_non_blocking(int sock, SSL *ssl, long tv_sec, long tv_usec)
 #ifdef _DEBUG
 			printf("[I] ssl_connect_non_blocking select timeout.\n");
 #endif
-			// blocking
-			flags = fcntl(sock, F_GETFL, 0);
-			fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
+			enable_blocking_socket(sock);	// blocking
 			return -2;
 		}
 		
@@ -1121,9 +1150,7 @@ int ssl_connect_non_blocking(int sock, SSL *ssl, long tv_sec, long tv_usec)
 #ifdef _DEBUG
 				printf("[E] SSL_connect error:%d:%s.\n", err, ERR_error_string(ERR_peek_last_error(), NULL));
 #endif
-				// blocking
-				flags = fcntl(sock, F_GETFL, 0);
-				fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
+				enable_blocking_socket(sock);	// blocking
 				return -2;
 			}
 		}
@@ -1132,9 +1159,7 @@ int ssl_connect_non_blocking(int sock, SSL *ssl, long tv_sec, long tv_usec)
 #ifdef _DEBUG
 			printf("[E] gettimeofday error.\n");
 #endif
-			// blocking
-			flags = fcntl(sock, F_GETFL, 0);
-			fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
+			enable_blocking_socket(sock);	// blocking
 			return -2;
 		}
 		
@@ -1143,17 +1168,13 @@ int ssl_connect_non_blocking(int sock, SSL *ssl, long tv_sec, long tv_usec)
 #ifdef _DEBUG
 			printf("[I] ssl_connect_non_blocking timeout.\n");
 #endif
-			// blocking
-			flags = fcntl(sock, F_GETFL, 0);
-			fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
+			enable_blocking_socket(sock);	// blocking
 			return -2;
 		}
 	}
 	
-	// blocking
-	flags = fcntl(sock, F_GETFL, 0);
-	fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
-	
+	enable_blocking_socket(sock);	// blocking
+
 	return ret;
 }
 
@@ -1219,7 +1240,6 @@ int worker(void *ptr)
 	u_short domainname_length = strlen(domainname);
 	char *colon = NULL;
 	char *service = socks5_target_port;
-	int flags = 0;
 	
 	int ret = 0;
 	int err = 0;
@@ -1345,9 +1365,7 @@ int worker(void *ptr)
 	if(family == AF_INET){	// IPv4
 		target_sock = socket(AF_INET, SOCK_STREAM, 0);
 
-		flags = fcntl(target_sock, F_GETFL, 0);
-		flags &= ~O_NONBLOCK;
-		fcntl(target_sock, F_SETFL, flags);
+		enable_blocking_socket(target_sock);	// blocking
 				
 		if(err = connect(target_sock, (struct sockaddr *)&target_addr, sizeof(target_addr)) < 0){
 #ifdef _DEBUG
@@ -1360,9 +1378,7 @@ int worker(void *ptr)
 	}else if(family == AF_INET6){	// IPv6
 		target_sock = socket(AF_INET6, SOCK_STREAM, 0);
 		
-		flags = fcntl(target_sock, F_GETFL, 0);
-		flags &= ~O_NONBLOCK;
-		fcntl(target_sock, F_SETFL, flags);
+		enable_blocking_socket(target_sock);	// blocking
 				
 		if(err = connect(target_sock, (struct sockaddr *)&target_addr6, sizeof(target_addr6)) < 0){
 #ifdef _DEBUG
@@ -1990,10 +2006,7 @@ int main(int argc, char **argv)
 #ifdef _DEBUG
 		printf("[I] Connected from %s.\n", inet_ntoa(client_addr.sin_addr));
 #endif
-
-		int flags = fcntl(client_sock, F_GETFL, 0);
-		flags &= ~O_NONBLOCK;
-		fcntl(client_sock, F_SETFL, flags);
+		enable_blocking_socket(client_sock);	// blocking
 		
 		pthread_t thread;
 		struct worker_param *worker_param = (struct worker_param *)calloc(1, sizeof(struct worker_param));

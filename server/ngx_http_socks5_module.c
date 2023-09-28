@@ -192,6 +192,44 @@ int decrypt_aes(ngx_http_request_t *r, unsigned char *ciphertext, int ciphertext
 }
 
 
+void enable_blocking_socket(ngx_http_request_t *r, int sock)	// blocking
+{
+	int flags = 0;
+	int ret = 0;
+
+	flags = fcntl(sock, F_GETFL, 0);
+	ret = fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
+	usleep(5000);
+	if(ret == -1){
+#ifdef _DEBUG
+		printf("[E] enable_blocking_socket error:%d\n", errno);
+		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] enable_blocking_socket error:%d", errno);
+#endif
+	}
+
+	return;
+}
+
+
+void disable_blocking_socket(ngx_http_request_t *r, int sock)	// non blocking
+{
+	int flags = 0;
+	int ret = 0;
+
+	flags = fcntl(sock, F_GETFL, 0);
+	ret = fcntl(sock, F_SETFL, flags | O_NONBLOCK);
+	usleep(5000);
+	if(ret == -1){
+#ifdef _DEBUG
+		printf("[E] disable_blocking_socket error:%d\n", errno);
+		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] disable_blocking_socket error:%d", errno);
+#endif
+	}
+
+	return;
+}
+
+
 int recv_data(ngx_http_request_t *r, int sock, void *buffer, int length, long tv_sec, long tv_usec)
 {
 	int rec = 0;
@@ -1675,7 +1713,6 @@ int worker(ngx_http_request_t *r, void *ptr)
 	int target_sock;
 	char target_addr6_string[INET6_ADDRSTRLEN+1] = {0};
 	char *target_addr6_string_pointer = target_addr6_string;
-	int flags = 0;
 	
 	if(atyp == 0x1){	// IPv4
 #ifdef _DEBUG
@@ -1690,9 +1727,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 #endif
 			target_sock = socket(AF_INET, SOCK_STREAM, 0);
 			
-			// blocking
-			flags = fcntl(target_sock, F_GETFL, 0);
-			fcntl(target_sock, F_SETFL, flags & ~O_NONBLOCK);
+			enable_blocking_socket(r, target_sock);	// blocking
 			
 			if((err = connect(target_sock, (struct sockaddr *)&target_addr, sizeof(target_addr))) < 0){
 #ifdef _DEBUG
@@ -1824,9 +1859,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 #endif
 				target_sock = socket(AF_INET, SOCK_STREAM, 0);
 				
-				// blocking
-				flags = fcntl(target_sock, F_GETFL, 0);
-				fcntl(target_sock, F_SETFL, flags & ~O_NONBLOCK);
+				enable_blocking_socket(r, target_sock);	// blocking
 				
 				if((err = connect(target_sock, (struct sockaddr *)&target_addr, sizeof(target_addr))) < 0){
 #ifdef _DEBUG
@@ -1959,9 +1992,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 #endif
 				target_sock = socket(AF_INET6, SOCK_STREAM, 0);
 
-				// blocking
-				flags = fcntl(target_sock, F_GETFL, 0);
-				fcntl(target_sock, F_SETFL, flags & ~O_NONBLOCK);
+				enable_blocking_socket(r, target_sock);	// blocking
 			
 				if((err = connect(target_sock, (struct sockaddr *)&target_addr6, sizeof(target_addr6))) < 0){
 #ifdef _DEBUG
@@ -2115,9 +2146,7 @@ int worker(ngx_http_request_t *r, void *ptr)
 #endif
 			target_sock = socket(AF_INET6, SOCK_STREAM, 0);
 			
-			// blocking
-			flags = fcntl(target_sock, F_GETFL, 0);
-			fcntl(target_sock, F_SETFL, flags & ~O_NONBLOCK);
+			enable_blocking_socket(r, target_sock);	// blocking
 			
 			if((err = connect(target_sock, (struct sockaddr *)&target_addr6, sizeof(target_addr6))) < 0){
 #ifdef _DEBUG
@@ -2291,20 +2320,15 @@ int ssl_accept_non_blocking(ngx_http_request_t *r, int sock, SSL *ssl, long tv_s
 	long t = 0;
 	int ret = 0;
 	int err = 0;
-	int flags = 0;
 	
-	// non blocking
-	flags = fcntl(sock, F_GETFL, 0);
-	fcntl(sock, F_SETFL, flags | O_NONBLOCK);
+	disable_blocking_socket(r, sock);	// non blocking
 	
 	if(gettimeofday(&start, NULL) == -1){
 #ifdef _DEBUG
 		printf("[E] gettimeofday error.\n");
 		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] gettimeofday error.");
 #endif
-		// blocking
-		flags = fcntl(sock, F_GETFL, 0);
-		fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
+		enable_blocking_socket(r, sock);	// blocking
 		return -2;
 	}
 
@@ -2320,9 +2344,7 @@ int ssl_accept_non_blocking(ngx_http_request_t *r, int sock, SSL *ssl, long tv_s
 			printf("[I] ssl_accept_non_blocking select timeout.\n");
 			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] ssl_accept_non_blocking select timeout.");
 #endif
-			// blocking
-			flags = fcntl(sock, F_GETFL, 0);
-			fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
+			enable_blocking_socket(r, sock);	// blocking
 			return -2;
 		}
 		
@@ -2341,9 +2363,7 @@ int ssl_accept_non_blocking(ngx_http_request_t *r, int sock, SSL *ssl, long tv_s
 				printf("[E] SSL_accept error:%d:%s.\n", err, ERR_error_string(ERR_peek_last_error(), NULL));
 				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] SSL_accept error:%d:%s.", err, ERR_error_string(ERR_peek_last_error(), NULL));
 #endif
-				// blocking
-				flags = fcntl(sock, F_GETFL, 0);
-				fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
+				enable_blocking_socket(r, sock);	// blocking
 				return -2;
 			}
 		}
@@ -2353,9 +2373,7 @@ int ssl_accept_non_blocking(ngx_http_request_t *r, int sock, SSL *ssl, long tv_s
 			printf("[E] gettimeofday error.\n");
 			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[E] gettimeofday error.");
 #endif
-			// blocking
-			flags = fcntl(sock, F_GETFL, 0);
-			fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
+			enable_blocking_socket(r, sock);	// blocking
 			return -2;
 		}
 		
@@ -2365,16 +2383,12 @@ int ssl_accept_non_blocking(ngx_http_request_t *r, int sock, SSL *ssl, long tv_s
 			printf("[I] ssl_accept_non_blocking timeout.\n");
 			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] ssl_accept_non_blocking timeout.");
 #endif
-			// blocking
-			flags = fcntl(sock, F_GETFL, 0);
-			fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
+			enable_blocking_socket(r, sock);	// blocking
 			return -2;
 		}
 	}
 	
-	// blocking
-	flags = fcntl(sock, F_GETFL, 0);
-	fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
+	enable_blocking_socket(r, sock);	// blocking
 	
 	return ret;
 }
@@ -2441,7 +2455,6 @@ static ngx_int_t ngx_http_socks5_header_filter(ngx_http_request_t *r)
 	ngx_table_elt_t *h;
 	int socks5_flag = 0;
 	int client_sock = r->connection->fd;
-	int flags = 0;
 	int ret = 0;
 	int err = 0;
 	int socks5_over_tls_flag = 0;	// 0:socks5 over aes 1:socks5 over tls
@@ -2565,9 +2578,7 @@ static ngx_int_t ngx_http_socks5_header_filter(ngx_http_request_t *r)
 		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Timeout forwarder tv_sec:%l sec forwarder tv_usec:%l microsec.", forwarder_tv_sec, forwarder_tv_usec);
 #endif
 
-		// blocking
-		flags = fcntl(client_sock, F_GETFL, 0);
-		fcntl(client_sock, F_SETFL, flags & ~O_NONBLOCK);
+		enable_blocking_socket(r, client_sock);	// blocking
 
 		// send OK to client
 		count = 0;

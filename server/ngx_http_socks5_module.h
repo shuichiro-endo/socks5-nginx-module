@@ -12,6 +12,8 @@ static ngx_int_t ngx_http_socks5_init(ngx_conf_t *cf);
 
 int encrypt_aes(ngx_http_request_t *r, unsigned char *plaintext, int plaintext_length, unsigned char *aes_key, unsigned char *aes_iv, unsigned char *ciphertext);
 int decrypt_aes(ngx_http_request_t *r, unsigned char *ciphertext, int ciphertext_length, unsigned char *aes_key, unsigned char *aes_iv, unsigned char *plaintext);
+void enable_blocking_socket(ngx_http_request_t *r, int sock);	// blocking
+void disable_blocking_socket(ngx_http_request_t *r, int sock);	// non blocking
 int recv_data(ngx_http_request_t *r, int sock, void *buffer, int length, long tv_sec, long tv_usec);
 int recv_data_aes(ngx_http_request_t *r, int sock, void *buffer, int length, unsigned char *aes_key, unsigned char *aes_iv, long tv_sec, long tv_usec);
 int recv_data_tls(ngx_http_request_t *r, int sock, SSL *ssl ,void *buffer, int length, long tv_sec, long tv_usec);
