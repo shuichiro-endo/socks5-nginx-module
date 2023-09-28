@@ -6,6 +6,9 @@ This module hides socks5 proxy in an http server.
 
 This supports CONNECT of the socks5 command only. (BIND and UDP ASSOCIATE are not available.)
 
+This is the Nginx module.
+Click [here](https://github.com/shuichiro-endo/socks5-apache-module) for the Apache module.
+
 ## How it works
 ```mermaid
 sequenceDiagram
@@ -71,8 +74,8 @@ sequenceDiagram
 ### Version
 I tested this module using the following version.
 - Debian 12
-- nginx 1.22.1
-- openssl 3.0.8
+- nginx 1.24.0
+- openssl 3.0.10
 
 ### Install
 #### 1. download the latest [socks5 nginx module](https://github.com/shuichiro-endo/socks5-nginx-module)
