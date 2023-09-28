@@ -2592,7 +2592,7 @@ static ngx_int_t ngx_http_socks5_header_filter(ngx_http_request_t *r)
 #endif
 				return ngx_http_next_header_filter(r);
 			}
-			usleep(5000);
+			usleep(500);
 		}while(count < 2);
 #ifdef _DEBUG
 		printf("[I] Send OK message.\n");
