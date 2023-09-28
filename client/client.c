@@ -14,6 +14,7 @@
 #include <fcntl.h>
 #include <netdb.h>
 #include <time.h>
+#include <signal.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -1955,7 +1956,9 @@ int main(int argc, char **argv)
 	printf("[I] Timeout forwarder tv_sec(0-300 sec):%ld sec forwarder tv_usec(0-1000000 microsec):%ld microsec.\n", forwarder_tv_sec, forwarder_tv_usec);
 #endif
 	
-	
+	// ignore SIGPIPE
+	signal(SIGPIPE, SIG_IGN);
+
 	int server_sock, client_sock;
 	struct sockaddr_in server_addr, client_addr;
 
