@@ -53,8 +53,14 @@ char *socks5_server_ip = NULL;
 char *socks5_server_port = NULL;
 char *socks5_target_ip = NULL;
 char *socks5_target_port = NULL;
+char *forward_proxy_ip = NULL;		// http proxy ip
+char *forward_proxy_port = NULL;	// http proxy port
+char *forward_proxy_username = NULL;
+char *forward_proxy_password = NULL;
 int https_flag = 0;		// 0:http 1:https
 int socks5_over_tls_flag = 0;	// 0:socks5 over aes 1:socks5 over tls
+int forward_proxy_flag = 0;		// 0:no 1:http
+int forward_proxy_authentication_flag = 0;	// 0:no 1:basic
 
 char server_certificate_filename_https[256] = "server_https.crt";	// server certificate filename (HTTPS)
 char server_certificate_file_directory_path_https[256] = ".";	// server certificate file directory path (HTTPS)
@@ -154,6 +160,50 @@ int decrypt_aes(unsigned char *ciphertext, int ciphertext_length, unsigned char 
 	EVP_CIPHER_CTX_free(ctx);
 	
 	return plaintext_length;
+}
+
+
+int encode_base64(const unsigned char *input, int length, unsigned char *output)
+{
+	BIO *b64 = BIO_new(BIO_f_base64());
+	BIO *mem = BIO_new(BIO_s_mem());
+	BUF_MEM *bufmem;
+	int output_length = 0;
+
+	b64 = BIO_push(b64, mem);
+	BIO_write(b64, input, length);
+	BIO_flush(b64);
+	BIO_get_mem_ptr(b64, &bufmem);
+
+	memcpy(output, bufmem->data, bufmem->length-1);
+	output[bufmem->length-1] = '\0';
+	output_length = strlen((const char *)output);
+
+	BIO_free_all(b64);
+
+	return output_length;
+}
+
+
+int decode_base64(const unsigned char *input, int length, unsigned char *output)
+{
+	BIO *b64 = BIO_new(BIO_f_base64());
+	BIO *mem = BIO_new(BIO_s_mem());
+	BUF_MEM *bufmem;
+	int output_length = 0;
+
+	b64 = BIO_push(b64, mem);
+	BIO_read(b64, (void *)input, length);
+	BIO_flush(b64);
+	BIO_get_mem_ptr(b64, &bufmem);
+
+	memcpy(output, bufmem->data, bufmem->length-1);
+	output[bufmem->length-1] = '\0';
+	output_length = strlen((const char *)output);
+
+	BIO_free_all(b64);
+
+	return output_length;
 }
 
 
@@ -1253,7 +1303,7 @@ void fini_ssl(ssl_param *param)
 {
 	// Socks5 over TLS
 	if(param->target_ssl_socks5 != NULL){
-		if(https_flag == 0 && socks5_over_tls_flag == 1){	// HTTP and Socks5 over TLS
+		if(https_flag == 0 && socks5_over_tls_flag == 1){       // HTTP and Socks5 over TLS
 			SSL_shutdown(param->target_ssl_socks5);
 		}
 		SSL_free(param->target_ssl_socks5);
@@ -1296,22 +1346,41 @@ int worker(void *ptr)
 	worker_param = NULL;
 	free(ptr);
 	
-	SOCKET target_sock = -1;
-	sockaddr_in target_addr, *tmp_ipv4;		// IPv4
-	memset(&target_addr, 0, sizeof(sockaddr_in));
-	
-	sockaddr_in6 target_addr6, *tmp_ipv6;	// IPv6
-	memset(&target_addr6, 0, sizeof(sockaddr_in6));
+	SOCKET forward_proxy_sock = INVALID_SOCKET;
+	SOCKET target_sock = INVALID_SOCKET;
 
-	addrinfo hints, *target_host;
-	memset(&hints, 0, sizeof(addrinfo));
+	sockaddr_in forward_proxy_addr;		// IPv4
+	sockaddr_in target_addr;				// IPv4
+	sockaddr_in *tmp_ipv4;
+	sockaddr_in6 target_addr6;			// IPv6
+	sockaddr_in6 forward_proxy_addr6;	// IPv6
+	sockaddr_in6 *tmp_ipv6;
+	addrinfo hints;
+	addrinfo *target_host;
+	addrinfo *forward_proxy_host;
+
+	char *forward_proxy_domainname = forward_proxy_ip;
+	u_short forward_proxy_domainname_length = 0;
+	if(forward_proxy_domainname != NULL){
+		forward_proxy_domainname_length = strlen(forward_proxy_domainname);
+	}
+	char *forward_proxy_port_number = forward_proxy_port;
+	int proxy_credential_length = 0;
+	char proxy_credential[1000];
+	char proxy_b64_credential[2000];
+	memset(&proxy_credential, 0,1000);
+	memset(&proxy_b64_credential, 0, 2000);
+
+	char *target_domainname = socks5_target_ip;
+	u_short target_domainname_length = 0;
+	if(target_domainname != NULL){
+		target_domainname_length = strlen(target_domainname);
+	}
+	char *target_port_number = socks5_target_port;
 
 	int family = 0;
-	char *domainname = socks5_target_ip;
-	u_short domainname_length = strlen(domainname);
 	char *colon = NULL;
-	char *service = socks5_target_port;
-	int flags = 0;
+
 	u_long iMode = 1;	// non-blocking mode
 	int ret = 0;
 	int err = 0;
@@ -1383,110 +1452,428 @@ int worker(void *ptr)
 	printf("[I] aes iv  (base64):%s\n", aes_iv_b64);
 #endif
 	
-	
+
+	if(forward_proxy_flag == 1){	// http forward proxy
+		memset(&forward_proxy_addr, 0, sizeof(sockaddr_in));
+		memset(&forward_proxy_addr6, 0, sizeof(sockaddr_in6));
+		memset(&hints, 0, sizeof(addrinfo));
+
 #ifdef _DEBUG
-	printf("[I] Domainname:%s, Length:%d.\n", domainname, domainname_length);
+		printf("[I] Forward proxy domainname:%s, Length:%d.\n", forward_proxy_domainname, forward_proxy_domainname_length);
 #endif
-	colon = strstr(domainname, ":");	// check ipv6 address
-	if(colon == NULL){	// ipv4 address or domainname
-		hints.ai_family = AF_INET;	// IPv4
-		if(getaddrinfo(domainname, service, &hints, &target_host) != 0){
-			hints.ai_family = AF_INET6;	// IPv6
-			if(getaddrinfo(domainname, service, &hints, &target_host) != 0){
+		colon = strstr(forward_proxy_domainname, ":");	// check ipv6 address
+		if(colon == NULL){	// ipv4 address or domainname
+			hints.ai_family = AF_INET;	// IPv4
+			if(getaddrinfo(forward_proxy_domainname, forward_proxy_port_number, &hints, &forward_proxy_host) != 0){
+				hints.ai_family = AF_INET6;	// IPv6
+				if(getaddrinfo(forward_proxy_domainname, forward_proxy_port_number, &hints, &forward_proxy_host) != 0){
 #ifdef _DEBUG
-				printf("[E] Cannot resolv the domain name:%s.\n", domainname);
+					printf("[E] Cannot resolv the domain name:%s.\n", forward_proxy_domainname);
+#endif
+					close_socket(client_sock);
+					return -1;
+				}
+			}
+		}else{	// ipv6 address
+			hints.ai_family = AF_INET6;	// IPv6
+			if(getaddrinfo(forward_proxy_domainname, forward_proxy_port_number, &hints, &forward_proxy_host) != 0){
+#ifdef _DEBUG
+				printf("[E] Cannot resolv the domain name:%s.\n", forward_proxy_domainname);
 #endif
 				close_socket(client_sock);
 				return -1;
 			}
 		}
-	}else{	// ipv6 address
-		hints.ai_family = AF_INET6;	// IPv6
-		if(getaddrinfo(domainname, service, &hints, &target_host) != 0){
+
+		if(forward_proxy_host->ai_family == AF_INET){
+			family = AF_INET;
+			forward_proxy_addr.sin_family = AF_INET;
+			tmp_ipv4 = (sockaddr_in *)forward_proxy_host->ai_addr;
+			memcpy(&forward_proxy_addr.sin_addr, &tmp_ipv4->sin_addr, sizeof(unsigned long));
+			memcpy(&forward_proxy_addr.sin_port, &tmp_ipv4->sin_port, 2);
+			freeaddrinfo(forward_proxy_host);
+		}else if(forward_proxy_host->ai_family == AF_INET6){
+			family = AF_INET6;
+			forward_proxy_addr6.sin6_family = AF_INET6;
+			tmp_ipv6 = (sockaddr_in6 *)forward_proxy_host->ai_addr;
+			memcpy(&forward_proxy_addr6.sin6_addr, &tmp_ipv6->sin6_addr, sizeof(in6_addr));
+			memcpy(&forward_proxy_addr6.sin6_port, &tmp_ipv6->sin6_port, 2);;
+			freeaddrinfo(forward_proxy_host);
+		}else{
 #ifdef _DEBUG
-			printf("[E] Cannot resolv the domain name:%s.\n", domainname);
+			printf("[E] Not implemented.\n");
+#endif
+			freeaddrinfo(forward_proxy_host);
+			close_socket(client_sock);
+			return -1;
+		}
+
+		if(family == AF_INET){	// IPv4
+			forward_proxy_sock = socket(AF_INET, SOCK_STREAM, 0);
+			if(forward_proxy_sock == INVALID_SOCKET){
+#ifdef _DEBUG
+				printf("[E] Socket error:%d.\n", WSAGetLastError());
+#endif
+				close_socket(client_sock);
+				return -1;
+			}
+
+			if(err = connect(forward_proxy_sock, (sockaddr *)&forward_proxy_addr, sizeof(forward_proxy_addr)) == SOCKET_ERROR){
+#ifdef _DEBUG
+				printf("[E] Connect failed. error:%d\n", WSAGetLastError());
+#endif
+				close_socket(forward_proxy_sock);
+				close_socket(client_sock);
+				return -1;
+			}
+		}else if(family == AF_INET6){	// IPv6
+			forward_proxy_sock = socket(AF_INET6, SOCK_STREAM, 0);
+			if(forward_proxy_sock == INVALID_SOCKET){
+#ifdef _DEBUG
+				printf("[E] Socket error:%d.\n", WSAGetLastError());
+#endif
+				close_socket(client_sock);
+				return -1;
+			}
+
+			if(err = connect(forward_proxy_sock, (sockaddr *)&forward_proxy_addr6, sizeof(forward_proxy_addr6)) == SOCKET_ERROR){
+#ifdef _DEBUG
+				printf("[E] Connect failed. error:%d\n", WSAGetLastError());
+#endif
+				close_socket(forward_proxy_sock);
+				close_socket(client_sock);
+				return -1;
+			}
+		}else{
+#ifdef _DEBUG
+			printf("[E] Not implemented.\n");
 #endif
 			close_socket(client_sock);
 			return -1;
 		}
+#ifdef _DEBUG
+		printf("[I] Connected to forward proxy server.\n");
+#endif
+
+
+		if(forward_proxy_authentication_flag == 1){	// forward proxy authentication: basic
+			if(strlen(forward_proxy_username) > 256 || strlen(forward_proxy_password) > 256){
+#ifdef _DEBUG
+				printf("[E] Forward proxy username or password length is too long (length > 256).\n");
+#endif
+				close_socket(forward_proxy_sock);
+				close_socket(client_sock);
+				return -1;
+			}
+
+			proxy_credential_length = snprintf(proxy_credential, 1000, "%s:%s", forward_proxy_username, forward_proxy_password);
+			length = 0;
+
+			length = encode_base64((const unsigned char *)&proxy_credential, proxy_credential_length, (unsigned char *)&proxy_b64_credential);
+#ifdef _DEBUG
+			printf("[I] Forward proxy credential (base64):%s\n", proxy_b64_credential);
+#endif
+		}
+
+
+		memset(http_request, 0, BUFFER_SIZE+1);
+		if(https_flag == 0){	// http (target socks5 server)
+			if(forward_proxy_authentication_flag == 0){	// forward proxy authentication: no
+//				http_request_length = snprintf(http_request, BUFFER_SIZE+1, "GET http://%s:%s/ HTTP/1.1\r\nHost: %s:%s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nAccept: */*\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number);
+
+				http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nAccept: */*\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number);
+
+				// HTTP Request
+				sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
+				if(sen <= 0){
+#ifdef _DEBUG
+					printf("[E] Send http request to forward proxy.\n");
+#endif
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] Send http request to forward proxy.\n");
+#endif
+
+				// HTTP Response
+				rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
+				if(rec <= 0){
+#ifdef _DEBUG
+					printf("[E] Recv http response from forward proxy.\n");
+#endif
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] Recv http response from forward proxy.\n");
+#endif
+
+				ret = strncmp(buffer, "HTTP/1.1 200 Connection established\r\n", strlen("HTTP/1.1 200 Connection established\r\n"));
+				if(ret != 0){
+#ifdef _DEBUG
+					printf("[E] Forward proxy error:%s\n", buffer);
+#endif
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+			}else if(forward_proxy_authentication_flag == 1){	// forward proxy authentication: basic
+//				http_request_length = snprintf(http_request, BUFFER_SIZE+1, "GET http://%s:%s/ HTTP/1.1\r\nHost: %s:%s\r\nProxy-Authorization: Basic %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nAccept: */*\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number, proxy_b64_credential);
+
+				http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nProxy-Authorization: Basic %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nAccept: */*\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number, proxy_b64_credential);
+
+				// HTTP Request
+				sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
+				if(sen <= 0){
+#ifdef _DEBUG
+					printf("[E] Send http request to forward proxy.\n");
+#endif
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] Send http request to forward proxy.\n");
+#endif
+
+				// HTTP Response
+				rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
+				if(rec <= 0){
+#ifdef _DEBUG
+					printf("[E] Recv http response from forward proxy.\n");
+#endif
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] Recv http response from forward proxy.\n");
+#endif
+
+				ret = strncmp(buffer, "HTTP/1.1 200 Connection established\r\n", strlen("HTTP/1.1 200 Connection established\r\n"));
+				if(ret != 0){
+#ifdef _DEBUG
+					printf("[E] Forward proxy error:%s\n", buffer);
+#endif
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+			}else{
+#ifdef _DEBUG
+				printf("[E] Not implemented.\n");
+#endif
+				close_socket(forward_proxy_sock);
+				close_socket(client_sock);
+				return -1;
+			}
+		}else{	// https (target socks5 server)
+			if(forward_proxy_authentication_flag == 0){	// forward proxy authentication: no
+				http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nAccept: */*\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number);
+
+				// HTTP Request
+				sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
+				if(sen <= 0){
+#ifdef _DEBUG
+					printf("[E] Send http request to forward proxy.\n");
+#endif
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] Send http request to forward proxy.\n");
+#endif
+
+				// HTTP Response
+				rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
+				if(rec <= 0){
+#ifdef _DEBUG
+					printf("[E] Recv http response from forward proxy.\n");
+#endif
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] Recv http response from forward proxy.\n");
+#endif
+
+				ret = strncmp(buffer, "HTTP/1.1 200 Connection established\r\n", strlen("HTTP/1.1 200 Connection established\r\n"));
+				if(ret != 0){
+#ifdef _DEBUG
+					printf("[E] Forward proxy error:%s\n", buffer);
+#endif
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+			}else if(forward_proxy_authentication_flag == 1){	// forward proxy authentication: basic
+				http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nProxy-Authorization: Basic %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nAccept: */*\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number, proxy_b64_credential);
+
+				// HTTP Request
+				sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
+				if(sen <= 0){
+#ifdef _DEBUG
+					printf("[E] Send http request to forward proxy.\n");
+#endif
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] Send http request to forward proxy.\n");
+#endif
+
+				// HTTP Response
+				rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
+				if(rec <= 0){
+#ifdef _DEBUG
+					printf("[E] Recv http response from forward proxy.\n");
+#endif
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] Recv http response from forward proxy.\n");
+#endif
+
+				ret = strncmp(buffer, "HTTP/1.1 200 Connection established\r\n", strlen("HTTP/1.1 200 Connection established\r\n"));
+				if(ret != 0){
+#ifdef _DEBUG
+					printf("[E] Forward proxy error:%s\n", buffer);
+#endif
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+			}else{
+#ifdef _DEBUG
+				printf("[E] Not implemented.\n");
+#endif
+				close_socket(forward_proxy_sock);
+				close_socket(client_sock);
+				return -1;
+			}
+		}
+#ifdef _DEBUG
+				printf("[I] Forward proxy connection established.\n");
+#endif
+	}else{	// no forward proxy
+		memset(&target_addr, 0, sizeof(sockaddr_in));
+		memset(&target_addr6, 0, sizeof(sockaddr_in6));
+		memset(&hints, 0, sizeof(addrinfo));
+
+#ifdef _DEBUG
+		printf("[I] Target domainname:%s, Length:%d.\n", target_domainname, target_domainname_length);
+#endif
+		colon = strstr(target_domainname, ":");	// check ipv6 address
+		if(colon == NULL){	// ipv4 address or domainname
+			hints.ai_family = AF_INET;	// IPv4
+			if(getaddrinfo(target_domainname, target_port_number, &hints, &target_host) != 0){
+				hints.ai_family = AF_INET6;	// IPv6
+				if(getaddrinfo(target_domainname, target_port_number, &hints, &target_host) != 0){
+#ifdef _DEBUG
+					printf("[E] Cannot resolv the domain name:%s.\n", target_domainname);
+#endif
+					close_socket(client_sock);
+					return -1;
+				}
+			}
+		}else{	// ipv6 address
+			hints.ai_family = AF_INET6;	// IPv6
+			if(getaddrinfo(target_domainname, target_port_number, &hints, &target_host) != 0){
+#ifdef _DEBUG
+				printf("[E] Cannot resolv the domain name:%s.\n", target_domainname);
+#endif
+				close_socket(client_sock);
+				return -1;
+			}
+		}
+
+		if(target_host->ai_family == AF_INET){
+			family = AF_INET;
+			target_addr.sin_family = AF_INET;
+			tmp_ipv4 = (sockaddr_in *)target_host->ai_addr;
+			memcpy(&target_addr.sin_addr, &tmp_ipv4->sin_addr, sizeof(unsigned long));
+			memcpy(&target_addr.sin_port, &tmp_ipv4->sin_port, 2);
+			freeaddrinfo(target_host);
+		}else if(target_host->ai_family == AF_INET6){
+			family = AF_INET6;
+			target_addr6.sin6_family = AF_INET6;
+			tmp_ipv6 = (sockaddr_in6 *)target_host->ai_addr;
+			memcpy(&target_addr6.sin6_addr, &tmp_ipv6->sin6_addr, sizeof(in6_addr));
+			memcpy(&target_addr6.sin6_port, &tmp_ipv6->sin6_port, 2);;
+			freeaddrinfo(target_host);
+		}else{
+#ifdef _DEBUG
+			printf("[E] Not implemented.\n");
+#endif
+			freeaddrinfo(target_host);
+			close_socket(client_sock);
+			return -1;
+		}
+
+		if(family == AF_INET){	// IPv4
+			target_sock = socket(AF_INET, SOCK_STREAM, 0);
+			if(target_sock == INVALID_SOCKET){
+#ifdef _DEBUG
+				printf("[E] Socket error:%d.\n", WSAGetLastError());
+#endif
+				close_socket(client_sock);
+				return -1;
+			}
+
+			if(err = connect(target_sock, (sockaddr *)&target_addr, sizeof(target_addr)) == SOCKET_ERROR){
+#ifdef _DEBUG
+				printf("[E] Connect failed. error:%d\n", WSAGetLastError());
+#endif
+				close_socket(target_sock);
+				close_socket(client_sock);
+				return -1;
+			}
+		}else if(family == AF_INET6){	// IPv6
+			target_sock = socket(AF_INET6, SOCK_STREAM, 0);
+			if(target_sock == INVALID_SOCKET){
+#ifdef _DEBUG
+				printf("[E] Socket error:%d.\n", WSAGetLastError());
+#endif
+				close_socket(client_sock);
+				return -1;
+			}
+
+			if(err = connect(target_sock, (sockaddr *)&target_addr6, sizeof(target_addr6)) == SOCKET_ERROR){
+#ifdef _DEBUG
+				printf("[E] Connect failed. error:%d\n", WSAGetLastError());
+#endif
+				close_socket(target_sock);
+				close_socket(client_sock);
+				return -1;
+			}
+		}else{
+#ifdef _DEBUG
+			printf("[E] Not implemented.\n");
+#endif
+			close_socket(client_sock);
+			return -1;
+		}
+#ifdef _DEBUG
+		printf("[I] Connected to target socks5 server.\n");
+#endif
 	}
 
-	if(target_host->ai_family == AF_INET){
-		family = AF_INET;
-		target_addr.sin_family = AF_INET;
-		tmp_ipv4 = (sockaddr_in *)target_host->ai_addr;
-		memcpy(&target_addr.sin_addr, &tmp_ipv4->sin_addr, sizeof(unsigned long));
-		memcpy(&target_addr.sin_port, &tmp_ipv4->sin_port, 2);
-		freeaddrinfo(target_host);
-	}else if(target_host->ai_family == AF_INET6){
-		family = AF_INET6;
-		target_addr6.sin6_family = AF_INET6;
-		tmp_ipv6 = (sockaddr_in6 *)target_host->ai_addr;
-		memcpy(&target_addr6.sin6_addr, &tmp_ipv6->sin6_addr, sizeof(in6_addr));
-		memcpy(&target_addr6.sin6_port, &tmp_ipv6->sin6_port, 2);;
-		freeaddrinfo(target_host);
-	}else{
-#ifdef _DEBUG
-		printf("[E] Not implemented.\n");
-#endif
-		freeaddrinfo(target_host);
-		close_socket(client_sock);
-		return -1;
-	}
-
-	if(family == AF_INET){	// IPv4
-		target_sock = socket(AF_INET, SOCK_STREAM, 0);
-		if(target_sock == INVALID_SOCKET){
-#ifdef _DEBUG
-			printf("[E] Socket error:%d.\n", WSAGetLastError());
-#endif
-			close_socket(client_sock);
-			return -1;
-		}
-
-		if(err = connect(target_sock, (sockaddr *)&target_addr, sizeof(target_addr)) < 0){
-#ifdef _DEBUG
-			printf("[E] Connect failed. errno:%d\n", err);
-#endif
-			close_socket(target_sock);
-			close_socket(client_sock);
-			return -1;
-		}
-	}else if(family == AF_INET6){	// IPv6
-		target_sock = socket(AF_INET6, SOCK_STREAM, 0);
-		if(target_sock == INVALID_SOCKET){
-#ifdef _DEBUG
-			printf("[E] Socket error:%d.\n", WSAGetLastError());
-#endif
-			close_socket(client_sock);
-			return -1;
-		}
-
-		if(err = connect(target_sock, (sockaddr *)&target_addr6, sizeof(target_addr6)) < 0){
-#ifdef _DEBUG
-			printf("[E] Connect failed. errno:%d\n", err);
-#endif
-			close_socket(target_sock);
-			close_socket(client_sock);
-			return -1;
-		}
-	}else{
-#ifdef _DEBUG
-		printf("[E] Not implemented.\n");
-#endif
-		close_socket(client_sock);
-		return -1;
-	}
-#ifdef _DEBUG
-	printf("[I] Connect target socks5 server.\n");
-#endif
 
 	if(socks5_over_tls_flag == 0){	// Socks5 over AES
-		http_request_length = snprintf(http_request, BUFFER_SIZE+1, "GET / HTTP/1.1\r\nHost: %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\r\nAccept-Language: en-US,en;q=0.5\r\nAccept-Encoding: gzip, deflate\r\n%s: %s\r\n%s: %s\r\n%s: %s\r\n%s: %ld\r\n%s: %ld\r\n%s: %ld\r\n%s: %ld\r\nConnection: close\r\n\r\n", domainname, HTTP_REQUEST_HEADER_SOCKS5_KEY, HTTP_REQUEST_HEADER_SOCKS5_VALUE, HTTP_REQUEST_HEADER_AESKEY_KEY, aes_key_b64, HTTP_REQUEST_HEADER_AESIV_KEY, aes_iv_b64, HTTP_REQUEST_HEADER_TVSEC_KEY, tv_sec, HTTP_REQUEST_HEADER_TVUSEC_KEY, tv_usec, HTTP_REQUEST_HEADER_FORWARDER_TVSEC_KEY, forwarder_tv_sec, HTTP_REQUEST_HEADER_FORWARDER_TVUSEC_KEY, forwarder_tv_usec);
+		http_request_length = snprintf(http_request, BUFFER_SIZE+1, "GET / HTTP/1.1\r\nHost: %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\r\nAccept-Language: en-US,en;q=0.5\r\nAccept-Encoding: gzip, deflate\r\n%s: %s\r\n%s: %s\r\n%s: %s\r\n%s: %ld\r\n%s: %ld\r\n%s: %ld\r\n%s: %ld\r\nConnection: close\r\n\r\n", target_domainname, HTTP_REQUEST_HEADER_SOCKS5_KEY, HTTP_REQUEST_HEADER_SOCKS5_VALUE, HTTP_REQUEST_HEADER_AESKEY_KEY, aes_key_b64, HTTP_REQUEST_HEADER_AESIV_KEY, aes_iv_b64, HTTP_REQUEST_HEADER_TVSEC_KEY, tv_sec, HTTP_REQUEST_HEADER_TVUSEC_KEY, tv_usec, HTTP_REQUEST_HEADER_FORWARDER_TVSEC_KEY, forwarder_tv_sec, HTTP_REQUEST_HEADER_FORWARDER_TVUSEC_KEY, forwarder_tv_usec);
 	}else{	// Socks5 over TLS
-		http_request_length = snprintf(http_request, BUFFER_SIZE+1, "GET / HTTP/1.1\r\nHost: %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\r\nAccept-Language: en-US,en;q=0.5\r\nAccept-Encoding: gzip, deflate\r\n%s: %s\r\n%s: %s\r\n%s: %s\r\n%s: %s\r\n%s: %ld\r\n%s: %ld\r\n%s: %ld\r\n%s: %ld\r\nConnection: close\r\n\r\n", domainname, HTTP_REQUEST_HEADER_SOCKS5_KEY, HTTP_REQUEST_HEADER_SOCKS5_VALUE, HTTP_REQUEST_HEADER_AESKEY_KEY, aes_key_b64, HTTP_REQUEST_HEADER_AESIV_KEY, aes_iv_b64, HTTP_REQUEST_HEADER_TLS_KEY, HTTP_REQUEST_HEADER_TLS_VALUE2, HTTP_REQUEST_HEADER_TVSEC_KEY, tv_sec, HTTP_REQUEST_HEADER_TVUSEC_KEY, tv_usec, HTTP_REQUEST_HEADER_FORWARDER_TVSEC_KEY, forwarder_tv_sec, HTTP_REQUEST_HEADER_FORWARDER_TVUSEC_KEY, forwarder_tv_usec);
+		http_request_length = snprintf(http_request, BUFFER_SIZE+1, "GET / HTTP/1.1\r\nHost: %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\r\nAccept-Language: en-US,en;q=0.5\r\nAccept-Encoding: gzip, deflate\r\n%s: %s\r\n%s: %s\r\n%s: %s\r\n%s: %s\r\n%s: %ld\r\n%s: %ld\r\n%s: %ld\r\n%s: %ld\r\nConnection: close\r\n\r\n", target_domainname, HTTP_REQUEST_HEADER_SOCKS5_KEY, HTTP_REQUEST_HEADER_SOCKS5_VALUE, HTTP_REQUEST_HEADER_AESKEY_KEY, aes_key_b64, HTTP_REQUEST_HEADER_AESIV_KEY, aes_iv_b64, HTTP_REQUEST_HEADER_TLS_KEY, HTTP_REQUEST_HEADER_TLS_VALUE2, HTTP_REQUEST_HEADER_TVSEC_KEY, tv_sec, HTTP_REQUEST_HEADER_TVUSEC_KEY, tv_usec, HTTP_REQUEST_HEADER_FORWARDER_TVSEC_KEY, forwarder_tv_sec, HTTP_REQUEST_HEADER_FORWARDER_TVUSEC_KEY, forwarder_tv_usec);
 	}
-	
+
+
 	if(https_flag == 1){	// HTTPS
 		// SSL Initialize
 		OPENSSL_init_ssl(OPENSSL_INIT_LOAD_SSL_STRINGS, NULL);
@@ -1497,50 +1884,71 @@ int worker(void *ptr)
 #ifdef _DEBUG
 			printf("[E] SSL_CTX_new error.\n");
 #endif
-			close_socket(target_sock);
+			if(forward_proxy_flag == 1){	// http forward proxy
+				close_socket(forward_proxy_sock);
+			}else{
+				close_socket(target_sock);
+			}
 			close_socket(client_sock);
 			return -2;
 		}
 		ssl_param.target_ctx_http = target_ctx_http;
 
 //		SSL_CTX_set_mode(target_ctx_http, SSL_MODE_AUTO_RETRY);
-		
+
 		if(SSL_CTX_set_min_proto_version(target_ctx_http, TLS1_2_VERSION) == 0){
 #ifdef _DEBUG
 			printf("[E] SSL_CTX_set_min_proto_version error.\n");
 #endif
 			fini_ssl(&ssl_param);
-			close_socket(target_sock);
+			if(forward_proxy_flag == 1){	// http forward proxy
+				close_socket(forward_proxy_sock);
+			}else{
+				close_socket(target_sock);
+			}
 			close_socket(client_sock);
 			return -2;
 		}
-		
+
 		SSL_CTX_set_default_verify_paths(target_ctx_http);
 		SSL_CTX_load_verify_locations(target_ctx_http, server_certificate_filename_https, server_certificate_file_directory_path_https);
 		SSL_CTX_set_verify(target_ctx_http, SSL_VERIFY_PEER, NULL);
-		
+
 		target_ssl_http = SSL_new(target_ctx_http);
 		if(target_ssl_http == NULL){
 #ifdef _DEBUG
 			printf("[E] SSL_new error.\n");
 #endif
 			fini_ssl(&ssl_param);
-			close_socket(target_sock);
+			if(forward_proxy_flag == 1){	// http forward proxy
+				close_socket(forward_proxy_sock);
+			}else{
+				close_socket(target_sock);
+			}
 			close_socket(client_sock);
 			return -2;
 		}
 		ssl_param.target_ssl_http = target_ssl_http;
-	
-		if(SSL_set_fd(target_ssl_http, target_sock) == 0){
+
+		if(forward_proxy_flag == 1){	// http forward proxy
+			ret = SSL_set_fd(target_ssl_http, forward_proxy_sock);
+		}else{
+			ret = SSL_set_fd(target_ssl_http, target_sock);
+		}
+		if(ret == 0){
 #ifdef _DEBUG
 			printf("[E] SSL_set_fd error.\n");
 #endif
 			fini_ssl(&ssl_param);
-			close_socket(target_sock);
+			if(forward_proxy_flag == 1){	// http forward proxy
+				close_socket(forward_proxy_sock);
+			}else{
+				close_socket(target_sock);
+			}
 			close_socket(client_sock);
 			return -2;
 		}
-		
+
 #ifdef _DEBUG
 		printf("[I] Try HTTPS connection. (SSL_connect)\n");
 #endif
@@ -1551,23 +1959,34 @@ int worker(void *ptr)
 			printf("[E] SSL_connect error:%d:%s.\n", err, ERR_error_string(ERR_peek_last_error(), NULL));
 #endif
 			fini_ssl(&ssl_param);
-			close_socket(target_sock);
+			if(forward_proxy_flag == 1){	// http forward proxy
+				close_socket(forward_proxy_sock);
+			}else{
+				close_socket(target_sock);
+			}
 			close_socket(client_sock);
 			return -2;
 		}
-
 #ifdef _DEBUG
 		printf("[I] Succeed HTTPS connection. (SSL_connect)\n");
 #endif
-		
+
 		// HTTP Request
-		sen = send_data_tls(target_sock, target_ssl_http, http_request, http_request_length, tv_sec, tv_usec);
+		if(forward_proxy_flag == 1){	// http forward proxy
+			sen = send_data_tls(forward_proxy_sock, target_ssl_http, http_request, http_request_length, tv_sec, tv_usec);
+		}else{
+			sen = send_data_tls(target_sock, target_ssl_http, http_request, http_request_length, tv_sec, tv_usec);
+		}
 		if(sen <= 0){
 #ifdef _DEBUG
 			printf("[E] Send http request.\n");
 #endif
 			fini_ssl(&ssl_param);
-			close_socket(target_sock);
+			if(forward_proxy_flag == 1){	// http forward proxy
+				close_socket(forward_proxy_sock);
+			}else{
+				close_socket(target_sock);
+			}
 			close_socket(client_sock);
 			return -2;
 		}
@@ -1576,13 +1995,21 @@ int worker(void *ptr)
 #endif
 	}else{
 		// HTTP Request
-		sen = send_data(target_sock, http_request, http_request_length, tv_sec, tv_usec);
+		if(forward_proxy_flag == 1){	// http forward proxy
+			sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
+		}else{
+			sen = send_data(target_sock, http_request, http_request_length, tv_sec, tv_usec);
+		}
 		if(sen <= 0){
 #ifdef _DEBUG
 			printf("[E] Send http request.\n");
 #endif
 			fini_ssl(&ssl_param);
-			close_socket(target_sock);
+			if(forward_proxy_flag == 1){	// http forward proxy
+				close_socket(forward_proxy_sock);
+			}else{
+				close_socket(target_sock);
+			}
 			close_socket(client_sock);
 			return -1;
 		}
@@ -1597,7 +2024,11 @@ int worker(void *ptr)
 	check = 0;
 	do{
 		count++;
-		rec = recv_data_aes(target_sock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec);
+		if(forward_proxy_flag == 1){	// http forward proxy
+			rec = recv_data_aes(forward_proxy_sock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec);
+		}else{
+			rec = recv_data_aes(target_sock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec);
+		}
 #ifdef _DEBUG
 		printf("[I] count:%d rec:%d\n", count, rec);
 #endif
@@ -1610,16 +2041,24 @@ int worker(void *ptr)
 #ifdef _DEBUG
 		printf("[I] Server Socks5 OK.\n");
 #endif
-		rec = recv_data_aes(target_sock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec);	// rec: 2("OK") or -1
+		if(forward_proxy_flag == 1){    // http forward proxy
+			rec = recv_data_aes(forward_proxy_sock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec); // rec: 2 ("OK") or -1
+		}else{
+			rec = recv_data_aes(target_sock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec);        // rec: 2 ("OK") or -1
+		}
 #ifdef _DEBUG
-//		printf("[I] rec:%d\n", rec);
+//            printf("[I] rec:%d\n", rec);
 #endif
 	}else{
 #ifdef _DEBUG
 		printf("[E] Server Socks5 NG.\n");
 #endif
 		fini_ssl(&ssl_param);
-		close_socket(target_sock);
+		if(forward_proxy_flag == 1){	// http forward proxy
+			close_socket(forward_proxy_sock);
+		}else{
+			close_socket(target_sock);
+		}
 		close_socket(client_sock);
 		return -1;
 	}
@@ -1628,7 +2067,7 @@ int worker(void *ptr)
 	if(socks5_over_tls_flag == 1){	// Socks5 over TLS
 		// SSL Initialize
 		OPENSSL_init_ssl(OPENSSL_INIT_LOAD_SSL_STRINGS, NULL);
-		
+
 		// SSL TLS connection
 		target_ctx_socks5 = SSL_CTX_new(TLS_client_method());
 		if(target_ctx_socks5 == NULL){
@@ -1636,20 +2075,28 @@ int worker(void *ptr)
 			printf("[E] SSL_CTX_new error.\n");
 #endif
 			fini_ssl(&ssl_param);
-			close_socket(target_sock);
+			if(forward_proxy_flag == 1){	// http forward proxy
+				close_socket(forward_proxy_sock);
+			}else{
+				close_socket(target_sock);
+			}
 			close_socket(client_sock);
 			return -2;
 		}
 		ssl_param.target_ctx_socks5 = target_ctx_socks5;
 
 //		SSL_CTX_set_mode(target_ctx_socks5, SSL_MODE_AUTO_RETRY);
-		
+
 		if(SSL_CTX_set_min_proto_version(target_ctx_socks5, TLS1_2_VERSION) == 0){
 #ifdef _DEBUG
 			printf("[E] SSL_CTX_set_min_proto_version error.\n");
 #endif
 			fini_ssl(&ssl_param);
-			close_socket(target_sock);
+			if(forward_proxy_flag == 1){	// http forward proxy
+				close_socket(forward_proxy_sock);
+			}else{
+				close_socket(target_sock);
+			}
 			close_socket(client_sock);
 			return -2;
 		}
@@ -1657,29 +2104,42 @@ int worker(void *ptr)
 		SSL_CTX_set_default_verify_paths(target_ctx_socks5);
 		SSL_CTX_load_verify_locations(target_ctx_socks5, server_certificate_filename_socks5, server_certificate_file_directory_path_socks5);
 		SSL_CTX_set_verify(target_ctx_socks5, SSL_VERIFY_PEER, NULL);
-		
+
 		target_ssl_socks5 = SSL_new(target_ctx_socks5);
 		if(target_ssl_socks5 == NULL){
 #ifdef _DEBUG
 			printf("[E] SSL_new error.\n");
 #endif
 			fini_ssl(&ssl_param);
-			close_socket(target_sock);
+			if(forward_proxy_flag == 1){	// http forward proxy
+				close_socket(forward_proxy_sock);
+			}else{
+				close_socket(target_sock);
+			}
 			close_socket(client_sock);
 			return -2;
 		}
 		ssl_param.target_ssl_socks5 = target_ssl_socks5;
 
-		if(SSL_set_fd(target_ssl_socks5, target_sock) == 0){
+		if(forward_proxy_flag == 1){	// http forward proxy
+			ret = SSL_set_fd(target_ssl_socks5, forward_proxy_sock);
+		}else{
+			ret = SSL_set_fd(target_ssl_socks5, target_sock);
+		}
+		if(ret == 0){
 #ifdef _DEBUG
 			printf("[E] SSL_set_fd error.\n");
 #endif
 			fini_ssl(&ssl_param);
-			close_socket(target_sock);
+			if(forward_proxy_flag == 1){	// http forward proxy
+				close_socket(forward_proxy_sock);
+			}else{
+				close_socket(target_sock);
+			}
 			close_socket(client_sock);
 			return -2;
 		}
-		
+
 #ifdef _DEBUG
 		printf("[I] Try Socks5 over TLS connection. (SSL_connect)\n");
 #endif
@@ -1690,11 +2150,14 @@ int worker(void *ptr)
 			printf("[E] SSL_connect error:%d:%s.\n", err, ERR_error_string(ERR_peek_last_error(), NULL));
 #endif
 			fini_ssl(&ssl_param);
-			close_socket(target_sock);
+			if(forward_proxy_flag == 1){	// http forward proxy
+				close_socket(forward_proxy_sock);
+			}else{
+				close_socket(target_sock);
+			}
 			close_socket(client_sock);
 			return -2;
 		}
-
 #ifdef _DEBUG
 		printf("[I] Succeed Socks5 over TLS connection. (SSL_connect)\n");
 #endif
@@ -1707,7 +2170,11 @@ int worker(void *ptr)
 		printf("[E] Receive selection request. client -> server\n");
 #endif
 		fini_ssl(&ssl_param);
-		close_socket(target_sock);
+		if(forward_proxy_flag == 1){	// http forward proxy
+			close_socket(forward_proxy_sock);
+		}else{
+			close_socket(target_sock);
+		}
 		close_socket(client_sock);
 		return -1;
 	}
@@ -1717,37 +2184,61 @@ int worker(void *ptr)
 
 
 	// socks selection_request	server -> target
-	if(socks5_over_tls_flag == 0){
-		sen = send_data_aes(target_sock, buffer, rec, aes_key, aes_iv, tv_sec, tv_usec);
+	if(forward_proxy_flag == 1){	// http forward proxy
+		if(socks5_over_tls_flag == 0){
+			sen = send_data_aes(forward_proxy_sock, buffer, rec, aes_key, aes_iv, tv_sec, tv_usec);
+		}else{
+			sen = send_data_tls(forward_proxy_sock, target_ssl_socks5, buffer, rec, tv_sec, tv_usec);
+		}
 	}else{
-		sen = send_data_tls(target_sock, target_ssl_socks5, buffer, rec, tv_sec, tv_usec);
+		if(socks5_over_tls_flag == 0){
+			sen = send_data_aes(target_sock, buffer, rec, aes_key, aes_iv, tv_sec, tv_usec);
+		}else{
+			sen = send_data_tls(target_sock, target_ssl_socks5, buffer, rec, tv_sec, tv_usec);
+		}
 	}
 	if(sen <= 0){
 #ifdef _DEBUG
 		printf("[E] Send selection request. server -> target.\n");
 #endif
 		fini_ssl(&ssl_param);
-		close_socket(target_sock);
+		if(forward_proxy_flag == 1){	// http forward proxy
+			close_socket(forward_proxy_sock);
+		}else{
+			close_socket(target_sock);
+		}
 		close_socket(client_sock);
 		return -1;
 	}
 #ifdef _DEBUG
-	printf("[I] Send selection request:%d bytes. server -> target\n", sen);	
+	printf("[I] Send selection request:%d bytes. server -> target\n", sen);
 #endif
 
 
 	// socks selection_response	server <- target
-	if(socks5_over_tls_flag == 0){
-		rec = recv_data_aes(target_sock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec);
+	if(forward_proxy_flag == 1){	// http forward proxy
+		if(socks5_over_tls_flag == 0){
+			rec = recv_data_aes(forward_proxy_sock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec);
+		}else{
+			rec = recv_data_tls(forward_proxy_sock, target_ssl_socks5, buffer, BUFFER_SIZE, tv_sec, tv_usec);
+		}
 	}else{
-		rec = recv_data_tls(target_sock, target_ssl_socks5, buffer, BUFFER_SIZE, tv_sec, tv_usec);
+		if(socks5_over_tls_flag == 0){
+			rec = recv_data_aes(target_sock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec);
+		}else{
+			rec = recv_data_tls(target_sock, target_ssl_socks5, buffer, BUFFER_SIZE, tv_sec, tv_usec);
+		}
 	}
-	if(rec != sizeof(selection_response)){
+	if(rec != sizeof(struct selection_response)){
 #ifdef _DEBUG
 		printf("[E] Receive selection response. server <- target\n");
 #endif
 		fini_ssl(&ssl_param);
-		close_socket(target_sock);
+		if(forward_proxy_flag == 1){	// http forward proxy
+			close_socket(forward_proxy_sock);
+		}else{
+			close_socket(target_sock);
+		}
 		close_socket(client_sock);
 		return -1;
 	}
@@ -1763,14 +2254,18 @@ int worker(void *ptr)
 		printf("[E] Send selection response. client <- server\n");
 #endif
 		fini_ssl(&ssl_param);
-		close_socket(target_sock);
+		if(forward_proxy_flag == 1){	// http forward proxy
+			close_socket(forward_proxy_sock);
+		}else{
+			close_socket(target_sock);
+		}
 		close_socket(client_sock);
 		return -1;
 	}
 #ifdef _DEBUG
 	printf("[I] Send selection response:%d bytes. client <- server\n", sen);
 #endif
-	selection_response *selection_response = (struct selection_response *)&buffer;
+	struct selection_response *selection_response = (struct selection_response *)&buffer;
 	if((unsigned char)selection_response->method == 0xFF){
 #ifdef _DEBUG
 		printf("[E] Target socks5server Authentication Method error.\n");
@@ -1784,7 +2279,11 @@ int worker(void *ptr)
 			printf("[E] Receive username password authentication request. client -> server\n");
 #endif
 			fini_ssl(&ssl_param);
-			close_socket(target_sock);
+			if(forward_proxy_flag == 1){	// http forward proxy
+				close_socket(forward_proxy_sock);
+			}else{
+				close_socket(target_sock);
+			}
 			close_socket(client_sock);
 			return -1;
 		}
@@ -1794,37 +2293,61 @@ int worker(void *ptr)
 
 
 		// socks username_password_authentication_request		server -> target
-		if(socks5_over_tls_flag == 0){
-			sen = send_data_aes(target_sock, buffer, rec, aes_key, aes_iv, tv_sec, tv_usec);
+		if(forward_proxy_flag == 1){	// http forward proxy
+			if(socks5_over_tls_flag == 0){
+				sen = send_data_aes(forward_proxy_sock, buffer, rec, aes_key, aes_iv, tv_sec, tv_usec);
+			}else{
+				sen = send_data_tls(forward_proxy_sock, target_ssl_socks5, buffer, rec, tv_sec, tv_usec);
+			}
 		}else{
-			sen = send_data_tls(target_sock, target_ssl_socks5, buffer, rec, tv_sec, tv_usec);
+			if(socks5_over_tls_flag == 0){
+				sen = send_data_aes(target_sock, buffer, rec, aes_key, aes_iv, tv_sec, tv_usec);
+			}else{
+				sen = send_data_tls(target_sock, target_ssl_socks5, buffer, rec, tv_sec, tv_usec);
+			}
 		}
 		if(sen <= 0){
 #ifdef _DEBUG
 			printf("[E] Send username password authentication request. server -> target\n");
 #endif
 			fini_ssl(&ssl_param);
-			close_socket(target_sock);
+			if(forward_proxy_flag == 1){	// http forward proxy
+				close_socket(forward_proxy_sock);
+			}else{
+				close_socket(target_sock);
+			}
 			close_socket(client_sock);
 			return -1;
 		}
 #ifdef _DEBUG
-		printf("[I] Send username password authentication request:%d bytes. server -> target\n", sen);	
+		printf("[I] Send username password authentication request:%d bytes. server -> target\n", sen);
 #endif
-		
+
 
 		// socks username_password_authentication_response	server <- target
-		if(socks5_over_tls_flag == 0){
-			rec = recv_data_aes(target_sock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec);
+		if(forward_proxy_flag == 1){	// http forward proxy
+			if(socks5_over_tls_flag == 0){
+				rec = recv_data_aes(forward_proxy_sock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec);
+			}else{
+				rec = recv_data_tls(forward_proxy_sock, target_ssl_socks5, buffer, BUFFER_SIZE, tv_sec, tv_usec);
+			}
 		}else{
-			rec = recv_data_tls(target_sock, target_ssl_socks5, buffer, BUFFER_SIZE, tv_sec, tv_usec);
+			if(socks5_over_tls_flag == 0){
+				rec = recv_data_aes(target_sock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec);
+			}else{
+				rec = recv_data_tls(target_sock, target_ssl_socks5, buffer, BUFFER_SIZE, tv_sec, tv_usec);
+			}
 		}
 		if(rec <= 0){
 #ifdef _DEBUG
 			printf("[E] Receive username password authentication response. server <- target\n");
 #endif
 			fini_ssl(&ssl_param);
-			close_socket(target_sock);
+			if(forward_proxy_flag == 1){	// http forward proxy
+				close_socket(forward_proxy_sock);
+			}else{
+				close_socket(target_sock);
+			}
 			close_socket(client_sock);
 			return -1;
 		}
@@ -1840,7 +2363,11 @@ int worker(void *ptr)
 			printf("[E] Send username password authentication response. client <- server\n");
 #endif
 			fini_ssl(&ssl_param);
-			close_socket(target_sock);
+			if(forward_proxy_flag == 1){	// http forward proxy
+				close_socket(forward_proxy_sock);
+			}else{
+				close_socket(target_sock);
+			}
 			close_socket(client_sock);
 			return -1;
 		}
@@ -1856,7 +2383,11 @@ int worker(void *ptr)
 		printf("[E] Receive socks request. client -> server\n");
 #endif
 		fini_ssl(&ssl_param);
-		close_socket(target_sock);
+		if(forward_proxy_flag == 1){	// http forward proxy
+			close_socket(forward_proxy_sock);
+		}else{
+			close_socket(target_sock);
+		}
 		close_socket(client_sock);
 		return -1;
 	}
@@ -1866,37 +2397,61 @@ int worker(void *ptr)
 
 
 	// socks socks_request	server -> target
-	if(socks5_over_tls_flag == 0){
-		sen = send_data_aes(target_sock, buffer, rec, aes_key, aes_iv, tv_sec, tv_usec);
+	if(forward_proxy_flag == 1){	// http forward proxy
+		if(socks5_over_tls_flag == 0){
+			sen = send_data_aes(forward_proxy_sock, buffer, rec, aes_key, aes_iv, tv_sec, tv_usec);
+		}else{
+			sen = send_data_tls(forward_proxy_sock, target_ssl_socks5, buffer, rec, tv_sec, tv_usec);
+		}
 	}else{
-		sen = send_data_tls(target_sock, target_ssl_socks5, buffer, rec, tv_sec, tv_usec);
+		if(socks5_over_tls_flag == 0){
+			sen = send_data_aes(target_sock, buffer, rec, aes_key, aes_iv, tv_sec, tv_usec);
+		}else{
+			sen = send_data_tls(target_sock, target_ssl_socks5, buffer, rec, tv_sec, tv_usec);
+		}
 	}
 	if(sen <= 0){
 #ifdef _DEBUG
 		printf("[E] Send socks request. server -> target\n");
 #endif
 		fini_ssl(&ssl_param);
-		close_socket(target_sock);
+		if(forward_proxy_flag == 1){	// http forward proxy
+			close_socket(forward_proxy_sock);
+		}else{
+			close_socket(target_sock);
+		}
 		close_socket(client_sock);
 		return -1;
 	}
 #ifdef _DEBUG
-	printf("[I] Send socks request:%d bytes. server -> target\n", sen);	
+	printf("[I] Send socks request:%d bytes. server -> target\n", sen);
 #endif
-	
+
 
 	// socks socks_response	server <- target
-	if(socks5_over_tls_flag == 0){
-		rec = recv_data_aes(target_sock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec);
+	if(forward_proxy_flag == 1){	// http forward proxy
+		if(socks5_over_tls_flag == 0){
+			rec = recv_data_aes(forward_proxy_sock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec);
+		}else{
+			rec = recv_data_tls(forward_proxy_sock, target_ssl_socks5, buffer, BUFFER_SIZE, tv_sec, tv_usec);
+		}
 	}else{
-		rec = recv_data_tls(target_sock, target_ssl_socks5, buffer, BUFFER_SIZE, tv_sec, tv_usec);
+		if(socks5_over_tls_flag == 0){
+			rec = recv_data_aes(target_sock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec);
+		}else{
+			rec = recv_data_tls(target_sock, target_ssl_socks5, buffer, BUFFER_SIZE, tv_sec, tv_usec);
+		}
 	}
 	if(rec <= 0){
 #ifdef _DEBUG
 		printf("[E] Receive socks response. server <- target\n");
 #endif
 		fini_ssl(&ssl_param);
-		close_socket(target_sock);
+		if(forward_proxy_flag == 1){	// http forward proxy
+			close_socket(forward_proxy_sock);
+		}else{
+			close_socket(target_sock);
+		}
 		close_socket(client_sock);
 		return -1;
 	}
@@ -1912,7 +2467,11 @@ int worker(void *ptr)
 		printf("[E] Send socks response. client <- server\n");
 #endif
 		fini_ssl(&ssl_param);
-		close_socket(target_sock);
+		if(forward_proxy_flag == 1){	// http forward proxy
+			close_socket(forward_proxy_sock);
+		}else{
+			close_socket(target_sock);
+		}
 		close_socket(client_sock);
 		return -1;
 	}
@@ -1928,18 +2487,30 @@ int worker(void *ptr)
 		printf("[E] ioctlsocket error:%d\n.", err);
 #endif
 		fini_ssl(&ssl_param);
-		close_socket(target_sock);
+		if(forward_proxy_flag == 1){	// http forward proxy
+			close_socket(forward_proxy_sock);
+		}else{
+			close_socket(target_sock);
+		}
 		close_socket(client_sock);
 		return -1;
 	}
 
-	err = ioctlsocket(target_sock, FIONBIO, &iMode);
+	if(forward_proxy_flag == 1){	// http forward proxy
+		err = ioctlsocket(forward_proxy_sock, FIONBIO, &iMode);
+	}else{
+		err = ioctlsocket(target_sock, FIONBIO, &iMode);
+	}
 	if(err != NO_ERROR){
 #ifdef _DEBUG
 		printf("[E] ioctlsocket error:%d\n.", err);
 #endif
 		fini_ssl(&ssl_param);
-		close_socket(target_sock);
+		if(forward_proxy_flag == 1){	// http forward proxy
+			close_socket(forward_proxy_sock);
+		}else{
+			close_socket(target_sock);
+		}
 		close_socket(client_sock);
 		return -1;
 	}
@@ -1949,10 +2520,18 @@ int worker(void *ptr)
 #ifdef _DEBUG
 	printf("[I] Forwarder.\n");
 #endif
-	if(socks5_over_tls_flag == 0){
-		err = forwarder_aes(client_sock, target_sock, aes_key, aes_iv, forwarder_tv_sec, forwarder_tv_usec);
+	if(forward_proxy_flag == 1){	// http forward proxy
+		if(socks5_over_tls_flag == 0){
+			err = forwarder_aes(client_sock, forward_proxy_sock, aes_key, aes_iv, forwarder_tv_sec, forwarder_tv_usec);
+		}else{
+			err = forwarder_tls(client_sock, forward_proxy_sock, target_ssl_socks5, forwarder_tv_sec, forwarder_tv_usec);
+		}
 	}else{
-		err = forwarder_tls(client_sock, target_sock, target_ssl_socks5, forwarder_tv_sec, forwarder_tv_usec);
+		if(socks5_over_tls_flag == 0){
+			err = forwarder_aes(client_sock, target_sock, aes_key, aes_iv, forwarder_tv_sec, forwarder_tv_usec);
+		}else{
+			err = forwarder_tls(client_sock, target_sock, target_ssl_socks5, forwarder_tv_sec, forwarder_tv_usec);
+		}
 	}
 
 
@@ -1961,7 +2540,11 @@ int worker(void *ptr)
 #endif
 	Sleep(5);
 	fini_ssl(&ssl_param);
-	close_socket(target_sock);
+	if(forward_proxy_flag == 1){	// http forward proxy
+		close_socket(forward_proxy_sock);
+	}else{
+		close_socket(target_sock);
+	}
 	close_socket(client_sock);
 
 	return 0;
@@ -1980,13 +2563,18 @@ void worker_thread(void *ptr)
 
 void usage(char *filename)
 {
-	printf("usage   : %s -h listen_ip -p listen_port -H target_socks5server_domainname -P target_socks5server_port [-s (HTTPS)] [-t (Socks5 over TLS)] [-A recv/send tv_sec(timeout 0-10 sec)] [-B recv/send tv_usec(timeout 0-1000000 microsec)] [-C forwarder tv_sec(timeout 0-300 sec)] [-D forwarder tv_usec(timeout 0-1000000 microsec)]\n", filename);
+	printf("usage   : %s -h listen_ip -p listen_port -H target_socks5server_domainname -P target_socks5server_port\n", filename);
+	printf("          [-s (target socks5 server https connection)] [-t (Socks5 over TLS)]\n");
+	printf("          [-A recv/send tv_sec(timeout 0-10 sec)] [-B recv/send tv_usec(timeout 0-1000000 microsec)] [-C forwarder tv_sec(timeout 0-300 sec)] [-D forwarder tv_usec(timeout 0-1000000 microsec)]\n");
+	printf("          [-a forward proxy domainname] [-b forward proxy port] [-c forward proxy(1:http)] [-d forward proxy username] [-e forward proxy password] [-f forward proxy authentication(1:basic)]\n");
 	printf("example : %s -h 127.0.0.1 -p 9050 -H 192.168.0.10 -P 80\n", filename);
 	printf("        : %s -h 127.0.0.1 -p 9050 -H foobar.test -P 80 -t\n", filename);
 	printf("        : %s -h 127.0.0.1 -p 9050 -H foobar.test -P 80 -t -A 3 -B 0 -C 3 -D 0\n", filename);
+	printf("        : %s -h 127.0.0.1 -p 9050 -H foobar.test -P 80 -t -a 127.0.0.1 -b 3128 -c 1\n", filename);
 	printf("        : %s -h 127.0.0.1 -p 9050 -H 192.168.0.10 -P 443 -s\n", filename);
 	printf("        : %s -h 127.0.0.1 -p 9050 -H foobar.test -P 443 -s -t\n", filename);
 	printf("        : %s -h 127.0.0.1 -p 9050 -H foobar.test -P 443 -s -t -A 3 -B 0 -C 3 -D 0\n", filename);
+	printf("        : %s -h 127.0.0.1 -p 9050 -H foobar.test -P 443 -s -t -a 127.0.0.1 -b 3128 -c 1 -d forward_proxy_user -e forward_proxy_password -f 1\n", filename);
 }
 
 
@@ -2030,7 +2618,7 @@ int getopt(int argc, char **argv, char *optstring)
 int main(int argc, char **argv)
 {
 	int opt;
-	char optstring[] = "h:p:H:P:stA:B:C:D:";
+	char optstring[] = "h:p:H:P:stA:B:C:D:a:b:c:d:e:f:";
 	long tv_sec = 3;	// recv send
 	long tv_usec = 0;	// recv send
 	long forwarder_tv_sec = 3;
@@ -2078,6 +2666,30 @@ int main(int argc, char **argv)
 			forwarder_tv_usec = atol(optarg);
 			break;
 			
+		case 'a':
+			forward_proxy_ip = optarg;
+			break;
+
+		case 'b':
+			forward_proxy_port = optarg;
+			break;
+
+		case 'c':
+			forward_proxy_flag = atoi(optarg);
+			break;
+
+		case 'd':
+			forward_proxy_username = optarg;
+			break;
+
+		case 'e':
+			forward_proxy_password = optarg;
+			break;
+
+		case 'f':
+			forward_proxy_authentication_flag = atoi(optarg);
+			break;
+
 		default:
 			usage(argv[0]);
 			exit(1);
@@ -2104,17 +2716,55 @@ int main(int argc, char **argv)
 		forwarder_tv_sec = 3;
 		forwarder_tv_usec = 0;
 	}
-	
+
+	if((forward_proxy_flag > 0 && forward_proxy_ip != NULL && forward_proxy_port == NULL) || (forward_proxy_flag > 0 && forward_proxy_ip == NULL && forward_proxy_port != NULL) || (forward_proxy_username != NULL && forward_proxy_password == NULL) || (forward_proxy_username == NULL && forward_proxy_password != NULL)){
+		usage(argv[0]);
+		exit(1);
+	}
+
+	if(forward_proxy_flag < 0 && forward_proxy_flag > 1){
+		usage(argv[0]);
+		exit(1);
+	}
+
+	if(forward_proxy_authentication_flag < 0 && forward_proxy_authentication_flag > 1){
+		usage(argv[0]);
+		exit(1);
+	}
+
+
+	if(forward_proxy_flag == 0){
+#ifdef _DEBUG
+		printf("[I] Forward proxy:off\n");
+#endif
+	}else if(forward_proxy_flag == 1){	// http proxy
+		if(forward_proxy_authentication_flag == 0){
+#ifdef _DEBUG
+			printf("[I] Forward proxy connection:http\n");
+			printf("[I] Forward proxy authentication:no\n");
+#endif
+		}else if(forward_proxy_authentication_flag == 1){
+#ifdef _DEBUG
+			printf("[I] Forward proxy connection:http\n");
+			printf("[I] Forward proxy authentication:basic\n");
+#endif
+		}
+	}else{
+#ifdef _DEBUG
+//		printf("[I] Forward proxy connection:\n");
+#endif
+	}
+
 	if(https_flag == 0){	// HTTP
 #ifdef _DEBUG
-		printf("[I] HTTPS:off\n");
+		printf("[I] Socks5 server connection:http\n");
 #endif
 	}else{	// HTTPS
 #ifdef _DEBUG
-		printf("[I] HTTPS:on\n");
+		printf("[I] Socks5 server connection:https\n");
 #endif
 	}
-	
+
 	if(socks5_over_tls_flag == 0){	// Socks5 over AES
 #ifdef _DEBUG
 		printf("[I] Socks5 over AES\n");
@@ -2170,7 +2820,7 @@ int main(int argc, char **argv)
 	// listen
 	listen(server_sock, 5);
 #ifdef _DEBUG
-	printf("[I] Listenning port %d on %s.\n", ntohs(server_addr.sin_port), inet_ntoa(server_addr.sin_addr));
+	printf("[I] Listening port %d on %s.\n", ntohs(server_addr.sin_port), inet_ntoa(server_addr.sin_addr));
 #endif
 
 	// accept

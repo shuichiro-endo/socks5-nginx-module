@@ -7,6 +7,8 @@
 
 int encrypt_aes(unsigned char *plaintext, int plaintext_length, unsigned char *aes_key, unsigned char *aes_iv, unsigned char *ciphertext);
 int decrypt_aes(unsigned char *ciphertext, int ciphertext_length, unsigned char *aes_key, unsigned char *aes_iv, unsigned char *plaintext);
+int encode_base64(const unsigned char *input, int length, unsigned char *output);
+int decode_base64(const unsigned char *input, int length, unsigned char *output);
 int recv_data(SOCKET sock, void *buffer, int length, long tv_sec, long tv_usec);
 int recv_data_aes(SOCKET sock, void *buffer, int length, unsigned char *aes_key, unsigned char *aes_iv, long tv_sec, long tv_usec);
 int recv_data_tls(SOCKET sock, SSL *ssl ,void *buffer, int length, long tv_sec, long tv_usec);

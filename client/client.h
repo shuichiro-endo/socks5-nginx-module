@@ -7,6 +7,8 @@
 
 int encrypt_aes(unsigned char *plaintext, int plaintext_length, unsigned char *aes_key, unsigned char *aes_iv, unsigned char *ciphertext);
 int decrypt_aes(unsigned char *ciphertext, int ciphertext_length, unsigned char *aes_key, unsigned char *aes_iv, unsigned char *plaintext);
+int encode_base64(const unsigned char *input, int length, unsigned char *output);
+int decode_base64(const unsigned char *input, int length, unsigned char *output);
 void enable_blocking_socket(int sock);	// blocking
 void disable_blocking_socket(int sock);	// non blocking
 int recv_data(int sock, void *buffer, int length, long tv_sec, long tv_usec);
