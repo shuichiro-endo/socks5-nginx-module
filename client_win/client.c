@@ -175,11 +175,32 @@ int encode_base64(const unsigned char *input, int length, unsigned char *output)
 	BIO *mem = BIO_new(BIO_s_mem());
 	BUF_MEM *bufmem;
 	int output_length = 0;
+	int ret = 0;
 
 	b64 = BIO_push(b64, mem);
-	BIO_write(b64, input, length);
-	BIO_flush(b64);
-	BIO_get_mem_ptr(b64, &bufmem);
+	ret = BIO_write(b64, input, length);
+	if(ret <= 0){
+#ifdef _DEBUG
+//		printf("[E] BIO_write error\n");
+#endif
+		return -1;
+	}
+
+	ret = BIO_flush(b64);
+	if(ret <= 0){
+#ifdef _DEBUG
+//		printf("[E] BIO_flush error\n");
+#endif
+		return -1;
+	}
+
+	ret = BIO_get_mem_ptr(b64, &bufmem);
+	if(ret <= 0){
+#ifdef _DEBUG
+//		printf("[E] BIO_get_mem_ptr error\n");
+#endif
+		return -1;
+	}
 
 	memcpy(output, bufmem->data, bufmem->length-1);
 	output[bufmem->length-1] = '\0';
@@ -197,11 +218,32 @@ int decode_base64(const unsigned char *input, int length, unsigned char *output)
 	BIO *mem = BIO_new(BIO_s_mem());
 	BUF_MEM *bufmem;
 	int output_length = 0;
+	int ret = 0;
 
 	b64 = BIO_push(b64, mem);
-	BIO_read(b64, (void *)input, length);
-	BIO_flush(b64);
-	BIO_get_mem_ptr(b64, &bufmem);
+	ret = BIO_read(b64, (void *)input, length);
+	if(ret <= 0){
+#ifdef _DEBUG
+//		printf("[E] BIO_write error\n");
+#endif
+		return -1;
+	}
+
+	ret = BIO_flush(b64);
+	if(ret <= 0){
+#ifdef _DEBUG
+//		printf("[E] BIO_flush error\n");
+#endif
+		return -1;
+	}
+
+	ret = BIO_get_mem_ptr(b64, &bufmem);
+	if(ret <= 0){
+#ifdef _DEBUG
+//		printf("[E] BIO_get_mem_ptr error\n");
+#endif
+		return -1;
+	}
 
 	memcpy(output, bufmem->data, bufmem->length-1);
 	output[bufmem->length-1] = '\0';
