@@ -61,7 +61,7 @@ char *forward_proxy_password = NULL;
 int https_flag = 0;		// 0:http 1:https
 int socks5_over_tls_flag = 0;	// 0:socks5 over aes 1:socks5 over tls
 int forward_proxy_flag = 0;		// 0:no 1:http
-int forward_proxy_authentication_flag = 0;	// 0:no 1:basic
+int forward_proxy_authentication_flag = 0;	// 0:no 1:basic 2:digest
 
 char server_certificate_filename_https[256] = "server_https.crt";	// server certificate filename (HTTPS)
 char server_certificate_file_directory_path_https[256] = ".";	// server certificate file directory path (HTTPS)
@@ -253,6 +253,792 @@ int decode_base64(const unsigned char *input, int length, unsigned char *output)
 	BIO_free_all(b64);
 
 	return output_length;
+}
+
+
+int get_md5_hash(const unsigned char *input, int input_length, unsigned char *output, int output_length)
+{
+	EVP_MD_CTX *ctx = NULL;
+	int ret = 0;
+	unsigned char *digest = NULL;
+	int length = 0;
+
+	ctx = EVP_MD_CTX_new();
+	if(ctx == NULL){
+#ifdef _DEBUG
+//		printf("[E] EVP_MD_CTX_new error\n");
+#endif
+		return -1;
+	}
+
+	ret = EVP_DigestInit_ex(ctx, EVP_md5(), NULL);
+	if(ret != 1){
+#ifdef _DEBUG
+//		printf("[E] EVP_DigestInit_ex error\n");
+#endif
+		EVP_MD_CTX_free(ctx);
+		return -1;
+	}
+
+	ret = EVP_DigestUpdate(ctx, input, input_length);
+	if(ret != 1){
+#ifdef _DEBUG
+//		printf("[E] EVP_DigestUpdate error\n");
+#endif
+		EVP_MD_CTX_free(ctx);
+		return -1;
+	}
+
+	if(EVP_MD_size(EVP_md5()) >= output_length){
+#ifdef _DEBUG
+//		printf("[E] md5 message digest size is too long.\n");
+#endif
+		EVP_MD_CTX_free(ctx);
+		return -1;
+	}
+
+	digest = (unsigned char *)OPENSSL_malloc(EVP_MD_size(EVP_md5()));
+	if(digest == NULL){
+#ifdef _DEBUG
+//		printf("[E] OPENSSL_malloc error\n");
+#endif
+		EVP_MD_CTX_free(ctx);
+		return -1;
+	}
+
+	ret = EVP_DigestFinal_ex(ctx, (unsigned char *)digest, &length);
+	if(ret != 1){
+#ifdef _DEBUG
+//		printf("[E] EVP_DigestFinal_ex error\n");
+#endif
+		OPENSSL_free(digest);
+		EVP_MD_CTX_free(ctx);
+		return -1;
+	}
+
+	for(int i=0; i*8<length; i++){
+		ret = snprintf(output+i*16, 17, "%02x%02x%02x%02x%02x%02x%02x%02x\n", digest[i*8+0], digest[i*8+1], digest[i*8+2], digest[i*8+3], digest[i*8+4], digest[i*8+5], digest[i*8+6], digest[i*8+7]);
+	}
+
+	OPENSSL_free(digest);
+	EVP_MD_CTX_free(ctx);
+
+	return length;
+}
+
+
+int get_sha_256_hash(const unsigned char *input, int input_length, unsigned char *output, int output_length)
+{
+	EVP_MD_CTX *ctx = NULL;
+	int ret = 0;
+	unsigned char *digest = NULL;
+	int length = 0;
+
+	ctx = EVP_MD_CTX_new();
+	if(ctx == NULL){
+#ifdef _DEBUG
+//		printf("[E] EVP_MD_CTX_new error\n");
+#endif
+		return -1;
+	}
+
+	ret = EVP_DigestInit_ex(ctx, EVP_sha256(), NULL);
+	if(ret != 1){
+#ifdef _DEBUG
+//		printf("[E] EVP_DigestInit_ex error\n");
+#endif
+		EVP_MD_CTX_free(ctx);
+		return -1;
+	}
+
+	ret = EVP_DigestUpdate(ctx, input, input_length);
+	if(ret != 1){
+#ifdef _DEBUG
+//		printf("[E] EVP_DigestUpdate error\n");
+#endif
+		EVP_MD_CTX_free(ctx);
+		return -1;
+	}
+
+	if(EVP_MD_size(EVP_sha256()) >= output_length){
+#ifdef _DEBUG
+//		printf("[E] sha256 message digest size is too long.\n");
+#endif
+		EVP_MD_CTX_free(ctx);
+		return -1;
+	}
+
+	digest = (unsigned char *)OPENSSL_malloc(EVP_MD_size(EVP_sha256()));
+	if(digest == NULL){
+#ifdef _DEBUG
+//		printf("[E] OPENSSL_malloc error\n");
+#endif
+		EVP_MD_CTX_free(ctx);
+		return -1;
+	}
+
+	ret = EVP_DigestFinal_ex(ctx, (unsigned char *)digest, &length);
+	if(ret != 1){
+#ifdef _DEBUG
+//		printf("[E] EVP_DigestFinal_ex error\n");
+#endif
+		OPENSSL_free(digest);
+		EVP_MD_CTX_free(ctx);
+		return -1;
+	}
+
+	for(int i=0; i*8<length; i++){
+		ret = snprintf(output+i*16, 17, "%02x%02x%02x%02x%02x%02x%02x%02x\n", digest[i*8+0], digest[i*8+1], digest[i*8+2], digest[i*8+3], digest[i*8+4], digest[i*8+5], digest[i*8+6], digest[i*8+7]);
+	}
+
+	OPENSSL_free(digest);
+	EVP_MD_CTX_free(ctx);
+
+	return length;
+}
+
+
+int get_sha_512_256_hash(const unsigned char *input, int input_length, unsigned char *output, int output_length)
+{
+	EVP_MD_CTX *ctx = NULL;
+	int ret = 0;
+	unsigned char *digest = NULL;
+	int length = 0;
+
+	ctx = EVP_MD_CTX_new();
+	if(ctx == NULL){
+#ifdef _DEBUG
+//		printf("[E] EVP_MD_CTX_new error\n");
+#endif
+		return -1;
+	}
+
+	ret = EVP_DigestInit_ex(ctx, EVP_sha512_256(), NULL);
+	if(ret != 1){
+#ifdef _DEBUG
+//		printf("[E] EVP_DigestInit_ex error\n");
+#endif
+		EVP_MD_CTX_free(ctx);
+		return -1;
+	}
+
+	ret = EVP_DigestUpdate(ctx, input, input_length);
+	if(ret != 1){
+#ifdef _DEBUG
+//		printf("[E] EVP_DigestUpdate error\n");
+#endif
+		EVP_MD_CTX_free(ctx);
+		return -1;
+	}
+
+	if(EVP_MD_size(EVP_sha512_256()) >= output_length){
+#ifdef _DEBUG
+//		printf("[E] sha512_256 message digest size is too long.\n");
+#endif
+		EVP_MD_CTX_free(ctx);
+		return -1;
+	}
+
+	digest = (unsigned char *)OPENSSL_malloc(EVP_MD_size(EVP_sha512_256()));
+	if(digest == NULL){
+#ifdef _DEBUG
+//		printf("[E] OPENSSL_malloc error\n");
+#endif
+		EVP_MD_CTX_free(ctx);
+		return -1;
+	}
+
+	ret = EVP_DigestFinal_ex(ctx, (unsigned char *)digest, &length);
+	if(ret != 1){
+#ifdef _DEBUG
+//		printf("[E] EVP_DigestFinal_ex error\n");
+#endif
+		OPENSSL_free(digest);
+		EVP_MD_CTX_free(ctx);
+		return -1;
+	}
+
+	for(int i=0; i*8<length; i++){
+		ret = snprintf(output+i*16, 17, "%02x%02x%02x%02x%02x%02x%02x%02x\n", digest[i*8+0], digest[i*8+1], digest[i*8+2], digest[i*8+3], digest[i*8+4], digest[i*8+5], digest[i*8+6], digest[i*8+7]);
+	}
+
+	OPENSSL_free(digest);
+	EVP_MD_CTX_free(ctx);
+
+	return length;
+}
+
+
+int get_http_header(const char *input, const char *key, char *output, int output_length)
+{
+	char *start = NULL;
+	char *end = NULL;
+	long d = 0;
+	int length = 0;
+
+	start = strstr(input, key);
+	end = strstr(start, "\r\n");
+	d = end - start;
+	if((d <= 0) || (d >= output_length)){
+#ifdef _DEBUG
+//		printf("[E] get_http_header error:%d\n", d);
+#endif
+		return -1;
+	}
+
+	bzero(output, output_length);
+	memcpy(output, start, d);
+	length = strlen(output);
+
+	return length;
+}
+
+
+int get_digest_values(const char *input, struct digest_parameters *param)
+{
+	char *start = NULL;
+	char *end = NULL;
+	long d = 0;
+
+	// realm
+	start = strstr(input, "realm=\"");
+	if(start == NULL){
+#ifdef _DEBUG
+		printf("[E] get_digest_values realm error\n");
+#endif
+		return -1;
+	}
+	start += strlen("realm=\"");
+	end = strstr(start, "\"");
+	d = end - start;
+	if((d <= 0) || (d >= 100)){
+#ifdef _DEBUG
+		printf("[E] get_digest_values realm error:%d\n", d);
+#endif
+		return -1;
+	}
+	memcpy(&(param->realm), start, d);
+
+	// nonce
+	start = strstr(input, "nonce=\"");
+	if(start == NULL){
+#ifdef _DEBUG
+		printf("[E] get_digest_values nonce error\n");
+#endif
+		return -1;
+	}
+	start += strlen("nonce=\"");
+	end = strstr(start, "\"");
+	d = end - start;
+	if((d <= 0) || (d >= 200)){
+#ifdef _DEBUG
+		printf("[E] get_digest_values nonce error:%d\n", d);
+#endif
+		return -1;
+	}
+	memcpy(&(param->nonce), start, d);
+
+	// nonce-prime
+	start = strstr(input, "nonce-prime=\"");
+	if(start != NULL){
+		start += strlen("nonce-prime=\"");
+		end = strstr(start, "\"");
+		d = end - start;
+		if((d <= 0) || (d >= 200)){
+#ifdef _DEBUG
+			printf("[E] get_digest_values nonce-prime error:%d\n", d);
+#endif
+			return -1;
+		}
+		memcpy(&(param->nonce_prime), start, d);
+	}
+
+	// qop
+	start = strstr(input, "qop=\"");
+	if(start == NULL){
+#ifdef _DEBUG
+		printf("[E] get_digest_values qop error\n");
+#endif
+		return -1;
+	}
+	start += strlen("qop=\"");
+	end = strstr(start, "\"");
+	d = end - start;
+	if((d <= 0) || (d >= 10)){
+#ifdef _DEBUG
+		printf("[E] get_digest_values qop error:%d\n", d);
+#endif
+		return -1;
+	}
+	if(!strncmp(start, "auth-int", strlen("auth-int"))){
+		memcpy(&(param->qop), "auth-int", strlen("auth-int"));
+	}else{
+		memcpy(&(param->qop), "auth", strlen("auth"));
+	}
+
+	// algorithm
+	start = strstr(input, "algorithm=");
+	if(start == NULL){
+		memcpy(&(param->algorithm), "MD5", strlen("MD5"));
+	}else{
+		start += strlen("algorithm=");
+		end = strstr(start, " ");
+		d = end - start;
+		if((d < 0) || (d >= 100)){
+#ifdef _DEBUG
+			printf("[E] get_digest_values algorithm error:%d\n", d);
+#endif
+			return -1;
+		}
+		memcpy(&(param->algorithm), start, d);
+	}
+
+	// stale
+	start = strstr(input, "stale=");
+	if(start == NULL){
+#ifdef _DEBUG
+		printf("[E] get_digest_values stale error\n");
+#endif
+		return -1;
+	}
+	start += strlen("stale=");
+	if(!strncmp(start, "false", strlen("false"))){
+		memcpy(&(param->stale), "false", strlen("false"));
+	}else{
+		memcpy(&(param->stale), "true", strlen("true"));
+	}
+
+#ifdef _DEBUG
+//	printf("[I] realm:%s nonce:%s, nonce-prime:%s qop:%s, algorithm:%s stale:%s\n", param->realm, param->nonce, param->nonce_prime, param->qop, param->algorithm, param->stale);
+#endif
+
+	return 0;
+}
+
+
+int get_digest_response(struct digest_parameters *param)
+{
+	int ret = 0;
+	int length = 0;
+	unsigned char tmp1[17];
+	unsigned char tmp2[33];
+	unsigned char tmp3[1000];
+	unsigned char tmp4[150];
+	bzero(&tmp1, 17);
+	bzero(&tmp2, 33);
+	bzero(&tmp3, 1000);
+	bzero(&tmp4, 150);
+
+
+	// cnonce
+	ret = RAND_bytes((unsigned char *)tmp1, 16);
+	if(ret != 1){
+#ifdef _DEBUG
+		printf("[E] RAND_bytes error:%s.\n", ERR_error_string(ERR_peek_last_error(), NULL));
+#endif
+		return -1;
+	}
+
+	for(int i=0; i*8<16; i++){
+		ret = snprintf(tmp2+i*16, 17, "%02x%02x%02x%02x%02x%02x%02x%02x\n", tmp1[i*8+0], tmp1[i*8+1], tmp1[i*8+2], tmp1[i*8+3], tmp1[i*8+4], tmp1[i*8+5], tmp1[i*8+6], tmp1[i*8+7]);
+	};
+
+	ret = encode_base64(tmp2, 32, param->cnonce);
+
+	// cnonce-prime
+	if(param->nonce_prime != NULL){
+		bzero(&tmp1, 17);
+		bzero(&tmp2, 33);
+		ret = RAND_bytes((unsigned char *)tmp1, 16);
+		if(ret != 1){
+#ifdef _DEBUG
+			printf("[E] RAND_bytes error:%s.\n", ERR_error_string(ERR_peek_last_error(), NULL));
+#endif
+			return -1;
+		}
+
+		for(int i=0; i*8<16; i++){
+			ret = snprintf(tmp2+i*16, 17, "%02x%02x%02x%02x%02x%02x%02x%02x\n", tmp1[i*8+0], tmp1[i*8+1], tmp1[i*8+2], tmp1[i*8+3], tmp1[i*8+4], tmp1[i*8+5], tmp1[i*8+6], tmp1[i*8+7]);
+		};
+
+		ret = encode_base64(tmp2, 32, param->cnonce_prime);
+	}
+
+
+	if(!strncmp(param->algorithm, "MD5-sess", strlen("MD5-sess"))){
+		// A1 MD5(username:realm:password):nonce-prime:cnonce-prime
+		length = strlen(param->username) + strlen(param->realm) + strlen(param->password) + 2;	// 2 colon
+		ret = snprintf(tmp3, length+1, "%s:%s:%s", param->username, param->realm, param->password);
+		ret = get_md5_hash((const unsigned char *)&tmp3, length, (unsigned char *)&tmp4, 150);
+		if(ret == -1){
+#ifdef _DEBUG
+			printf("[E] A1-1 get_md5_hash error\n");
+#endif
+			return -1;
+		}
+
+		length = strlen(tmp4) + strlen(param->nonce_prime) + strlen(param->cnonce_prime) + 2;	// 2 colon
+		ret = snprintf(param->a1, length+1, "%s:%s:%s", tmp4, param->nonce_prime, param->cnonce_prime);
+		ret = get_md5_hash((const unsigned char *)&(param->a1), length, (unsigned char *)&(param->a1_hash), 150);
+		if(ret == -1){
+#ifdef _DEBUG
+			printf("[E] A1-2 get_md5_hash error\n");
+#endif
+			return -1;
+		}
+
+		if(!strncmp(param->qop, "auth-int", strlen("auth-int"))){	// auth-int
+			// A2 method:uri:MD5(entity-body)
+			length = strlen(param->entity_body);
+			ret = get_md5_hash((const unsigned char *)&(param->entity_body), length, (unsigned char *)&(param->entity_body_hash), 150);
+			if(ret == -1){
+#ifdef _DEBUG
+				printf("[E] A2-1 get_md5_hash error\n");
+#endif
+				return -1;
+			}
+
+			length = strlen(param->method) + strlen(param->uri) + strlen(param->entity_body_hash) + 2;	// 2 colon
+			ret = snprintf(param->a2, length+1, "%s:%s:%s", param->method, param->uri, param->entity_body_hash);
+			ret = get_md5_hash((const unsigned char *)&(param->a2), length, (unsigned char *)&(param->a2_hash), 150);
+			if(ret == -1){
+#ifdef _DEBUG
+				printf("[E] A2-2 get_md5_hash error\n");
+#endif
+				return -1;
+			}
+		}else{	// auth
+			// A2 method:uri
+			length = strlen(param->method) + strlen(param->uri) + 1;	// 1 colon
+			ret = snprintf(param->a2, length+1, "%s:%s", param->method, param->uri);
+			ret = get_md5_hash((const unsigned char *)&(param->a2), length, (unsigned char *)&(param->a2_hash), 150);
+			if(ret == -1){
+#ifdef _DEBUG
+				printf("[E] A2 get_md5_hash error\n");
+#endif
+				return -1;
+			}
+		}
+
+		// response MD5(A1):nonce:nc:cnonce:qop:MD5(A2)
+		length = strlen(param->a1_hash) + strlen(param->nonce) + strlen(param->nc) + strlen(param->cnonce) + strlen(param->qop) + strlen(param->a2_hash) + 5;	// 5 colon
+		ret = snprintf(param->response, length+1, "%s:%s:%s:%s:%s:%s", param->a1_hash, param->nonce, param->nc, param->cnonce, param->qop, param->a2_hash);
+		ret = get_md5_hash((const unsigned char *)&(param->response), length, (unsigned char *)&(param->response_hash), 150);
+		if(ret == -1){
+#ifdef _DEBUG
+			printf("[E] response get_md5_hash error\n");
+#endif
+			return -1;
+		}
+
+	}else if(!strncmp(param->algorithm, "MD5", strlen("MD5"))){
+		// A1 username:realm:password
+		length = strlen(param->username) + strlen(param->realm) + strlen(param->password) + 2;	// 2 colon
+		ret = snprintf(param->a1, length+1, "%s:%s:%s", param->username, param->realm, param->password);
+		ret = get_md5_hash((const unsigned char *)&(param->a1), length, (unsigned char *)&(param->a1_hash), 150);
+		if(ret == -1){
+#ifdef _DEBUG
+			printf("[E] A1 get_md5_hash error\n");
+#endif
+			return -1;
+		}
+
+		if(!strncmp(param->qop, "auth-int", strlen("auth-int"))){	// auth-int
+			// A2 method:uri:MD5(entity-body)
+			length = strlen(param->entity_body);
+			ret = get_md5_hash((const unsigned char *)&(param->entity_body), length, (unsigned char *)&(param->entity_body_hash), 150);
+			if(ret == -1){
+#ifdef _DEBUG
+				printf("[E] A2-1 get_md5_hash error\n");
+#endif
+				return -1;
+			}
+
+			length = strlen(param->method) + strlen(param->uri) + strlen(param->entity_body_hash) + 2;	// 2 colon
+			ret = snprintf(param->a2, length+1, "%s:%s:%s", param->method, param->uri, param->entity_body_hash);
+			ret = get_md5_hash((const unsigned char *)&(param->a2), length, (unsigned char *)&(param->a2_hash), 150);
+			if(ret == -1){
+#ifdef _DEBUG
+				printf("[E] A2-2 get_md5_hash error\n");
+#endif
+				return -1;
+			}
+		}else{	// auth
+			// A2 method:uri
+			length = strlen(param->method) + strlen(param->uri) + 1;	// 1 colon
+			ret = snprintf(param->a2, length+1, "%s:%s", param->method, param->uri);
+			ret = get_md5_hash((const unsigned char *)&(param->a2), length, (unsigned char *)&(param->a2_hash), 150);
+			if(ret == -1){
+#ifdef _DEBUG
+				printf("[E] A2 get_md5_hash error\n");
+#endif
+				return -1;
+			}
+		}
+
+		// response MD5(A1):nonce:nc:cnonce:qop:MD5(A2)
+		length = strlen(param->a1_hash) + strlen(param->nonce) + strlen(param->nc) + strlen(param->cnonce) + strlen(param->qop) + strlen(param->a2_hash) + 5;	// 5 colon
+		ret = snprintf(param->response, length+1, "%s:%s:%s:%s:%s:%s", param->a1_hash, param->nonce, param->nc, param->cnonce, param->qop, param->a2_hash);
+		ret = get_md5_hash((const unsigned char *)&(param->response), length, (unsigned char *)&(param->response_hash), 150);
+		if(ret == -1){
+#ifdef _DEBUG
+			printf("[E] response get_md5_hash error\n");
+#endif
+			return -1;
+		}
+
+	}else if(!strncmp(param->algorithm, "SHA-256-sess", strlen("SHA-256-sess"))){
+		// A1 SHA-256(username:realm:password):nonce-prime:cnonce-prime
+		length = strlen(param->username) + strlen(param->realm) + strlen(param->password) + 2;	// 2 colon
+		ret = snprintf(tmp3, length+1, "%s:%s:%s", param->username, param->realm, param->password);
+		ret = get_sha_256_hash((const unsigned char *)&tmp3, length, (unsigned char *)&tmp4, 150);
+		if(ret == -1){
+#ifdef _DEBUG
+			printf("[E] A1-1 get_sha_256_hash error\n");
+#endif
+			return -1;
+		}
+
+		length = strlen(tmp4) + strlen(param->nonce_prime) + strlen(param->cnonce_prime) + 2;	// 2 colon
+		ret = snprintf(param->a1, length+1, "%s:%s:%s", tmp4, param->nonce_prime, param->cnonce_prime);
+		ret = get_sha_256_hash((const unsigned char *)&(param->a1), length, (unsigned char *)&(param->a1_hash), 150);
+		if(ret == -1){
+#ifdef _DEBUG
+			printf("[E] A1-2 get_sha_256_hash error\n");
+#endif
+			return -1;
+		}
+
+		if(!strncmp(param->qop, "auth-int", strlen("auth-int"))){	// auth-int
+			// A2 method:uri:SHA-256(entity-body)
+			length = strlen(param->entity_body);
+			ret = get_sha_256_hash((const unsigned char *)&(param->entity_body), length, (unsigned char *)&(param->entity_body_hash), 150);
+			if(ret == -1){
+#ifdef _DEBUG
+				printf("[E] A2-1 get_sha_256_hash error\n");
+#endif
+				return -1;
+			}
+
+			length = strlen(param->method) + strlen(param->uri) + strlen(param->entity_body_hash) + 2;	// 2 colon
+			ret = snprintf(param->a2, length+1, "%s:%s:%s", param->method, param->uri, param->entity_body_hash);
+			ret = get_sha_256_hash((const unsigned char *)&(param->a2), length, (unsigned char *)&(param->a2_hash), 150);
+			if(ret == -1){
+#ifdef _DEBUG
+				printf("[E] A2-2 get_sha_256_hash error\n");
+#endif
+				return -1;
+			}
+		}else{	// auth
+			// A2 method:uri
+			length = strlen(param->method) + strlen(param->uri) + 1;	// 1 colon
+			ret = snprintf(param->a2, length+1, "%s:%s", param->method, param->uri);
+			ret = get_sha_256_hash((const unsigned char *)&(param->a2), length, (unsigned char *)&(param->a2_hash), 150);
+			if(ret == -1){
+#ifdef _DEBUG
+				printf("[E] A2 get_sha_256_hash error\n");
+#endif
+				return -1;
+			}
+		}
+
+		// response SHA-256(A1):nonce:nc:cnonce:qop:SHA-256(A2)
+		length = strlen(param->a1_hash) + strlen(param->nonce) + strlen(param->nc) + strlen(param->cnonce) + strlen(param->qop) + strlen(param->a2_hash) + 5;	// 5 colon
+		ret = snprintf(param->response, length+1, "%s:%s:%s:%s:%s:%s", param->a1_hash, param->nonce, param->nc, param->cnonce, param->qop, param->a2_hash);
+		ret = get_sha_256_hash((const unsigned char *)&(param->response), length, (unsigned char *)&(param->response_hash), 150);
+		if(ret == -1){
+#ifdef _DEBUG
+			printf("[E] response get_sha_256_hash error\n");
+#endif
+			return -1;
+		}
+
+	}else if(!strncmp(param->algorithm, "SHA-256", strlen("SHA-256"))){
+		// A1 username:realm:password
+		length = strlen(param->username) + strlen(param->realm) + strlen(param->password) + 2;	// 2 colon
+		ret = snprintf(param->a1, length+1, "%s:%s:%s", param->username, param->realm, param->password);
+		ret = get_sha_256_hash((const unsigned char *)&(param->a1), length, (unsigned char *)&(param->a1_hash), 150);
+		if(ret == -1){
+#ifdef _DEBUG
+			printf("[E] A1 get_sha_256_hash error\n");
+#endif
+			return -1;
+		}
+
+		if(!strncmp(param->qop, "auth-int", strlen("auth-int"))){	// auth-int
+			// A2 method:uri:SHA-256(entity-body)
+			length = strlen(param->entity_body);
+			ret = get_sha_256_hash((const unsigned char *)&(param->entity_body), length, (unsigned char *)&(param->entity_body_hash), 150);
+			if(ret == -1){
+#ifdef _DEBUG
+				printf("[E] A2-1 get_sha_256_hash error\n");
+#endif
+				return -1;
+			}
+
+			length = strlen(param->method) + strlen(param->uri) + strlen(param->entity_body_hash) + 2;	// 2 colon
+			ret = snprintf(param->a2, length+1, "%s:%s:%s", param->method, param->uri, param->entity_body_hash);
+			ret = get_sha_256_hash((const unsigned char *)&(param->a2), length, (unsigned char *)&(param->a2_hash), 150);
+			if(ret == -1){
+#ifdef _DEBUG
+				printf("[E] A2-2 get_sha_256_hash error\n");
+#endif
+				return -1;
+			}
+		}else{	// auth
+			// A2 method:uri
+			length = strlen(param->method) + strlen(param->uri) + 1;	// 1 colon
+			ret = snprintf(param->a2, length+1, "%s:%s", param->method, param->uri);
+			ret = get_sha_256_hash((const unsigned char *)&(param->a2), length, (unsigned char *)&(param->a2_hash), 150);
+			if(ret == -1){
+#ifdef _DEBUG
+				printf("[E] A2 get_sha_256_hash error\n");
+#endif
+				return -1;
+			}
+		}
+
+		// response SHA-256(A1):nonce:nc:cnonce:qop:SHA-256(A2)
+		length = strlen(param->a1_hash) + strlen(param->nonce) + strlen(param->nc) + strlen(param->cnonce) + strlen(param->qop) + strlen(param->a2_hash) + 5;	// 5 colon
+		ret = snprintf(param->response, length+1, "%s:%s:%s:%s:%s:%s", param->a1_hash, param->nonce, param->nc, param->cnonce, param->qop, param->a2_hash);
+		ret = get_sha_256_hash((const unsigned char *)&(param->response), length, (unsigned char *)&(param->response_hash), 150);
+		if(ret == -1){
+#ifdef _DEBUG
+			printf("[E] response get_sha_256_hash error\n");
+#endif
+			return -1;
+		}
+
+	}else if(!strncmp(param->algorithm, "SHA-512-256-sess", strlen("SHA-512-256-sess"))){
+		// A1 SHA-512-256(username:realm:password):nonce-prime:cnonce-prime
+		length = strlen(param->username) + strlen(param->realm) + strlen(param->password) + 2;	// 2 colon
+		ret = snprintf(tmp3, length+1, "%s:%s:%s", param->username, param->realm, param->password);
+		ret = get_sha_512_256_hash((const unsigned char *)&tmp3, length, (unsigned char *)&tmp4, 150);
+		if(ret == -1){
+#ifdef _DEBUG
+			printf("[E] A1-1 get_sha_512_256_hash error\n");
+#endif
+			return -1;
+		}
+
+		length = strlen(tmp4) + strlen(param->nonce_prime) + strlen(param->cnonce_prime) + 2;	// 2 colon
+		ret = snprintf(param->a1, length+1, "%s:%s:%s", tmp4, param->nonce_prime, param->cnonce_prime);
+		ret = get_sha_512_256_hash((const unsigned char *)&(param->a1), length, (unsigned char *)&(param->a1_hash), 150);
+		if(ret == -1){
+#ifdef _DEBUG
+			printf("[E] A1-2 get_sha_512_256_hash error\n");
+#endif
+			return -1;
+		}
+
+		if(!strncmp(param->qop, "auth-int", strlen("auth-int"))){	// auth-int
+			// A2 method:uri:SHA-512-256(entity-body)
+			length = strlen(param->entity_body);
+			ret = get_sha_512_256_hash((const unsigned char *)&(param->entity_body), length, (unsigned char *)&(param->entity_body_hash), 150);
+			if(ret == -1){
+#ifdef _DEBUG
+				printf("[E] A2-1 get_sha_512_256_hash error\n");
+#endif
+				return -1;
+			}
+
+			length = strlen(param->method) + strlen(param->uri) + strlen(param->entity_body_hash) + 2;	// 2 colon
+			ret = snprintf(param->a2, length+1, "%s:%s:%s", param->method, param->uri, param->entity_body_hash);
+			ret = get_sha_512_256_hash((const unsigned char *)&(param->a2), length, (unsigned char *)&(param->a2_hash), 150);
+			if(ret == -1){
+#ifdef _DEBUG
+				printf("[E] A2-2 get_sha_512_256_hash error\n");
+#endif
+				return -1;
+			}
+		}else{	// auth
+			// A2 method:uri
+			length = strlen(param->method) + strlen(param->uri) + 1;	// 1 colon
+			ret = snprintf(param->a2, length+1, "%s:%s", param->method, param->uri);
+			ret = get_sha_512_256_hash((const unsigned char *)&(param->a2), length, (unsigned char *)&(param->a2_hash), 150);
+			if(ret == -1){
+#ifdef _DEBUG
+				printf("[E] A2 get_sha_512_256_hash error\n");
+#endif
+				return -1;
+			}
+		}
+
+		// response SHA-512-256(A1):nonce:nc:cnonce:qop:SHA-512-256(A2)
+		length = strlen(param->a1_hash) + strlen(param->nonce) + strlen(param->nc) + strlen(param->cnonce) + strlen(param->qop) + strlen(param->a2_hash) + 5;	// 5 colon
+		ret = snprintf(param->response, length+1, "%s:%s:%s:%s:%s:%s", param->a1_hash, param->nonce, param->nc, param->cnonce, param->qop, param->a2_hash);
+		ret = get_sha_512_256_hash((const unsigned char *)&(param->response), length, (unsigned char *)&(param->response_hash), 150);
+		if(ret == -1){
+#ifdef _DEBUG
+			printf("[E] response get_sha_512_256_hash error\n");
+#endif
+			return -1;
+		}
+
+	}else if(!strncmp(param->algorithm, "SHA-512-256", strlen("SHA-512-256"))){
+		// A1 username:realm:password
+		length = strlen(param->username) + strlen(param->realm) + strlen(param->password) + 2;	// 2 colon
+		ret = snprintf(param->a1, length+1, "%s:%s:%s", param->username, param->realm, param->password);
+		ret = get_sha_512_256_hash((const unsigned char *)&(param->a1), length, (unsigned char *)&(param->a1_hash), 150);
+		if(ret == -1){
+#ifdef _DEBUG
+			printf("[E] A1 get_sha_512_256_hash error\n");
+#endif
+			return -1;
+		}
+
+		if(!strncmp(param->qop, "auth-int", strlen("auth-int"))){	// auth-int
+			// A2 method:uri:SHA-512-256(entity-body)
+			length = strlen(param->entity_body);
+			ret = get_sha_512_256_hash((const unsigned char *)&(param->entity_body), length, (unsigned char *)&(param->entity_body_hash), 150);
+			if(ret == -1){
+#ifdef _DEBUG
+				printf("[E] A2-1 get_sha_512_256_hash error\n");
+#endif
+				return -1;
+			}
+
+			length = strlen(param->method) + strlen(param->uri) + strlen(param->entity_body_hash) + 2;	// 2 colon
+			ret = snprintf(param->a2, length+1, "%s:%s:%s", param->method, param->uri, param->entity_body_hash);
+			ret = get_sha_512_256_hash((const unsigned char *)&(param->a2), length, (unsigned char *)&(param->a2_hash), 150);
+			if(ret == -1){
+#ifdef _DEBUG
+				printf("[E] A2-2 get_sha_512_256_hash error\n");
+#endif
+				return -1;
+			}
+		}else{	// auth
+			// A2 method:uri
+			length = strlen(param->method) + strlen(param->uri) + 1;	// 1 colon
+			ret = snprintf(param->a2, length+1, "%s:%s", param->method, param->uri);
+			ret = get_sha_512_256_hash((const unsigned char *)&(param->a2), length, (unsigned char *)&(param->a2_hash), 150);
+			if(ret == -1){
+#ifdef _DEBUG
+				printf("[E] A2 get_sha_512_256_hash error\n");
+#endif
+				return -1;
+			}
+		}
+
+		// response SHA-512-256(A1):nonce:nc:cnonce:qop:SHA-512-256(A2)
+		length = strlen(param->a1_hash) + strlen(param->nonce) + strlen(param->nc) + strlen(param->cnonce) + strlen(param->qop) + strlen(param->a2_hash) + 5;	// 5 colon
+		ret = snprintf(param->response, length+1, "%s:%s:%s:%s:%s:%s", param->a1_hash, param->nonce, param->nc, param->cnonce, param->qop, param->a2_hash);
+		ret = get_sha_512_256_hash((const unsigned char *)&(param->response), length, (unsigned char *)&(param->response_hash), 150);
+		if(ret == -1){
+#ifdef _DEBUG
+			printf("[E] response get_sha_512_256_hash error\n");
+#endif
+			return -1;
+		}
+
+	}else{
+#ifdef _DEBUG
+		printf("[E] Not implemented.\n");
+#endif
+		return -1;
+	}
+
+	return 0;
 }
 
 
@@ -1329,12 +2115,12 @@ int worker(void *ptr)
 	struct sockaddr_in forward_proxy_addr;		// IPv4
 	struct sockaddr_in target_addr;				// IPv4
 	struct sockaddr_in *tmp_ipv4;
-	struct sockaddr_in6 target_addr6;			// IPv6
 	struct sockaddr_in6 forward_proxy_addr6;	// IPv6
+	struct sockaddr_in6 target_addr6;			// IPv6
 	struct sockaddr_in6 *tmp_ipv6;
 	struct addrinfo hints;
-	struct addrinfo *target_host;
 	struct addrinfo *forward_proxy_host;
+	struct addrinfo *target_host;
 
 	char *forward_proxy_domainname = forward_proxy_ip;
 	u_short forward_proxy_domainname_length = 0;
@@ -1347,6 +2133,13 @@ int worker(void *ptr)
 	char proxy_b64_credential[2000];
 	bzero(&proxy_credential, 1000);
 	bzero(&proxy_b64_credential, 2000);
+
+	char http_header_data[2000];
+	bzero(&http_header_data, 2000);
+	char digest_http_header_key[] = "Proxy-Authenticate";
+	struct digest_parameters digest_param;
+	bzero(&digest_param, sizeof(struct digest_parameters));
+	char *pos = NULL;
 
 	char *target_domainname = socks5_target_ip;
 	u_short target_domainname_length = 0;
@@ -1430,9 +2223,9 @@ int worker(void *ptr)
 	
 	
 	if(forward_proxy_flag == 1){	// http forward proxy
-		memset(&forward_proxy_addr, 0, sizeof(struct sockaddr_in));
-		memset(&forward_proxy_addr6, 0, sizeof(struct sockaddr_in6));
-		memset(&hints, 0, sizeof(struct addrinfo));
+		bzero(&forward_proxy_addr, sizeof(struct sockaddr_in));
+		bzero(&forward_proxy_addr6, sizeof(struct sockaddr_in6));
+		bzero(&hints, sizeof(struct addrinfo));
 
 #ifdef _DEBUG
 		printf("[I] Forward proxy domainname:%s, Length:%d.\n", forward_proxy_domainname, forward_proxy_domainname_length);
@@ -1539,6 +2332,21 @@ int worker(void *ptr)
 #ifdef _DEBUG
 			printf("[I] Forward proxy credential (base64):%s\n", proxy_b64_credential);
 #endif
+		}else if(forward_proxy_authentication_flag == 2){	// forward proxy authentication: digest
+			if(strlen(forward_proxy_username) > 256 || strlen(forward_proxy_password) > 256){
+#ifdef _DEBUG
+				printf("[E] Forward proxy username or password length is too long (length > 256).\n");
+#endif
+				close_socket(forward_proxy_sock);
+				close_socket(client_sock);
+				return -1;
+			}
+
+			memcpy(&(digest_param.username), forward_proxy_username, strlen(forward_proxy_username));
+			memcpy(&(digest_param.password), forward_proxy_password, strlen(forward_proxy_password));
+			memcpy(&(digest_param.nc), "00000001", strlen("00000001"));
+			memcpy(&(digest_param.method), "CONNECT", strlen("CONNECT"));
+			length = snprintf(digest_param.uri, 500, "%s:%s", target_domainname, target_port_number);
 		}
 
 
@@ -1580,7 +2388,7 @@ int worker(void *ptr)
 				ret = strncmp(buffer, "HTTP/1.1 200 Connection established\r\n", strlen("HTTP/1.1 200 Connection established\r\n"));
 				if(ret != 0){
 #ifdef _DEBUG
-					printf("[E] Forward proxy error:%s\n", buffer);
+					printf("[E] Forward proxy error:\n%s\n", buffer);
 #endif
 					close_socket(forward_proxy_sock);
 					close_socket(client_sock);
@@ -1622,7 +2430,126 @@ int worker(void *ptr)
 				ret = strncmp(buffer, "HTTP/1.1 200 Connection established\r\n", strlen("HTTP/1.1 200 Connection established\r\n"));
 				if(ret != 0){
 #ifdef _DEBUG
-					printf("[E] Forward proxy error:%s\n", buffer);
+					printf("[E] Forward proxy error:\n%s\n", buffer);
+#endif
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+			}else if(forward_proxy_authentication_flag == 2){	// forward proxy authentication: digest
+				http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number);
+
+				// HTTP Request
+				sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
+				if(sen <= 0){
+#ifdef _DEBUG
+					printf("[E] Send http request to forward proxy.\n");
+#endif
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] Send http request to forward proxy.\n");
+#endif
+
+				// HTTP Response (HTTP/1.1 407 Proxy Authentication Required)
+				rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
+				if(rec <= 0){
+#ifdef _DEBUG
+					printf("[E] Recv http response from forward proxy.\n");
+#endif
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] Recv http response from forward proxy.\n");
+#endif
+
+				ret = strncmp(buffer, "HTTP/1.1 407 Proxy Authentication Required\r\n", strlen("HTTP/1.1 407 Proxy Authentication Required\r\n"));
+				if(ret != 0){
+#ifdef _DEBUG
+					printf("[E] Forward proxy error:\n%s\n", buffer);
+#endif
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+
+				ret = get_http_header((const char *)&buffer, (const char *)&digest_http_header_key, (char *)&http_header_data, 2000);
+				if(ret == -1){
+#ifdef _DEBUG
+					printf("[E] get_http_header error\n");
+#endif
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] http_header_data:%s\n", http_header_data);
+#endif
+
+				if(!strncmp(digest_param.qop, "auth-int", strlen("auth-int"))){
+					pos = strstr((const char *)&buffer, "\r\n\r\n");
+					length = snprintf(digest_param.entity_body, BUFFER_SIZE+1, "%s", pos+4);
+				}
+
+				ret = get_digest_values((const char *)&http_header_data, &digest_param);
+				if(ret == -1){
+#ifdef _DEBUG
+					printf("[E] get_digest_values error\n");
+#endif
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+
+				ret = get_digest_response(&digest_param);
+				if(ret == -1){
+#ifdef _DEBUG
+					printf("[E] get_digest_response error\n");
+#endif
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+
+				bzero(http_request, BUFFER_SIZE+1);
+				http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nProxy-Authorization: Digest username=\"%s\", realm=\"%s\", nonce=\"%s\", uri=\"%s\", cnonce=\"%s\", nc=%s, qop=%s, response=\"%s\"\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number, digest_param.username, digest_param.realm, digest_param.nonce, digest_param.uri, digest_param.cnonce, digest_param.nc, digest_param.qop, digest_param.response_hash);
+
+				// HTTP Request
+				sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
+				if(sen <= 0){
+#ifdef _DEBUG
+					printf("[E] Send http request to forward proxy.\n");
+#endif
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] Send http request to forward proxy.\n");
+#endif
+
+				// HTTP Response (HTTP/1.1 200 Connection established)
+				rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
+				if(rec <= 0){
+#ifdef _DEBUG
+					printf("[E] Recv http response from forward proxy.\n");
+#endif
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] Recv http response from forward proxy.\n");
+#endif
+
+				ret = strncmp(buffer, "HTTP/1.1 200 Connection established\r\n", strlen("HTTP/1.1 200 Connection established\r\n"));
+				if(ret != 0){
+#ifdef _DEBUG
+					printf("[E] Forward proxy error:\n%s\n", buffer);
 #endif
 					close_socket(forward_proxy_sock);
 					close_socket(client_sock);
@@ -1671,7 +2598,7 @@ int worker(void *ptr)
 				ret = strncmp(buffer, "HTTP/1.1 200 Connection established\r\n", strlen("HTTP/1.1 200 Connection established\r\n"));
 				if(ret != 0){
 #ifdef _DEBUG
-					printf("[E] Forward proxy error:%s\n", buffer);
+					printf("[E] Forward proxy error:\n%s\n", buffer);
 #endif
 					close_socket(forward_proxy_sock);
 					close_socket(client_sock);
@@ -1711,7 +2638,121 @@ int worker(void *ptr)
 				ret = strncmp(buffer, "HTTP/1.1 200 Connection established\r\n", strlen("HTTP/1.1 200 Connection established\r\n"));
 				if(ret != 0){
 #ifdef _DEBUG
-					printf("[E] Forward proxy error:%s\n", buffer);
+					printf("[E] Forward proxy error:\n%s\n", buffer);
+#endif
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+			}else if(forward_proxy_authentication_flag == 2){	// forward proxy authentication: digest
+				http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number);
+
+				// HTTP Request
+				sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
+				if(sen <= 0){
+#ifdef _DEBUG
+					printf("[E] Send http request to forward proxy.\n");
+#endif
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] Send http request to forward proxy.\n");
+#endif
+
+				// HTTP Response (HTTP/1.1 407 Proxy Authentication Required)
+				rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
+				if(rec <= 0){
+#ifdef _DEBUG
+					printf("[E] Recv http response from forward proxy.\n");
+#endif
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] Recv http response from forward proxy.\n");
+#endif
+
+				ret = strncmp(buffer, "HTTP/1.1 407 Proxy Authentication Required\r\n", strlen("HTTP/1.1 407 Proxy Authentication Required\r\n"));
+				if(ret != 0){
+#ifdef _DEBUG
+					printf("[E] Forward proxy error:\n%s\n", buffer);
+#endif
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+
+				ret = get_http_header((const char *)&buffer, (const char *)&digest_http_header_key, (char *)&http_header_data, 2000);
+				if(ret == -1){
+#ifdef _DEBUG
+					printf("[E] get_http_header error\n");
+#endif
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] http_header_data:%s\n", http_header_data);
+#endif
+
+				ret = get_digest_values((const char *)&http_header_data, &digest_param);
+				if(ret == -1){
+#ifdef _DEBUG
+					printf("[E] get_digest_values error\n");
+#endif
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+
+				ret = get_digest_response(&digest_param);
+				if(ret == -1){
+#ifdef _DEBUG
+					printf("[E] get_digest_response error\n");
+#endif
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+
+				bzero(http_request, BUFFER_SIZE+1);
+				http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nProxy-Authorization: Digest username=\"%s\", realm=\"%s\", nonce=\"%s\", uri=\"%s\", cnonce=\"%s\", nc=%s, qop=%s, response=\"%s\"\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number, digest_param.username, digest_param.realm, digest_param.nonce, digest_param.uri, digest_param.cnonce, digest_param.nc, digest_param.qop, digest_param.response_hash);
+
+				// HTTP Request
+				sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
+				if(sen <= 0){
+#ifdef _DEBUG
+					printf("[E] Send http request to forward proxy.\n");
+#endif
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] Send http request to forward proxy.\n");
+#endif
+
+				// HTTP Response (HTTP/1.1 200 Connection established)
+				rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
+				if(rec <= 0){
+#ifdef _DEBUG
+					printf("[E] Recv http response from forward proxy.\n");
+#endif
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] Recv http response from forward proxy.\n");
+#endif
+
+				ret = strncmp(buffer, "HTTP/1.1 200 Connection established\r\n", strlen("HTTP/1.1 200 Connection established\r\n"));
+				if(ret != 0){
+#ifdef _DEBUG
+					printf("[E] Forward proxy error:\n%s\n", buffer);
 #endif
 					close_socket(forward_proxy_sock);
 					close_socket(client_sock);
@@ -1727,12 +2768,12 @@ int worker(void *ptr)
 			}
 		}
 #ifdef _DEBUG
-				printf("[I] Forward proxy connection established.\n");
+		printf("[I] Forward proxy connection established.\n");
 #endif
 	}else{	// no forward proxy
-		memset(&target_addr, 0, sizeof(struct sockaddr_in));
-		memset(&target_addr6, 0, sizeof(struct sockaddr_in6));
-		memset(&hints, 0, sizeof(struct addrinfo));
+		bzero(&target_addr, sizeof(struct sockaddr_in));
+		bzero(&target_addr6, sizeof(struct sockaddr_in6));
+		bzero(&hints, sizeof(struct addrinfo));
 
 #ifdef _DEBUG
 		printf("[I] Target domainname:%s, Length:%d.\n", target_domainname, target_domainname_length);
@@ -2000,13 +3041,13 @@ int worker(void *ptr)
 #ifdef _DEBUG
 		printf("[I] Server Socks5 OK.\n");
 #endif
-		if(forward_proxy_flag == 1){	// http forward proxy
-			rec = recv_data_aes(forward_proxy_sock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec);	// rec: 2 ("OK") or -1
+		if(forward_proxy_flag == 1){    // http forward proxy
+			rec = recv_data_aes(forward_proxy_sock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec); // rec: 2 ("OK") or -1
 		}else{
-			rec = recv_data_aes(target_sock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec);	// rec: 2 ("OK") or -1
+			rec = recv_data_aes(target_sock, buffer, BUFFER_SIZE, aes_key, aes_iv, tv_sec, tv_usec);        // rec: 2 ("OK") or -1
 		}
 #ifdef _DEBUG
-//		printf("[I] rec:%d\n", rec);
+//             printf("[I] rec:%d\n", rec);
 #endif
 	}else{
 #ifdef _DEBUG
@@ -2103,9 +3144,9 @@ int worker(void *ptr)
 		printf("[I] Try Socks5 over TLS connection. (SSL_connect)\n");
 #endif
 		if(forward_proxy_flag == 1){	// http forward proxy
-			ret = ssl_connect_non_blocking(forward_proxy_sock, target_ssl_socks5, tv_sec+10, tv_usec);	// timeout + 10 sec
+			ret = ssl_connect_non_blocking(forward_proxy_sock, target_ssl_socks5, tv_sec+10, tv_usec);      // timeout + 10 sec
 		}else{
-			ret = ssl_connect_non_blocking(target_sock, target_ssl_socks5, tv_sec+10, tv_usec);	// timeout + 10 sec
+			ret = ssl_connect_non_blocking(target_sock, target_ssl_socks5, tv_sec+10, tv_usec);     // timeout + 10 sec
 		}
 		if(ret == -2){
 #ifdef _DEBUG
@@ -2481,7 +3522,7 @@ void usage(char *filename)
 	printf("usage   : %s -h listen_ip -p listen_port -H target_socks5server_domainname -P target_socks5server_port\n", filename);
 	printf("          [-s (target socks5 server https connection)] [-t (Socks5 over TLS)]\n");
 	printf("          [-A recv/send tv_sec(timeout 0-10 sec)] [-B recv/send tv_usec(timeout 0-1000000 microsec)] [-C forwarder tv_sec(timeout 0-300 sec)] [-D forwarder tv_usec(timeout 0-1000000 microsec)]\n");
-	printf("          [-a forward proxy domainname] [-b forward proxy port] [-c forward proxy(1:http)] [-d forward proxy username] [-e forward proxy password] [-f forward proxy authentication(1:basic)]\n");
+	printf("          [-a forward proxy domainname] [-b forward proxy port] [-c forward proxy(1:http)] [-d forward proxy username] [-e forward proxy password] [-f forward proxy authentication(1:basic 2:digest)]\n");
 	printf("example : %s -h 0.0.0.0 -p 9050 -H 192.168.0.10 -P 80\n", filename);
 	printf("        : %s -h 0.0.0.0 -p 9050 -H foobar.test -P 80 -t\n", filename);
 	printf("        : %s -h 0.0.0.0 -p 9050 -H foobar.test -P 80 -t -A 3 -B 0 -C 3 -D 0\n", filename);
@@ -2595,17 +3636,22 @@ int main(int argc, char **argv)
 		forwarder_tv_usec = 0;
 	}
 	
-	if((forward_proxy_flag > 0 && forward_proxy_ip != NULL && forward_proxy_port == NULL) || (forward_proxy_flag > 0 && forward_proxy_ip == NULL && forward_proxy_port != NULL) || (forward_proxy_username != NULL && forward_proxy_password == NULL) || (forward_proxy_username == NULL && forward_proxy_password != NULL)){
-		usage(argv[0]);
-		exit(1);
-	}
-
 	if(forward_proxy_flag < 0 && forward_proxy_flag > 1){
 		usage(argv[0]);
 		exit(1);
 	}
 
-	if(forward_proxy_authentication_flag < 0 && forward_proxy_authentication_flag > 1){
+	if(forward_proxy_flag > 0 && (forward_proxy_ip == NULL || forward_proxy_port == NULL)){
+		usage(argv[0]);
+		exit(1);
+	}
+
+	if(forward_proxy_authentication_flag < 0 && forward_proxy_authentication_flag > 2){
+		usage(argv[0]);
+		exit(1);
+	}
+
+	if(forward_proxy_authentication_flag > 0 && (forward_proxy_username == NULL || forward_proxy_password == NULL)){
 		usage(argv[0]);
 		exit(1);
 	}
@@ -2625,6 +3671,11 @@ int main(int argc, char **argv)
 #ifdef _DEBUG
 			printf("[I] Forward proxy connection:http\n");
 			printf("[I] Forward proxy authentication:basic\n");
+#endif
+		}else if(forward_proxy_authentication_flag == 2){
+#ifdef _DEBUG
+			printf("[I] Forward proxy connection:http\n");
+			printf("[I] Forward proxy authentication:digest\n");
 #endif
 		}
 	}else{
