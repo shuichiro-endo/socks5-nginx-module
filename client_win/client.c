@@ -79,7 +79,7 @@ int encrypt_aes(unsigned char *plaintext, int plaintext_length, unsigned char *a
 	ctx = EVP_CIPHER_CTX_new();
 	if(ctx == NULL){
 #ifdef _DEBUG
-//		printf("[E] EVP_CIPHER_CTX_new error.\n");
+//		printf("[E] EVP_CIPHER_CTX_new error\n");
 #endif
 		return -1;
 	}
@@ -87,16 +87,18 @@ int encrypt_aes(unsigned char *plaintext, int plaintext_length, unsigned char *a
 	ret = EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, aes_key, aes_iv);
 	if(ret != 1){
 #ifdef _DEBUG
-//		printf("[E] EVP_EncryptInit_ex error.\n");
+//		printf("[E] EVP_EncryptInit_ex error\n");
 #endif
+		EVP_CIPHER_CTX_free(ctx);
 		return -1;
 	}
 	
 	ret = EVP_EncryptUpdate(ctx, ciphertext, &length, plaintext, plaintext_length);
 	if(ret != 1){
 #ifdef _DEBUG
-//		printf("[E] EVP_EncryptUpdate error.\n");
+//		printf("[E] EVP_EncryptUpdate error\n");
 #endif
+		EVP_CIPHER_CTX_free(ctx);
 		return -1;
 	}
 	ciphertext_length = length;
@@ -104,8 +106,9 @@ int encrypt_aes(unsigned char *plaintext, int plaintext_length, unsigned char *a
 	ret = EVP_EncryptFinal_ex(ctx, ciphertext+length, &length);
 	if(ret != 1){
 #ifdef _DEBUG
-//		printf("[E] EVP_EncryptFinal_ex error.\n");
+//		printf("[E] EVP_EncryptFinal_ex error\n");
 #endif
+		EVP_CIPHER_CTX_free(ctx);
 		return -1;
 	}
 	ciphertext_length += length;
@@ -126,7 +129,7 @@ int decrypt_aes(unsigned char *ciphertext, int ciphertext_length, unsigned char 
 	ctx = EVP_CIPHER_CTX_new();
 	if(ctx == NULL){
 #ifdef _DEBUG
-//		printf("[E] EVP_CIPHER_CTX_new error.\n");
+//		printf("[E] EVP_CIPHER_CTX_new error\n");
 #endif
 		return -1;
 	}
@@ -134,16 +137,18 @@ int decrypt_aes(unsigned char *ciphertext, int ciphertext_length, unsigned char 
 	ret = EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, aes_key, aes_iv);
 	if(ret != 1){
 #ifdef _DEBUG
-//		printf("[E] EVP_DecryptInit_ex error.\n");
+//		printf("[E] EVP_DecryptInit_ex error\n");
 #endif
+		EVP_CIPHER_CTX_free(ctx);
 		return -1;
 	}
 	
 	ret = EVP_DecryptUpdate(ctx, plaintext, &length, ciphertext, ciphertext_length);
 	if(ret != 1){
 #ifdef _DEBUG
-//		printf("[E] EVP_DecryptUpdate error.\n");
+//		printf("[E] EVP_DecryptUpdate error\n");
 #endif
+		EVP_CIPHER_CTX_free(ctx);
 		return -1;
 	}
 	plaintext_length = length;
@@ -151,8 +156,9 @@ int decrypt_aes(unsigned char *ciphertext, int ciphertext_length, unsigned char 
 	ret = EVP_DecryptFinal_ex(ctx, plaintext+length, &length);
 	if(ret != 1){
 #ifdef _DEBUG
-//		printf("[E] EVP_DecryptFinal_ex error.\n");
+//		printf("[E] EVP_DecryptFinal_ex error\n");
 #endif
+		EVP_CIPHER_CTX_free(ctx);
 		return -1;
 	}
 	plaintext_length += length;
