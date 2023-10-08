@@ -7,8 +7,8 @@
 
 int encrypt_aes(unsigned char *plaintext, int plaintext_length, unsigned char *aes_key, unsigned char *aes_iv, unsigned char *ciphertext);
 int decrypt_aes(unsigned char *ciphertext, int ciphertext_length, unsigned char *aes_key, unsigned char *aes_iv, unsigned char *plaintext);
-int encode_base64(const unsigned char *input, int length, unsigned char *output);
-int decode_base64(const unsigned char *input, int length, unsigned char *output);
+int encode_base64(const unsigned char *input, int length, unsigned char *output, int output_size);
+int decode_base64(const unsigned char *input, int length, unsigned char *output, int output_size);
 int get_md5_hash(const unsigned char *input, int input_length, unsigned char *output, int output_length);
 int get_sha_256_hash(const unsigned char *input, int input_length, unsigned char *output, int output_length);
 int get_sha_512_256_hash(const unsigned char *input, int input_length, unsigned char *output, int output_length);

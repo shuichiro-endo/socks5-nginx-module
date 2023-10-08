@@ -170,87 +170,99 @@ int decrypt_aes(unsigned char *ciphertext, int ciphertext_length, unsigned char 
 }
 
 
-int encode_base64(const unsigned char *input, int length, unsigned char *output)
+int encode_base64(const unsigned char *input, int length, unsigned char *output, int output_size)
 {
 	BIO *b64 = BIO_new(BIO_f_base64());
+	BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
 	BIO *mem = BIO_new(BIO_s_mem());
-	BUF_MEM *bufmem;
+	char *ptr = NULL;
+	long len = 0;
 	int output_length = 0;
 	int ret = 0;
 
-	b64 = BIO_push(b64, mem);
-	ret = BIO_write(b64, input, length);
+	BIO *bio = BIO_push(b64, mem);
+
+	ret = BIO_write(bio, input, length);
 	if(ret <= 0){
 #ifdef _DEBUG
 //		printf("[E] BIO_write error\n");
 #endif
+		BIO_free_all(bio);
 		return -1;
 	}
 
-	ret = BIO_flush(b64);
+	ret = BIO_flush(bio);
 	if(ret <= 0){
 #ifdef _DEBUG
 //		printf("[E] BIO_flush error\n");
 #endif
+		BIO_free_all(bio);
 		return -1;
 	}
 
-	ret = BIO_get_mem_ptr(b64, &bufmem);
-	if(ret <= 0){
+	len = BIO_get_mem_data(mem, &ptr);
+	if(len <= 0){
 #ifdef _DEBUG
-//		printf("[E] BIO_get_mem_ptr error\n");
+//		printf("[E] BIO_get_mem_data error\n");
 #endif
+		BIO_free_all(bio);
 		return -1;
 	}
 
-	memcpy(output, bufmem->data, bufmem->length-1);
-	output[bufmem->length-1] = '\0';
+	if(len > output_size){
+#ifdef _DEBUG
+//		printf("[E] output_size error\n");
+#endif
+		BIO_free_all(bio);
+		return -1;
+	}
+
+	memcpy(output, ptr, (int)len);
 	output_length = strlen(output);
 
-	BIO_free_all(b64);
+	BIO_free_all(bio);
 
 	return output_length;
 }
 
 
-int decode_base64(const unsigned char *input, int length, unsigned char *output)
+int decode_base64(const unsigned char *input, int length, unsigned char *output, int output_size)
 {
 	BIO *b64 = BIO_new(BIO_f_base64());
-	BIO *mem = BIO_new(BIO_s_mem());
-	BUF_MEM *bufmem;
+	BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
+	BIO *mem = BIO_new_mem_buf((char *)input, -1);
 	int output_length = 0;
 	int ret = 0;
 
-	b64 = BIO_push(b64, mem);
-	ret = BIO_read(b64, (void *)input, length);
-	if(ret <= 0){
+	BIO *bio = BIO_push(b64, mem);
+
+	if(length > output_size){
 #ifdef _DEBUG
-//		printf("[E] BIO_write error\n");
+//		printf("[E] output_size error\n");
 #endif
+		BIO_free_all(bio);
 		return -1;
 	}
 
-	ret = BIO_flush(b64);
+	output_length = BIO_read(bio, output, length);
+	if(output_length <= 0){
+#ifdef _DEBUG
+//		printf("[E] BIO_read error\n");
+#endif
+		BIO_free_all(bio);
+		return -1;
+	}
+
+	ret = BIO_flush(bio);
 	if(ret <= 0){
 #ifdef _DEBUG
 //		printf("[E] BIO_flush error\n");
 #endif
+		BIO_free_all(bio);
 		return -1;
 	}
 
-	ret = BIO_get_mem_ptr(b64, &bufmem);
-	if(ret <= 0){
-#ifdef _DEBUG
-//		printf("[E] BIO_get_mem_ptr error\n");
-#endif
-		return -1;
-	}
-
-	memcpy(output, bufmem->data, bufmem->length-1);
-	output[bufmem->length-1] = '\0';
-	output_length = strlen(output);
-
-	BIO_free_all(b64);
+	BIO_free_all(bio);
 
 	return output_length;
 }
@@ -643,7 +655,7 @@ int get_digest_response(struct digest_parameters *param)
 		ret = snprintf(tmp2+i*16, 17, "%02x%02x%02x%02x%02x%02x%02x%02x\n", tmp1[i*8+0], tmp1[i*8+1], tmp1[i*8+2], tmp1[i*8+3], tmp1[i*8+4], tmp1[i*8+5], tmp1[i*8+6], tmp1[i*8+7]);
 	};
 
-	ret = encode_base64(tmp2, 32, param->cnonce);
+	ret = encode_base64(tmp2, 32, param->cnonce, 200);
 
 	// cnonce-prime
 	if(param->nonce_prime != NULL){
@@ -661,7 +673,7 @@ int get_digest_response(struct digest_parameters *param)
 			ret = snprintf(tmp2+i*16, 17, "%02x%02x%02x%02x%02x%02x%02x%02x\n", tmp1[i*8+0], tmp1[i*8+1], tmp1[i*8+2], tmp1[i*8+3], tmp1[i*8+4], tmp1[i*8+5], tmp1[i*8+6], tmp1[i*8+7]);
 		};
 
-		ret = encode_base64(tmp2, 32, param->cnonce_prime);
+		ret = encode_base64(tmp2, 32, param->cnonce_prime, 200);
 	}
 
 
@@ -2328,7 +2340,7 @@ int worker(void *ptr)
 			proxy_credential_length = snprintf(proxy_credential, 1000, "%s:%s", forward_proxy_username, forward_proxy_password);
 			length = 0;
 
-			length = encode_base64(proxy_credential, proxy_credential_length, proxy_b64_credential);
+			length = encode_base64(proxy_credential, proxy_credential_length, proxy_b64_credential, 2000);
 #ifdef _DEBUG
 			printf("[I] Forward proxy credential (base64):%s\n", proxy_b64_credential);
 #endif
