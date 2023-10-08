@@ -268,7 +268,7 @@ int decode_base64(const unsigned char *input, int length, unsigned char *output,
 }
 
 
-int get_md5_hash(const unsigned char *input, int input_length, unsigned char *output, int output_length)
+int get_md5_hash(const unsigned char *input, int input_length, unsigned char *output, int output_size)
 {
 	EVP_MD_CTX *ctx = NULL;
 	int ret = 0;
@@ -301,9 +301,9 @@ int get_md5_hash(const unsigned char *input, int input_length, unsigned char *ou
 		return -1;
 	}
 
-	if(EVP_MD_size(EVP_md5()) >= output_length){
+	if(EVP_MD_size(EVP_md5()) > output_size){
 #ifdef _DEBUG
-//		printf("[E] md5 message digest size is too long.\n");
+//		printf("[E] output_size error\n");
 #endif
 		EVP_MD_CTX_free(ctx);
 		return -1;
@@ -339,7 +339,7 @@ int get_md5_hash(const unsigned char *input, int input_length, unsigned char *ou
 }
 
 
-int get_sha_256_hash(const unsigned char *input, int input_length, unsigned char *output, int output_length)
+int get_sha_256_hash(const unsigned char *input, int input_length, unsigned char *output, int output_size)
 {
 	EVP_MD_CTX *ctx = NULL;
 	int ret = 0;
@@ -372,9 +372,9 @@ int get_sha_256_hash(const unsigned char *input, int input_length, unsigned char
 		return -1;
 	}
 
-	if(EVP_MD_size(EVP_sha256()) >= output_length){
+	if(EVP_MD_size(EVP_sha256()) > output_size){
 #ifdef _DEBUG
-//		printf("[E] sha256 message digest size is too long.\n");
+//		printf("[E] output_size error\n");
 #endif
 		EVP_MD_CTX_free(ctx);
 		return -1;
@@ -410,7 +410,7 @@ int get_sha_256_hash(const unsigned char *input, int input_length, unsigned char
 }
 
 
-int get_sha_512_256_hash(const unsigned char *input, int input_length, unsigned char *output, int output_length)
+int get_sha_512_256_hash(const unsigned char *input, int input_length, unsigned char *output, int output_size)
 {
 	EVP_MD_CTX *ctx = NULL;
 	int ret = 0;
@@ -443,9 +443,9 @@ int get_sha_512_256_hash(const unsigned char *input, int input_length, unsigned 
 		return -1;
 	}
 
-	if(EVP_MD_size(EVP_sha512_256()) >= output_length){
+	if(EVP_MD_size(EVP_sha512_256()) > output_size){
 #ifdef _DEBUG
-//		printf("[E] sha512_256 message digest size is too long.\n");
+//		printf("[E] output_size error\n");
 #endif
 		EVP_MD_CTX_free(ctx);
 		return -1;
