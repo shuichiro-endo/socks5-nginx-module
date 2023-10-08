@@ -1497,10 +1497,10 @@ int ntowfv2(const char *user, const char *password, const char *userdom, unsigne
  */
 int lmowfv2(const char *user, const char *password, const char *userdom, unsigned char *output, int output_size)
 {
-    int ret = 0;
+	int ret = 0;
 	int response_key_length = 0;
 
-    ret = ntowfv2(user, password, userdom, output, output_size);
+	ret = ntowfv2(user, password, userdom, output, output_size);
 	if(ret == -1){
 #ifdef _DEBUG
 		printf("[E] ntowfv2 error\n");
@@ -4921,10 +4921,10 @@ void usage(char *filename)
 	printf("        : %s -h 0.0.0.0 -p 9050 -H 192.168.0.10 -P 443 -s\n", filename);
 	printf("        : %s -h 0.0.0.0 -p 9050 -H foobar.test -P 443 -s -t\n", filename);
 	printf("        : %s -h 0.0.0.0 -p 9050 -H foobar.test -P 443 -s -t -A 3 -B 0 -C 3 -D 0\n", filename);
-	printf("        : %s -h 0.0.0.0 -p 9050 -H foobar.test -P 443 -s -t -a 127.0.0.1 -b 3128 -c 1 -d 1 -e forward_proxy_user -g forward_proxy_password\n", filename);
-	printf("        : %s -h 0.0.0.0 -p 9050 -H foobar.test -P 443 -s -t -a 127.0.0.1 -b 3128 -c 1 -d 2 -e forward_proxy_user -g forward_proxy_password\n", filename);
-	printf("        : %s -h 0.0.0.0 -p 9050 -H foobar.test -P 443 -s -t -a 127.0.0.1 -b 3128 -c 1 -d 3 -e forward_proxy_user -g forward_proxy_password -g test.local -i WORKSTATION\n", filename);
-	printf("        : %s -h 0.0.0.0 -p 9050 -H foobar.test -P 443 -s -t -a 127.0.0.1 -b 3128 -c 1 -d 3 -e test01 -g p@ssw0rd -g test.local -i WORKSTATION -A 10\n", filename);
+	printf("        : %s -h 0.0.0.0 -p 9050 -H foobar.test -P 443 -s -t -a 127.0.0.1 -b 3128 -c 1 -d 1 -e forward_proxy_user -f forward_proxy_password\n", filename);
+	printf("        : %s -h 0.0.0.0 -p 9050 -H foobar.test -P 443 -s -t -a 127.0.0.1 -b 3128 -c 1 -d 2 -e forward_proxy_user -f forward_proxy_password\n", filename);
+	printf("        : %s -h 0.0.0.0 -p 9050 -H foobar.test -P 443 -s -t -a 127.0.0.1 -b 3128 -c 1 -d 3 -e forward_proxy_user -f forward_proxy_password -g test.local -i WORKSTATION\n", filename);
+	printf("        : %s -h 0.0.0.0 -p 9050 -H foobar.test -P 443 -s -t -a 127.0.0.1 -b 3128 -c 1 -d 3 -e test01 -f p@ssw0rd -g test.local -i WORKSTATION -A 10\n", filename);
 }
 
 int main(int argc, char **argv)

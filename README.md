@@ -156,10 +156,10 @@ git clone https://github.com/shuichiro-endo/socks5-nginx-module.git
             : ./client -h 0.0.0.0 -p 9050 -H 192.168.0.10 -P 443 -s
             : ./client -h 0.0.0.0 -p 9050 -H foobar.test -P 443 -s -t
             : ./client -h 0.0.0.0 -p 9050 -H foobar.test -P 443 -s -t -A 3 -B 0 -C 3 -D 0
-            : ./client -h 0.0.0.0 -p 9050 -H foobar.test -P 443 -s -t -a 127.0.0.1 -b 3128 -c 1 -d 1 -e forward_proxy_user -g forward_proxy_password
-            : ./client -h 0.0.0.0 -p 9050 -H foobar.test -P 443 -s -t -a 127.0.0.1 -b 3128 -c 1 -d 2 -e forward_proxy_user -g forward_proxy_password
-            : ./client -h 0.0.0.0 -p 9050 -H foobar.test -P 443 -s -t -a 127.0.0.1 -b 3128 -c 1 -d 3 -e forward_proxy_user -g forward_proxy_password -g test.local -i WORKSTATION
-            : ./client -h 0.0.0.0 -p 9050 -H foobar.test -P 443 -s -t -a 127.0.0.1 -b 3128 -c 1 -d 3 -e test01 -g p@ssw0rd -g test.local -i WORKSTATION -A 10
+            : ./client -h 0.0.0.0 -p 9050 -H foobar.test -P 443 -s -t -a 127.0.0.1 -b 3128 -c 1 -d 1 -e forward_proxy_user -f forward_proxy_password
+            : ./client -h 0.0.0.0 -p 9050 -H foobar.test -P 443 -s -t -a 127.0.0.1 -b 3128 -c 1 -d 2 -e forward_proxy_user -f forward_proxy_password
+            : ./client -h 0.0.0.0 -p 9050 -H foobar.test -P 443 -s -t -a 127.0.0.1 -b 3128 -c 1 -d 3 -e forward_proxy_user -f forward_proxy_password -g test.local -i WORKSTATION
+            : ./client -h 0.0.0.0 -p 9050 -H foobar.test -P 443 -s -t -a 127.0.0.1 -b 3128 -c 1 -d 3 -e test01 -f p@ssw0rd -g test.local -i WORKSTATION -A 10
     ```
     5. connect to my client from other clients(browser, proxychains, etc.)
     ```
