@@ -297,7 +297,7 @@ int get_md5_hash(const unsigned char *input, int input_length, unsigned char *ou
 	EVP_MD_CTX *ctx = NULL;
 	int ret = 0;
 	unsigned char *digest = NULL;
-	int length = 0;
+	unsigned int length = 0;
 
 	ctx = EVP_MD_CTX_new();
 	if(ctx == NULL){
@@ -368,7 +368,7 @@ int get_sha_256_hash(const unsigned char *input, int input_length, unsigned char
 	EVP_MD_CTX *ctx = NULL;
 	int ret = 0;
 	unsigned char *digest = NULL;
-	int length = 0;
+	unsigned int length = 0;
 
 	ctx = EVP_MD_CTX_new();
 	if(ctx == NULL){
@@ -439,7 +439,7 @@ int get_sha_512_256_hash(const unsigned char *input, int input_length, unsigned 
 	EVP_MD_CTX *ctx = NULL;
 	int ret = 0;
 	unsigned char *digest = NULL;
-	int length = 0;
+	unsigned int length = 0;
 
 	ctx = EVP_MD_CTX_new();
 	if(ctx == NULL){
@@ -505,7 +505,7 @@ int get_sha_512_256_hash(const unsigned char *input, int input_length, unsigned 
 }
 
 
-int get_http_header(const char *input, const char *key, char *output, int output_length)
+int get_http_header(const char *input, const char *key, char *output, int output_size)
 {
 	char *start = NULL;
 	char *end = NULL;
@@ -515,14 +515,14 @@ int get_http_header(const char *input, const char *key, char *output, int output
 	start = strstr(input, key);
 	end = strstr(start, "\r\n");
 	d = end - start;
-	if((d <= 0) || (d >= output_length)){
+	if((d <= 0) || (d >= output_size)){
 #ifdef _DEBUG
 //		printf("[E] get_http_header error:%d\n", d);
 #endif
 		return -1;
 	}
 
-	bzero(output, output_length);
+	bzero(output, output_size);
 	memcpy(output, start, d);
 	length = strlen(output);
 
@@ -1133,7 +1133,7 @@ int get_md4_hash(const unsigned char *input, int input_length, unsigned char *ou
 	EVP_MD_CTX *ctx = NULL;
 	int ret = 0;
 	unsigned char *digest = NULL;
-	int length = 0;
+	unsigned int length = 0;
 
 	ctx = EVP_MD_CTX_new();
 	if(ctx == NULL){
@@ -1207,7 +1207,7 @@ int get_hmac_md5(const unsigned char *input, int input_length, const unsigned ch
 		OSSL_PARAM_construct_end()
 	};
 	int ret = 0;
-	int length = 0;
+	size_t length = 0;
 
 	mac = EVP_MAC_fetch(NULL, "HMAC", NULL);
 	if(mac == NULL){

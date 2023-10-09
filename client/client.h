@@ -84,7 +84,7 @@ struct digest_parameters {
 	char response_hash[150];	// H(H(A1):nonce:nc:cnonce:qop:H(A2))
 };
 
-int get_http_header(const char *input, const char *key, char *output, int output_length);
+int get_http_header(const char *input, const char *key, char *output, int output_size);
 int get_digest_values(const char *input, struct digest_parameters *param);
 int get_digest_response(struct digest_parameters *param);
 
