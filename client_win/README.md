@@ -27,7 +27,7 @@ set LIBPATH=%LIBPATH%;C:\Program Files\OpenSSL\lib
     cd socks5-nginx-module\client_win
     compile.bat
     ```
-5. copy openssl dll files (libcrypto-3-x64.dll, libssl-3-x64.dll) to the client and server directory
+5. copy openssl dll files (libcrypto-3-x64.dll, libssl-3-x64.dll) to the client directory
     - client
     ```
     cd socks5-nginx-module\client_win
