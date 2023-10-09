@@ -9,7 +9,10 @@
 #include <winsock2.h>
 #include <Windows.h>
 #include <ws2tcpip.h>
+#include <stringapiset.h>
+#include <stdint.h>
 #include <string.h>
+#include <ctype.h>
 #include <iostream>
 #include <stdlib.h>
 #include <process.h>
@@ -24,8 +27,13 @@
 #include <openssl/conf.h>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
+#include <openssl/des.h>
+#include <openssl/hmac.h>
+#include <openssl/params.h>
+#include <openssl/provider.h>
 
 #include "socks5.h"
+#include "ntlm.h"
 #include "client.h"
 
 #pragma comment(lib,"ws2_32.lib")	// Winsock Library
@@ -57,16 +65,32 @@ char *forward_proxy_ip = NULL;		// http proxy ip
 char *forward_proxy_port = NULL;	// http proxy port
 char *forward_proxy_username = NULL;
 char *forward_proxy_password = NULL;
+char *forward_proxy_user_domainname = NULL;
+char *forward_proxy_workstationname = NULL;
 int https_flag = 0;		// 0:http 1:https
 int socks5_over_tls_flag = 0;	// 0:socks5 over aes 1:socks5 over tls
 int forward_proxy_flag = 0;		// 0:no 1:http
-int forward_proxy_authentication_flag = 0;	// 0:no 1:basic 2:digest
+int forward_proxy_authentication_flag = 0;	// 0:no 1:basic 2:digest 3:ntlmv2
 
 char server_certificate_filename_https[256] = "server_https.crt";	// server certificate filename (HTTPS)
 char server_certificate_file_directory_path_https[256] = ".";	// server certificate file directory path (HTTPS)
 
 char server_certificate_filename_socks5[256] = "server_socks5.crt";	// server certificate filename (Socks5 over TLS)
 char server_certificate_file_directory_path_socks5[256] = ".";	// server certificate file directory path (Socks5 over TLS)
+
+
+void print_bytes(unsigned char *input, int input_length)
+{
+	for(int i=0; i*16<input_length; i++){
+		printf(
+			"%02x %02x %02x %02x %02x %02x %02x %02x  %02x %02x %02x %02x %02x %02x %02x %02x\n",
+			input[i*16+0], input[i*16+1], input[i*16+2], input[i*16+3], input[i*16+4], input[i*16+5], input[i*16+6], input[i*16+7],
+			input[i*16+8], input[i*16+9], input[i*16+10], input[i*16+11], input[i*16+12], input[i*16+13], input[i*16+14], input[i*16+15]
+		);
+	}
+
+	return;
+}
 
 
 int encrypt_aes(unsigned char *plaintext, int plaintext_length, unsigned char *aes_key, unsigned char *aes_iv, unsigned char *ciphertext)
@@ -1050,6 +1074,808 @@ int get_digest_response(struct digest_parameters *param)
 	}
 
 	return 0;
+}
+
+
+int encrypt_des_ecb(unsigned char *plaintext, int plaintext_length, unsigned char *key, unsigned char *ciphertext)
+{
+	EVP_CIPHER_CTX *ctx = NULL;
+	int length = 0;
+	int ciphertext_length = 0;
+	int ret = 0;
+
+	ctx = EVP_CIPHER_CTX_new();
+	if(ctx == NULL){
+#ifdef _DEBUG
+//		printf("[E] EVP_CIPHER_CTX_new error\n");
+#endif
+		return -1;
+	}
+
+	ret = EVP_EncryptInit(ctx, EVP_des_ecb(), key, NULL);
+	if(ret != 1){
+#ifdef _DEBUG
+//		printf("[E] EVP_EncryptInit error\n");
+#endif
+		EVP_CIPHER_CTX_free(ctx);
+		return -1;
+	}
+
+	ret = EVP_EncryptUpdate(ctx, ciphertext, &length, plaintext, plaintext_length);
+	if(ret != 1){
+#ifdef _DEBUG
+//		printf("[E] EVP_EncryptUpdate error\n");
+#endif
+		EVP_CIPHER_CTX_free(ctx);
+		return -1;
+	}
+	ciphertext_length = length;
+
+	ret = EVP_EncryptFinal(ctx, ciphertext+length, &length);
+	if(ret != 1){
+#ifdef _DEBUG
+//		printf("[E] EVP_EncryptFinal error\n");
+#endif
+		EVP_CIPHER_CTX_free(ctx);
+		return -1;
+	}
+	ciphertext_length += length;
+
+	EVP_CIPHER_CTX_free(ctx);
+
+	return ciphertext_length;
+}
+
+
+int get_md4_hash(const unsigned char *input, int input_length, unsigned char *output, int output_size)
+{
+	EVP_MD_CTX *ctx = NULL;
+	int ret = 0;
+	unsigned char *digest = NULL;
+	unsigned int length = 0;
+
+	ctx = EVP_MD_CTX_new();
+	if(ctx == NULL){
+#ifdef _DEBUG
+//		printf("[E] EVP_MD_CTX_new error\n");
+#endif
+		return -1;
+	}
+
+	ret = EVP_DigestInit_ex(ctx, EVP_md4(), NULL);
+	if(ret != 1){
+#ifdef _DEBUG
+//		printf("[E] EVP_DigestInit_ex error\n");
+#endif
+		EVP_MD_CTX_free(ctx);
+		return -1;
+	}
+
+	ret = EVP_DigestUpdate(ctx, input, input_length);
+	if(ret != 1){
+#ifdef _DEBUG
+//		printf("[E] EVP_DigestUpdate error\n");
+#endif
+		EVP_MD_CTX_free(ctx);
+		return -1;
+	}
+
+	if(EVP_MD_size(EVP_md4()) > output_size){
+#ifdef _DEBUG
+//		printf("[E] output_size error\n");
+#endif
+		EVP_MD_CTX_free(ctx);
+		return -1;
+	}
+
+	digest = (unsigned char *)OPENSSL_malloc(EVP_MD_size(EVP_md4()));
+	if(digest == NULL){
+#ifdef _DEBUG
+//		printf("[E] OPENSSL_malloc error\n");
+#endif
+		EVP_MD_CTX_free(ctx);
+		return -1;
+	}
+
+	ret = EVP_DigestFinal_ex(ctx, (unsigned char *)digest, (unsigned int *)&length);
+	if(ret != 1){
+#ifdef _DEBUG
+//		printf("[E] EVP_DigestFinal_ex error\n");
+#endif
+		OPENSSL_free(digest);
+		EVP_MD_CTX_free(ctx);
+		return -1;
+	}
+
+	memcpy(output, digest, length);
+
+	OPENSSL_free(digest);
+	EVP_MD_CTX_free(ctx);
+
+	return length;
+}
+
+
+int get_hmac_md5(const unsigned char *input, int input_length, const unsigned char *key, int key_length, unsigned char *output, int output_size)
+{
+	EVP_MAC *mac = NULL;
+	EVP_MAC_CTX *ctx = NULL;
+	const char digest[] = "MD5";
+	OSSL_PARAM params[] = {
+		OSSL_PARAM_construct_utf8_string("digest", (char *)&digest, 0),
+		OSSL_PARAM_construct_end()
+	};
+	int ret = 0;
+	int length = 0;
+
+	mac = EVP_MAC_fetch(NULL, "HMAC", NULL);
+	if(mac == NULL){
+#ifdef _DEBUG
+//		printf("[E] EVP_MAC_fetch error\n");
+#endif
+		return -1;
+	}
+
+	ctx = EVP_MAC_CTX_new(mac);
+	if(ctx == NULL){
+#ifdef _DEBUG
+//		printf("[E] EVP_MAC_CTX_new error\n");
+#endif
+		EVP_MAC_free(mac);
+		return -1;
+	}
+
+	ret = EVP_MAC_init(ctx, key, key_length, params);
+	if(ret != 1){
+#ifdef _DEBUG
+//		printf("[E] EVP_MAC_init error\n");
+#endif
+		EVP_MAC_CTX_free(ctx);
+		EVP_MAC_free(mac);
+		return -1;
+	}
+
+	ret = EVP_MAC_update(ctx, input, input_length);
+	if(ret != 1){
+#ifdef _DEBUG
+//		printf("[E] EVP_MAC_update error\n");
+#endif
+		EVP_MAC_CTX_free(ctx);
+		EVP_MAC_free(mac);
+		return -1;
+	}
+
+	ret = EVP_MAC_final(ctx, output, (size_t *)&length, output_size);
+	if(ret != 1){
+#ifdef _DEBUG
+//		printf("[E] EVP_MAC_final error\n");
+#endif
+		EVP_MAC_CTX_free(ctx);
+		EVP_MAC_free(mac);
+		return -1;
+	}
+
+	EVP_MAC_CTX_free(ctx);
+	EVP_MAC_free(mac);
+
+	return length;
+}
+
+
+int get_upper_string(const char *input, int input_length, char *output)
+{
+	for(int i=0; i<input_length; i++){
+		output[i] = toupper(input[i]);
+	}
+
+	return 0;
+}
+
+
+int convert_utf8_to_utf16(const char *input, char *output, int output_size)
+{
+	int ret = 0;
+	int input_length = strlen(input);
+	int output_length = 0;
+
+	ret = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, input, input_length, (LPWSTR)output, output_size);
+	if(ret == 0){
+#ifdef _DEBUG
+		printf("[E] MultiByteToWideChar error:%d\n", GetLastError());
+#endif
+		return -1;
+	}
+	output_length = ret*2;	// UTF-16LE 2 bytes
+
+#ifdef _DEBUG
+//	printf("input:%s, input_length%d\n", input, input_length);
+//	printf("output:%d\n", output_length);
+//	print_bytes((unsigned char *)output, output_length);
+#endif
+
+	return output_length;
+}
+
+
+int get_av_pair_value(struct challenge_message *challenge_message, uint16_t av_id, unsigned char *data, int data_size)
+{
+	uint16_t target_info_len = 0;
+    uint16_t target_info_max_len = 0;
+    uint32_t target_info_buffer_offset = 0;
+	unsigned char *pos = NULL;
+	struct av_pair *av_pair = NULL;
+	int length = 0;
+	int data_length = 0;
+
+	target_info_len = challenge_message->target_info_fields.target_info_len;
+	target_info_max_len = challenge_message->target_info_fields.target_info_max_len;
+	target_info_buffer_offset = challenge_message->target_info_fields.target_info_buffer_offset;
+	pos = (unsigned char *)challenge_message+target_info_buffer_offset;
+
+#ifdef _DEBUG
+//	printf("target_info_len:%d\n", target_info_len);
+//	printf("target_info_max_len:%d\n", target_info_max_len);
+//	printf("target_info_buffer_offset:%d\n", target_info_buffer_offset);
+#endif
+
+	while(length < target_info_max_len){
+		av_pair = (struct av_pair *)pos;
+
+#ifdef _DEBUG
+//		printf("av_id:%d\n", av_pair->av_id);
+//		printf("av_len:%d\n", av_pair->av_len);
+#endif
+
+		if(av_id == av_pair->av_id){
+			if(av_pair->av_len > data_size){
+#ifdef _DEBUG
+				printf("[E] data_size error\n");
+#endif
+				break;
+			}else{
+				data_length = av_pair->av_len;
+				memcpy(data, &av_pair->value, av_pair->av_len);
+			}
+		}
+
+		length += 4 + av_pair->av_len;
+		pos += length;
+	}
+
+	return data_length;
+}
+
+
+/*
+ * Reference:
+ * https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-nlmp/5e550938-91d4-459f-b67d-75d70009e3f3
+ */
+int ntowfv2(const char *user, const char *password, const char *userdom, unsigned char *output, int output_size)
+{
+	int ret = 0;
+
+	int password_length = strlen(password);
+	int password_utf16le_length = 0;
+	int password_utf16le_md4_length = 0;
+	unsigned char password_utf16le[1000];
+	unsigned char password_utf16le_md4[100];
+	ZeroMemory(&password_utf16le, 1000);
+	ZeroMemory(&password_utf16le_md4,16);
+
+	int user_length = strlen(user);
+	int userdom_length = strlen(userdom);
+	int user_upper_userdom_length = 0;
+	int user_upper_userdom_utf16le_length = 0;
+	char user_upper[256];
+	char user_upper_userdom[1000];
+	unsigned char user_upper_userdom_utf16le[2000];
+	char *pos = NULL;
+	ZeroMemory(&user_upper, 256);
+	ZeroMemory(&user_upper_userdom, 1000);
+	ZeroMemory(&user_upper_userdom_utf16le, 2000);
+
+	int response_key_length = 0;
+	unsigned char response_key[16];
+	ZeroMemory(&response_key, 16);
+
+
+	// UNICODE(Passwd)
+	ret = convert_utf8_to_utf16(password, (char *)&password_utf16le, 1000);
+	if(ret == -1){
+#ifdef _DEBUG
+		printf("[E] convert_utf8_to_utf16 error\n");
+#endif
+		return -1;
+	}
+	password_utf16le_length = ret;
+
+#ifdef _DEBUG
+//	printf("password_utf16le:%d\n", password_utf16le_length);
+//	print_bytes(password_utf16le, password_utf16le_length);
+#endif
+
+	// MD4(UNICODE(Passwd))
+	ret = get_md4_hash((const unsigned char *)&password_utf16le, password_utf16le_length, (unsigned char *)&password_utf16le_md4, 16);
+	if(ret == -1){
+#ifdef _DEBUG
+		printf("[E] get_md4_hash error\n");
+#endif
+		return -1;
+	}
+	password_utf16le_md4_length = ret;
+
+#ifdef _DEBUG
+//	printf("password_utf16le_md4:%d\n", password_utf16le_md4_length);
+//	print_bytes(password_utf16le_md4, password_utf16le_md4_length);
+#endif
+
+	// Uppercase(user)
+	ret = get_upper_string(user, strlen(user), (char *)&user_upper);
+
+	// ConcatenationOf(Uppercase(User), UserDom)
+	user_upper_userdom_length = 0;
+	pos = (char *)&user_upper_userdom;
+
+	memcpy(pos, &user_upper, user_length);
+	user_upper_userdom_length += user_length;
+
+	memcpy(pos+user_upper_userdom_length, userdom, userdom_length);
+	user_upper_userdom_length += userdom_length;
+
+	// UNICODE(ConcatenationOf(Uppercase(User), UserDom))
+	ret = convert_utf8_to_utf16((const char *)&user_upper_userdom, (char *)&user_upper_userdom_utf16le, 2000);
+	if(ret == -1){
+#ifdef _DEBUG
+		printf("[E] convert_utf8_to_utf16 error\n");
+#endif
+		return -1;
+	}
+	user_upper_userdom_utf16le_length = ret;
+
+#ifdef _DEBUG
+//	printf("user_upper_userdom_utf16le:%d\n", user_upper_userdom_utf16le_length);
+//	print_bytes(user_upper_userdom_utf16le, user_upper_userdom_utf16le_length);
+#endif
+
+	// HMAC_MD5(K, M)	Indicates the computation of a 16-byte HMAC-keyed MD5 message digest of the byte string M using the key K.
+	// HMAC_MD5(MD4(UNICODE(Passwd)), UNICODE(ConcatenationOf(Uppercase(User), UserDom)))
+	ret = get_hmac_md5((const unsigned char *)&user_upper_userdom_utf16le, user_upper_userdom_utf16le_length, (const unsigned char *)password_utf16le_md4, password_utf16le_md4_length, (unsigned char *)&response_key, 16);
+	if(ret == -1){
+#ifdef _DEBUG
+		printf("[E] get_hmac_md5 error\n");
+#endif
+		return -1;
+	}
+	response_key_length = ret;
+
+#ifdef _DEBUG
+//	printf("response_key:%d\n", response_key_length);
+//	print_bytes(response_key, response_key_length);
+#endif
+
+	if(output_size > response_key_length){
+#ifdef _DEBUG
+		printf("[E] output_size error\n");
+#endif
+		return -1;
+	}
+
+	memcpy(output, response_key, response_key_length);
+
+	return response_key_length;
+}
+
+
+/*
+ * Reference:
+ * https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-nlmp/5e550938-91d4-459f-b67d-75d70009e3f3
+ */
+int lmowfv2(const char *user, const char *password, const char *userdom, unsigned char *output, int output_size)
+{
+	int ret = 0;
+	int response_key_length = 0;
+
+	ret = ntowfv2(user, password, userdom, output, output_size);
+	if(ret == -1){
+#ifdef _DEBUG
+		printf("[E] ntowfv2 error\n");
+#endif
+		return -1;
+	}
+	response_key_length = ret;
+
+    return response_key_length;
+}
+
+
+/*
+ * Reference:
+ * https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-nlmp/5e550938-91d4-459f-b67d-75d70009e3f3
+ */
+int generate_response_ntlmv2(struct challenge_message *challenge_message, struct authenticate_message *authenticate_message)
+{
+	int ret = 0;
+
+	unsigned char response_key_nt[16];
+	unsigned char response_key_lm[16];
+	int response_key_nt_length = 0;
+	int response_key_lm_length = 0;
+	unsigned char server_challenge[8];
+	unsigned char client_challenge[8];
+
+	unsigned char responser_version = 1;
+	unsigned char hi_responser_version = 1;
+	int64_t timestamp = 0;
+	unsigned char server_name[1000];
+	int server_name_length = 0;
+
+	unsigned char temp[2000];
+	int temp_length = 0;
+	unsigned char *pos = NULL;
+
+	unsigned char nt_proof_str[16];
+	int nt_proof_str_length = 0;
+	unsigned char tmp1[3000];
+	int tmp1_length = 0;
+
+	unsigned char nt_challenge_response[2016];
+	int nt_challenge_response_length = 0;
+
+	unsigned char lm_challenge_response[24];
+	int lm_challenge_response_length = 0;
+	unsigned char server_challenge_client_challenge[16];
+	unsigned char tmp2[16];
+	int tmp2_length = 0;
+
+	unsigned char session_base_key[16];
+	int session_base_key_length = 0;
+
+	int authenticate_message_length = 0;
+	int32_t offset = 0;
+	int forward_proxy_user_domainname_length = strlen(forward_proxy_user_domainname);
+	int forward_proxy_username_length = strlen(forward_proxy_username);
+	int forward_proxy_workstationname_length = strlen(forward_proxy_workstationname);
+
+
+	if(forward_proxy_username == NULL && forward_proxy_password == NULL){
+		// Special case for anonymous authentication
+		// Set NtChallengeResponseLen to 0
+		// Set NtChallengeResponseMaxLen to 0
+		// Set NtChallengeResponseBufferOffset to 0
+		// Set LmChallengeResponse to Z(1)
+#ifdef _DEBUG
+		printf("[E] Not implemented.\n");
+#endif
+		return -1;
+	}else{
+		// ResponseKeyNT
+		ZeroMemory(&response_key_nt, 16);
+		ret = ntowfv2((const char *)forward_proxy_username, (const char *)forward_proxy_password, (const char *)forward_proxy_user_domainname, (unsigned char *)&response_key_nt, 16);
+		if(ret == -1){
+#ifdef _DEBUG
+			printf("[E] ntowfv2 error\n");
+#endif
+			return -1;
+		}
+		response_key_nt_length = ret;
+
+
+		// ResponseKeyLM
+		ZeroMemory(&response_key_lm, 16);
+		ret = lmowfv2((const char *)forward_proxy_username, (const char *)forward_proxy_password, (const char *)forward_proxy_user_domainname, (unsigned char *)&response_key_lm, 16);
+		if(ret == -1){
+#ifdef _DEBUG
+			printf("[E] lmowfv2 error\n");
+#endif
+			return -1;
+		}
+		response_key_lm_length = ret;
+
+
+		// ServerChallenge
+		ZeroMemory(&server_challenge, 8);
+		memcpy(&server_challenge, &challenge_message->server_challenge, 8);
+
+#ifdef _DEBUG
+//		printf("server_challenge:%d\n", 8);
+//		print_bytes(server_challenge, 8);
+#endif
+
+
+		// ClientChallenge
+		ZeroMemory(&client_challenge, 8);
+		ret = RAND_bytes((unsigned char *)&client_challenge, 8);
+		if(ret != 1){
+#ifdef _DEBUG
+			printf("[E] client_challenge generate error:%s.\n", ERR_error_string(ERR_peek_last_error(), NULL));
+#endif
+			return -1;
+		}
+
+#ifdef _DEBUG
+//		printf("client_challenge:%d\n", 8);
+//		print_bytes(client_challenge, 8);
+#endif
+
+
+		// TIME
+		timestamp = (time(NULL) + 11644473600) * 10000000;
+
+#ifdef _DEBUG
+//		printf("time:%d\n", 8);
+//		print_bytes((unsigned char *)&timestamp, 8);
+#endif
+
+
+		// ServerName
+		// The NtChallengeResponseFields.NTLMv2_RESPONSE.NTLMv2_CLIENT_CHALLENGE.AvPairs field structure of the AUTHENTICATE_MESSAGE payload.
+		ZeroMemory(&server_name, 1000);
+		server_name_length = challenge_message->target_info_fields.target_info_len;
+		pos = (unsigned char *)challenge_message;
+		pos += challenge_message->target_info_fields.target_info_buffer_offset;
+
+		if(server_name_length > 1000){
+#ifdef _DEBUG
+			printf("[E] server_name_length error\n");
+#endif
+			return -1;
+		}
+		memcpy(&server_name, pos, server_name_length);
+
+#ifdef _DEBUG
+//		printf("server_name:%d\n", server_name_length);
+//		print_bytes((unsigned char *)&server_name, server_name_length);
+#endif
+
+
+		// temp
+		// ConcatenationOf(Responserversion, HiResponserversion, Z(6), Time, ClientChallenge, Z(4), ServerName, Z(4))
+		ZeroMemory(&temp, 2000);
+		pos = (unsigned char *)&temp;
+		temp_length = 0;
+
+		memcpy(pos+temp_length, &responser_version, 1);
+		temp_length += 1;
+
+		memcpy(pos+temp_length, &hi_responser_version, 1);
+		temp_length += 1;
+
+		temp_length += 6;	// Z(6)
+
+		memcpy(pos+temp_length, &timestamp, 8);
+		temp_length += 8;
+
+		memcpy(pos+temp_length, &client_challenge, 8);
+		temp_length += 8;
+
+		temp_length += 4;	// Z(4)
+
+		memcpy(pos+temp_length, &server_name, server_name_length);
+		temp_length += server_name_length;
+
+		temp_length += 4;	// Z(4)
+
+#ifdef _DEBUG
+//		printf("temp:%d\n", temp_length);
+//		print_bytes((unsigned char *)&temp, temp_length);
+#endif
+
+
+		// NTProofStr
+		// ConcatenationOf(CHALLENGE_MESSAGE.ServerChallenge,temp)
+		ZeroMemory(&tmp1, 3000);
+		pos = (unsigned char *)&tmp1;
+		tmp1_length = 0;
+
+		memcpy(pos+tmp1_length, &server_challenge, 8);
+		tmp1_length += 8;
+
+		memcpy(pos+tmp1_length, &temp, temp_length);
+		tmp1_length += temp_length;
+
+#ifdef _DEBUG
+//		printf("tmp1:%d\n", tmp1_length);
+//		print_bytes((unsigned char *)&tmp1, tmp1_length);
+#endif
+
+		// HMAC_MD5(ResponseKeyNT, ConcatenationOf(CHALLENGE_MESSAGE.ServerChallenge,temp))
+		ZeroMemory(&nt_proof_str, 16);
+		ret = get_hmac_md5((unsigned char *)&tmp1, tmp1_length, (unsigned char *)&response_key_nt, response_key_nt_length, (unsigned char *)&nt_proof_str, 16);
+		if(ret == -1){
+#ifdef _DEBUG
+			printf("[E] get_hmac_md5 error\n");
+#endif
+			return -1;
+		}
+		nt_proof_str_length = ret;
+
+#ifdef _DEBUG
+//		printf("nt_proof_str:%d\n", nt_proof_str_length);
+//		print_bytes((unsigned char *)&nt_proof_str, nt_proof_str_length);
+#endif
+
+
+		// NtChallengeResponse
+		// ConcatenationOf(NTProofStr, temp)
+		ZeroMemory(&nt_challenge_response, 2016);
+		pos = (unsigned char *)&nt_challenge_response;
+		nt_challenge_response_length = 0;
+
+		memcpy(pos, &nt_proof_str, nt_proof_str_length);
+		nt_challenge_response_length += nt_proof_str_length;
+
+		memcpy(pos+nt_proof_str_length, &temp, temp_length);
+		nt_challenge_response_length += temp_length;
+
+#ifdef _DEBUG
+//		printf("nt_challenge_response:%d\n", nt_challenge_response_length);
+//		print_bytes((unsigned char *)&nt_challenge_response, nt_challenge_response_length);
+#endif
+
+
+		// LmChallengeResponse
+		// ConcatenationOf(CHALLENGE_MESSAGE.ServerChallenge, ClientChallenge)
+		ZeroMemory(&server_challenge_client_challenge, 16);
+		pos = (unsigned char *)&server_challenge_client_challenge;
+
+		memcpy(pos, &server_challenge, 8);
+		memcpy(pos+8, &client_challenge, 8);
+
+#ifdef _DEBUG
+//		printf("server_challenge_client_challenge:%d\n", 16);
+//		print_bytes((unsigned char *)&server_challenge_client_challenge, 16);
+#endif
+
+		// HMAC_MD5(ResponseKeyLM, ConcatenationOf(CHALLENGE_MESSAGE.ServerChallenge, ClientChallenge))
+		ZeroMemory(&tmp2, 16);
+		ret = get_hmac_md5((unsigned char *)&server_challenge_client_challenge, 16, (unsigned char *)&response_key_lm, response_key_lm_length, (unsigned char *)&tmp2, 16);
+		if(ret == -1){
+#ifdef _DEBUG
+			printf("[E] get_hmac_md5 error\n");
+#endif
+			return -1;
+		}
+		tmp2_length = ret;
+
+#ifdef _DEBUG
+//		printf("tmp2:%d\n", tmp2_length);
+//		print_bytes((unsigned char *)&tmp2, tmp2_length);
+#endif
+
+		// ConcatenationOf(HMAC_MD5(ResponseKeyLM, ConcatenationOf(CHALLENGE_MESSAGE.ServerChallenge, ClientChallenge)), ClientChallenge)
+		ZeroMemory(&lm_challenge_response, 24);
+		pos = (unsigned char *)&lm_challenge_response;
+		lm_challenge_response_length = 0;
+
+		memcpy(pos, &tmp2, tmp2_length);
+		lm_challenge_response_length += tmp2_length;
+
+		memcpy(pos+tmp2_length, &client_challenge, 8);
+		lm_challenge_response_length += 8;
+
+#ifdef _DEBUG
+//		printf("lm_challenge_response:%d\n", lm_challenge_response_length);
+//		print_bytes((unsigned char *)&lm_challenge_response, lm_challenge_response_length);
+#endif
+
+
+		// SessionBaseKey
+		// HMAC_MD5(ResponseKeyNT, NTProofStr)
+		ZeroMemory(&session_base_key, 16);
+		ret = get_hmac_md5((unsigned char *)&nt_proof_str, nt_proof_str_length, (unsigned char *)&response_key_nt, response_key_nt_length, (unsigned char *)&session_base_key, 16);
+		if(ret == -1){
+#ifdef _DEBUG
+			printf("[E] get_hmac_md5 error\n");
+#endif
+			return -1;
+		}
+		session_base_key_length = ret;
+
+#ifdef _DEBUG
+//		printf("session_base_key:%d\n", session_base_key_length);
+//		print_bytes((unsigned char *)&session_base_key, session_base_key_length);
+#endif
+
+
+		// authenticate_message
+		pos = (unsigned char *)authenticate_message;
+		authenticate_message_length = 0;
+		offset = 0x40;	// start buffer offset
+
+		// authenticate_message Signature
+		memcpy(&authenticate_message->signature, "NTLMSSP\0", 8);
+
+		// authenticate_message MessageType
+		authenticate_message->message_type = NtLmAuthenticate;
+
+		// authenticate_message LmChallengeResponseFields
+		authenticate_message->lm_challenge_response_fields.lm_challenge_response_len = lm_challenge_response_length;
+		authenticate_message->lm_challenge_response_fields.lm_challenge_response_max_len = lm_challenge_response_length;
+		authenticate_message->lm_challenge_response_fields.lm_challenge_response_buffer_offset = 0x40;
+
+		memcpy(pos+offset, &lm_challenge_response, lm_challenge_response_length);
+		offset += lm_challenge_response_length;
+
+		// authenticate_message NtChallengeResponseFields
+		authenticate_message->nt_challenge_response_fields.nt_challenge_response_len = nt_challenge_response_length;
+		authenticate_message->nt_challenge_response_fields.nt_challenge_response_max_len = nt_challenge_response_length;
+		authenticate_message->nt_challenge_response_fields.nt_challenge_response_buffer_offset = offset;
+
+		memcpy(pos+offset, &nt_challenge_response, nt_challenge_response_length);
+		offset += nt_challenge_response_length;
+
+		// authenticate_message DomainNameFields
+		authenticate_message->domain_name_fields.domain_name_len = forward_proxy_user_domainname_length;
+		authenticate_message->domain_name_fields.domain_name_max_len = forward_proxy_user_domainname_length;
+		authenticate_message->domain_name_fields.domain_name_buffer_offset = offset;
+
+		memcpy(pos+offset, forward_proxy_user_domainname, forward_proxy_user_domainname_length);
+		offset += forward_proxy_user_domainname_length;
+
+		// authenticate_message UserNameFields
+		authenticate_message->user_name_fields.user_name_len = forward_proxy_username_length;
+		authenticate_message->user_name_fields.user_name_max_len = forward_proxy_username_length;
+		authenticate_message->user_name_fields.user_name_buffer_offset = offset;
+
+		memcpy(pos+offset, forward_proxy_username, forward_proxy_username_length);
+		offset += forward_proxy_username_length;
+
+		// authenticate_message WorkstationFields
+		authenticate_message->workstation_fields.workstation_len = forward_proxy_workstationname_length;
+		authenticate_message->workstation_fields.workstation_max_len = forward_proxy_workstationname_length;
+		authenticate_message->workstation_fields.workstation_buffer_offset = offset;
+
+		memcpy(pos+offset, forward_proxy_workstationname, forward_proxy_workstationname_length);
+		offset += forward_proxy_workstationname_length;
+
+		// authenticate_message EncryptedRandomSessionKeyFields
+		authenticate_message->encrypted_random_session_key_fields.encrypted_random_session_key_len = 0;
+		authenticate_message->encrypted_random_session_key_fields.encrypted_random_session_key_max_len = 0;
+		authenticate_message->encrypted_random_session_key_fields.encrypted_random_session_key_buffer_offset = 0;
+
+		authenticate_message_length = offset;
+
+		// authenticate_message NegotiateFlags
+		authenticate_message->negotiate_flags.negotiate_unicode                  = 0;
+		authenticate_message->negotiate_flags.negotiate_oem                      = 1;
+		authenticate_message->negotiate_flags.request_target                     = 1;
+		authenticate_message->negotiate_flags.request_0x00000008                 = 0;
+		authenticate_message->negotiate_flags.negotiate_sign                     = 0;
+		authenticate_message->negotiate_flags.negotiate_seal                     = 0;
+		authenticate_message->negotiate_flags.negotiate_datagram                 = 0;
+		authenticate_message->negotiate_flags.negotiate_lan_manager_key          = 0;
+		authenticate_message->negotiate_flags.negotiate_0x00000100               = 0;
+		authenticate_message->negotiate_flags.negotiate_ntlm_key                 = 1;
+		authenticate_message->negotiate_flags.negotiate_nt_only                  = 0;
+		authenticate_message->negotiate_flags.negotiate_anonymous                = 0;
+		authenticate_message->negotiate_flags.negotiate_oem_domain_supplied      = 0;
+		authenticate_message->negotiate_flags.negotiate_oem_workstation_supplied = 0;
+		authenticate_message->negotiate_flags.negotiate_0x00004000               = 0;
+		authenticate_message->negotiate_flags.negotiate_always_sign              = 1;
+		authenticate_message->negotiate_flags.target_type_domain                 = 1;
+		authenticate_message->negotiate_flags.target_type_server                 = 0;
+		authenticate_message->negotiate_flags.target_type_share                  = 0;
+		authenticate_message->negotiate_flags.negotiate_extended_security        = 1;
+		authenticate_message->negotiate_flags.negotiate_identify                 = 0;
+		authenticate_message->negotiate_flags.negotiate_0x00200000               = 0;
+		authenticate_message->negotiate_flags.request_non_nt_session             = 0;
+		authenticate_message->negotiate_flags.negotiate_target_info              = 1;
+		authenticate_message->negotiate_flags.negotiate_0x01000000               = 0;
+		authenticate_message->negotiate_flags.negotiate_version                  = 1;
+		authenticate_message->negotiate_flags.negotiate_0x04000000               = 0;
+		authenticate_message->negotiate_flags.negotiate_0x08000000               = 0;
+		authenticate_message->negotiate_flags.negotiate_0x10000000               = 0;
+		authenticate_message->negotiate_flags.negotiate_128                      = 0;
+		authenticate_message->negotiate_flags.negotiate_key_exchange             = 0;
+		authenticate_message->negotiate_flags.negotiate_56                       = 0;
+
+#ifdef _DEBUG
+//		printf("authenticate_message:%d\n", authenticate_message_length);
+//		print_bytes((unsigned char *)authenticate_message, authenticate_message_length);
+#endif
+	}
+
+	return authenticate_message_length;
 }
 
 
@@ -2219,10 +3045,22 @@ int worker(void *ptr)
 
 	char http_header_data[2000];
 	ZeroMemory(&http_header_data, 2000);
+
 	char digest_http_header_key[] = "Proxy-Authenticate";
 	digest_parameters digest_param;
 	ZeroMemory(&digest_param, sizeof(digest_parameters));
 	char *pos = NULL;
+
+	char ntlm_http_header_key[] = "Proxy-Authenticate:";
+	char *ntlm = NULL;
+	char *ntlm_b64 = NULL;
+	char *ntlm_challenge_message = NULL;
+	struct negotiate_message *negotiate_message = NULL;
+	struct challenge_message *challenge_message = NULL;
+	struct authenticate_message *authenticate_message = NULL;
+	int ntlm_negotiate_message_length = 0;
+	int ntlm_challenge_message_length = 0;
+	int ntlm_authenticate_message_length = 0;
 
 	char *target_domainname = socks5_target_ip;
 	u_short target_domainname_length = 0;
@@ -2441,6 +3279,15 @@ int worker(void *ptr)
 			memcpy(&(digest_param.nc), "00000001", strlen("00000001"));
 			memcpy(&(digest_param.method), "CONNECT", strlen("CONNECT"));
 			length = snprintf(digest_param.uri, 500, "%s:%s", target_domainname, target_port_number);
+		}else if(forward_proxy_authentication_flag == 3){	// forward proxy authentication: ntlmv2
+			if(strlen(forward_proxy_username) > 256 || strlen(forward_proxy_password) > 256){
+#ifdef _DEBUG
+				printf("[E] Forward proxy username or password length is too long (length > 256).\n");
+#endif
+				close_socket(forward_proxy_sock);
+				close_socket(client_sock);
+				return -1;
+			}
 		}
 
 
@@ -2649,6 +3496,259 @@ int worker(void *ptr)
 					close_socket(client_sock);
 					return -1;
 				}
+			}else if(forward_proxy_authentication_flag == 3){	// forward proxy authentication: ntlmv2
+				ntlm = (char *)calloc(2000, sizeof(char));
+				ntlm_b64 = (char *)calloc(3000, sizeof(char));
+				ntlm_challenge_message = (char *)calloc(2000, sizeof(char));
+
+				// negotiate_message
+				negotiate_message = (struct negotiate_message *)ntlm;
+				ntlm_negotiate_message_length = 0;
+
+				memcpy(&(negotiate_message->signature), "NTLMSSP\0", 8);
+				ntlm_negotiate_message_length += 8;
+
+				negotiate_message->message_type = NtLmNegotiate;
+				ntlm_negotiate_message_length += 4;
+
+				negotiate_message->negotiate_flags.negotiate_unicode                  = 0;
+				negotiate_message->negotiate_flags.negotiate_oem                      = 1;
+				negotiate_message->negotiate_flags.request_target                     = 1;
+				negotiate_message->negotiate_flags.request_0x00000008                 = 0;
+				negotiate_message->negotiate_flags.negotiate_sign                     = 0;
+				negotiate_message->negotiate_flags.negotiate_seal                     = 0;
+				negotiate_message->negotiate_flags.negotiate_datagram                 = 0;
+				negotiate_message->negotiate_flags.negotiate_lan_manager_key          = 0;
+				negotiate_message->negotiate_flags.negotiate_0x00000100               = 0;
+				negotiate_message->negotiate_flags.negotiate_ntlm_key                 = 1;
+				negotiate_message->negotiate_flags.negotiate_nt_only                  = 0;
+				negotiate_message->negotiate_flags.negotiate_anonymous                = 0;
+				negotiate_message->negotiate_flags.negotiate_oem_domain_supplied      = 0;
+				negotiate_message->negotiate_flags.negotiate_oem_workstation_supplied = 0;
+				negotiate_message->negotiate_flags.negotiate_0x00004000               = 0;
+				negotiate_message->negotiate_flags.negotiate_always_sign              = 1;
+				negotiate_message->negotiate_flags.target_type_domain                 = 0;
+				negotiate_message->negotiate_flags.target_type_server                 = 0;
+				negotiate_message->negotiate_flags.target_type_share                  = 0;
+				negotiate_message->negotiate_flags.negotiate_extended_security        = 1;
+				negotiate_message->negotiate_flags.negotiate_identify                 = 0;
+				negotiate_message->negotiate_flags.negotiate_0x00200000               = 0;
+				negotiate_message->negotiate_flags.request_non_nt_session             = 0;
+				negotiate_message->negotiate_flags.negotiate_target_info              = 0;
+				negotiate_message->negotiate_flags.negotiate_0x01000000               = 0;
+				negotiate_message->negotiate_flags.negotiate_version                  = 0;
+				negotiate_message->negotiate_flags.negotiate_0x04000000               = 0;
+				negotiate_message->negotiate_flags.negotiate_0x08000000               = 0;
+				negotiate_message->negotiate_flags.negotiate_0x10000000               = 0;
+				negotiate_message->negotiate_flags.negotiate_128                      = 0;
+				negotiate_message->negotiate_flags.negotiate_key_exchange             = 0;
+				negotiate_message->negotiate_flags.negotiate_56                       = 0;
+				ntlm_negotiate_message_length += 4;
+
+				negotiate_message->domain_name_fields.domain_name_len = 0;
+				negotiate_message->domain_name_fields.domain_name_max_len = 0;
+				negotiate_message->domain_name_fields.domain_name_buffer_offset = 0;
+				ntlm_negotiate_message_length += 8;
+
+				negotiate_message->workstation_fields.workstation_len = 0;
+				negotiate_message->workstation_fields.workstation_max_len = 0;
+				negotiate_message->workstation_fields.workstation_buffer_offset = 0;
+				ntlm_negotiate_message_length += 8;
+
+				ret = encode_base64((const unsigned char *)negotiate_message, ntlm_negotiate_message_length, (unsigned char *)ntlm_b64, 3000);
+				if(ret == -1){
+#ifdef _DEBUG
+					printf("[E] encode_base64 error\n");
+#endif
+					free(ntlm);
+					free(ntlm_b64);
+					free(ntlm_challenge_message);
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+
+#ifdef _DEBUG
+				printf("[I] negotiate_message ntlm_b64:%s ntlm_negotiate_message_length:%d\n", ntlm_b64, ntlm_negotiate_message_length);
+#endif
+
+				http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nProxy-Authorization: NTLM %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number, ntlm_b64);
+
+				// HTTP Request
+				sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
+				if(sen <= 0){
+#ifdef _DEBUG
+					printf("[E] Send http request to forward proxy.\n");
+#endif
+					free(ntlm);
+					free(ntlm_b64);
+					free(ntlm_challenge_message);
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] Send http request to forward proxy.\n");
+#endif
+
+				// HTTP Response (HTTP/1.1 407 Proxy Authentication Required)
+				rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
+				if(rec <= 0){
+#ifdef _DEBUG
+					printf("[E] Recv http response from forward proxy.\n");
+#endif
+					free(ntlm);
+					free(ntlm_b64);
+					free(ntlm_challenge_message);
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] Recv http response from forward proxy.\n");
+#endif
+
+				// challenge message
+				ret = get_http_header((const char *)&buffer, (const char *)&ntlm_http_header_key, (char *)&http_header_data, 2000);
+				if(ret == -1){
+#ifdef _DEBUG
+					printf("[E] get_http_header error\n");
+#endif
+					free(ntlm);
+					free(ntlm_b64);
+					free(ntlm_challenge_message);
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] http_header_data:%s\n", http_header_data);
+#endif
+
+				pos = (char *)strstr((const char *)&http_header_data, "Proxy-Authenticate: NTLM ");
+				if(pos == NULL){
+#ifdef _DEBUG
+					printf("[E] Cannot find Proxy-Authenticate: NTLM in http header.\n");
+#endif
+					free(ntlm);
+					free(ntlm_b64);
+					free(ntlm_challenge_message);
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+
+				pos += strlen("Proxy-Authenticate: NTLM ");
+				length = strlen(pos);
+				ntlm_challenge_message_length = decode_base64((const unsigned char *)pos, length, (unsigned char *)ntlm_challenge_message, 2000);
+				if(ntlm_challenge_message_length == -1){
+#ifdef _DEBUG
+					printf("[E] decode_base64 error\n");
+#endif
+					free(ntlm);
+					free(ntlm_b64);
+					free(ntlm_challenge_message);
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+
+				challenge_message = (struct challenge_message *)ntlm_challenge_message;
+
+				if(challenge_message->message_type != NtLmChallenge){
+#ifdef _DEBUG
+					printf("[E] ntlm challenge message message_type error:%04x\n", challenge_message->message_type);
+#endif
+					free(ntlm);
+					free(ntlm_b64);
+					free(ntlm_challenge_message);
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+
+				// authenticate_message
+				ZeroMemory(ntlm, 2000);
+				ZeroMemory(ntlm_b64, 3000);
+				authenticate_message = (struct authenticate_message *)ntlm;
+				ntlm_authenticate_message_length = 0;
+
+				ret = generate_response_ntlmv2(challenge_message, authenticate_message);
+				if(ret == -1){
+#ifdef _DEBUG
+					printf("[E] generate_response_ntlmv2 error\n");
+#endif
+					free(ntlm);
+					free(ntlm_b64);
+					free(ntlm_challenge_message);
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+				ntlm_authenticate_message_length = ret;
+
+				ret = encode_base64((const unsigned char *)authenticate_message, ntlm_authenticate_message_length, (unsigned char *)ntlm_b64, 3000);
+				if(ret == -1){
+#ifdef _DEBUG
+					printf("[E] encode_base64 error\n");
+#endif
+					free(ntlm);
+					free(ntlm_b64);
+					free(ntlm_challenge_message);
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+
+#ifdef _DEBUG
+				printf("[I] authenticate_message ntlm_b64:%s\n", ntlm_b64);
+#endif
+
+				http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nProxy-Authorization: NTLM %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number, ntlm_b64);
+
+				// HTTP Request
+				sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
+				if(sen <= 0){
+#ifdef _DEBUG
+					printf("[E] Send http request to forward proxy.\n");
+#endif
+					free(ntlm);
+					free(ntlm_b64);
+					free(ntlm_challenge_message);
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] Send http request to forward proxy.\n");
+#endif
+
+				// HTTP Response (HTTP/1.1 200 Connection established)
+				rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
+				if(rec <= 0){
+#ifdef _DEBUG
+					printf("[E] Recv http response from forward proxy.\n");
+#endif
+					free(ntlm);
+					free(ntlm_b64);
+					free(ntlm_challenge_message);
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] Recv http response from forward proxy.\n");
+#endif
+
+				ret = strncmp(buffer, "HTTP/1.1 200 Connection established\r\n", strlen("HTTP/1.1 200 Connection established\r\n"));
+				if(ret != 0){
+#ifdef _DEBUG
+					printf("[E] Forward proxy error:\n%s\n", buffer);
+#endif
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
 			}else{
 #ifdef _DEBUG
 				printf("[E] Not implemented.\n");
@@ -2835,6 +3935,259 @@ int worker(void *ptr)
 #ifdef _DEBUG
 					printf("[E] Recv http response from forward proxy.\n");
 #endif
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] Recv http response from forward proxy.\n");
+#endif
+
+				ret = strncmp(buffer, "HTTP/1.1 200 Connection established\r\n", strlen("HTTP/1.1 200 Connection established\r\n"));
+				if(ret != 0){
+#ifdef _DEBUG
+					printf("[E] Forward proxy error:\n%s\n", buffer);
+#endif
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+			}else if(forward_proxy_authentication_flag == 3){	// forward proxy authentication: ntlmv2
+				ntlm = (char *)calloc(2000, sizeof(char));
+				ntlm_b64 = (char *)calloc(3000, sizeof(char));
+				ntlm_challenge_message = (char *)calloc(2000, sizeof(char));
+
+				// negotiate_message
+				negotiate_message = (struct negotiate_message *)ntlm;
+				ntlm_negotiate_message_length = 0;
+
+				memcpy(&(negotiate_message->signature), "NTLMSSP\0", 8);
+				ntlm_negotiate_message_length += 8;
+
+				negotiate_message->message_type = NtLmNegotiate;
+				ntlm_negotiate_message_length += 4;
+
+				negotiate_message->negotiate_flags.negotiate_unicode                  = 0;
+				negotiate_message->negotiate_flags.negotiate_oem                      = 1;
+				negotiate_message->negotiate_flags.request_target                     = 1;
+				negotiate_message->negotiate_flags.request_0x00000008                 = 0;
+				negotiate_message->negotiate_flags.negotiate_sign                     = 0;
+				negotiate_message->negotiate_flags.negotiate_seal                     = 0;
+				negotiate_message->negotiate_flags.negotiate_datagram                 = 0;
+				negotiate_message->negotiate_flags.negotiate_lan_manager_key          = 0;
+				negotiate_message->negotiate_flags.negotiate_0x00000100               = 0;
+				negotiate_message->negotiate_flags.negotiate_ntlm_key                 = 1;
+				negotiate_message->negotiate_flags.negotiate_nt_only                  = 0;
+				negotiate_message->negotiate_flags.negotiate_anonymous                = 0;
+				negotiate_message->negotiate_flags.negotiate_oem_domain_supplied      = 0;
+				negotiate_message->negotiate_flags.negotiate_oem_workstation_supplied = 0;
+				negotiate_message->negotiate_flags.negotiate_0x00004000               = 0;
+				negotiate_message->negotiate_flags.negotiate_always_sign              = 1;
+				negotiate_message->negotiate_flags.target_type_domain                 = 0;
+				negotiate_message->negotiate_flags.target_type_server                 = 0;
+				negotiate_message->negotiate_flags.target_type_share                  = 0;
+				negotiate_message->negotiate_flags.negotiate_extended_security        = 1;
+				negotiate_message->negotiate_flags.negotiate_identify                 = 0;
+				negotiate_message->negotiate_flags.negotiate_0x00200000               = 0;
+				negotiate_message->negotiate_flags.request_non_nt_session             = 0;
+				negotiate_message->negotiate_flags.negotiate_target_info              = 0;
+				negotiate_message->negotiate_flags.negotiate_0x01000000               = 0;
+				negotiate_message->negotiate_flags.negotiate_version                  = 0;
+				negotiate_message->negotiate_flags.negotiate_0x04000000               = 0;
+				negotiate_message->negotiate_flags.negotiate_0x08000000               = 0;
+				negotiate_message->negotiate_flags.negotiate_0x10000000               = 0;
+				negotiate_message->negotiate_flags.negotiate_128                      = 0;
+				negotiate_message->negotiate_flags.negotiate_key_exchange             = 0;
+				negotiate_message->negotiate_flags.negotiate_56                       = 0;
+				ntlm_negotiate_message_length += 4;
+
+				negotiate_message->domain_name_fields.domain_name_len = 0;
+				negotiate_message->domain_name_fields.domain_name_max_len = 0;
+				negotiate_message->domain_name_fields.domain_name_buffer_offset = 0;
+				ntlm_negotiate_message_length += 8;
+
+				negotiate_message->workstation_fields.workstation_len = 0;
+				negotiate_message->workstation_fields.workstation_max_len = 0;
+				negotiate_message->workstation_fields.workstation_buffer_offset = 0;
+				ntlm_negotiate_message_length += 8;
+
+				ret = encode_base64((const unsigned char *)negotiate_message, ntlm_negotiate_message_length, (unsigned char *)ntlm_b64, 3000);
+				if(ret == -1){
+#ifdef _DEBUG
+					printf("[E] encode_base64 error\n");
+#endif
+					free(ntlm);
+					free(ntlm_b64);
+					free(ntlm_challenge_message);
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+
+#ifdef _DEBUG
+				printf("[I] negotiate_message ntlm_b64:%s ntlm_negotiate_message_length:%d\n", ntlm_b64, ntlm_negotiate_message_length);
+#endif
+
+				http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nProxy-Authorization: NTLM %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number, ntlm_b64);
+
+				// HTTP Request
+				sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
+				if(sen <= 0){
+#ifdef _DEBUG
+					printf("[E] Send http request to forward proxy.\n");
+#endif
+					free(ntlm);
+					free(ntlm_b64);
+					free(ntlm_challenge_message);
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] Send http request to forward proxy.\n");
+#endif
+
+				// HTTP Response (HTTP/1.1 407 Proxy Authentication Required)
+				rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
+				if(rec <= 0){
+#ifdef _DEBUG
+					printf("[E] Recv http response from forward proxy.\n");
+#endif
+					free(ntlm);
+					free(ntlm_b64);
+					free(ntlm_challenge_message);
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] Recv http response from forward proxy.\n");
+#endif
+
+				// challenge message
+				ret = get_http_header((const char *)&buffer, (const char *)&ntlm_http_header_key, (char *)&http_header_data, 2000);
+				if(ret == -1){
+#ifdef _DEBUG
+					printf("[E] get_http_header error\n");
+#endif
+					free(ntlm);
+					free(ntlm_b64);
+					free(ntlm_challenge_message);
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] http_header_data:%s\n", http_header_data);
+#endif
+
+				pos = (char *)strstr((const char *)&http_header_data, "Proxy-Authenticate: NTLM ");
+				if(pos == NULL){
+#ifdef _DEBUG
+					printf("[E] Cannot find Proxy-Authenticate: NTLM in http header.\n");
+#endif
+					free(ntlm);
+					free(ntlm_b64);
+					free(ntlm_challenge_message);
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+
+				pos += strlen("Proxy-Authenticate: NTLM ");
+				length = strlen(pos);
+				ntlm_challenge_message_length = decode_base64((const unsigned char *)pos, length, (unsigned char *)ntlm_challenge_message, 2000);
+				if(ntlm_challenge_message_length == -1){
+#ifdef _DEBUG
+					printf("[E] decode_base64 error\n");
+#endif
+					free(ntlm);
+					free(ntlm_b64);
+					free(ntlm_challenge_message);
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+
+				challenge_message = (struct challenge_message *)ntlm_challenge_message;
+
+				if(challenge_message->message_type != NtLmChallenge){
+#ifdef _DEBUG
+					printf("[E] ntlm challenge message message_type error:%04x\n", challenge_message->message_type);
+#endif
+					free(ntlm);
+					free(ntlm_b64);
+					free(ntlm_challenge_message);
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+
+				// authenticate_message
+				ZeroMemory(ntlm, 2000);
+				ZeroMemory(ntlm_b64, 3000);
+				authenticate_message = (struct authenticate_message *)ntlm;
+				ntlm_authenticate_message_length = 0;
+
+				ret = generate_response_ntlmv2(challenge_message, authenticate_message);
+				if(ret == -1){
+#ifdef _DEBUG
+					printf("[E] generate_response_ntlmv2 error\n");
+#endif
+					free(ntlm);
+					free(ntlm_b64);
+					free(ntlm_challenge_message);
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+				ntlm_authenticate_message_length = ret;
+
+				ret = encode_base64((const unsigned char *)authenticate_message, ntlm_authenticate_message_length, (unsigned char *)ntlm_b64, 3000);
+				if(ret == -1){
+#ifdef _DEBUG
+					printf("[E] encode_base64 error\n");
+#endif
+					free(ntlm);
+					free(ntlm_b64);
+					free(ntlm_challenge_message);
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+
+#ifdef _DEBUG
+				printf("[I] authenticate_message ntlm_b64:%s\n", ntlm_b64);
+#endif
+
+				http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nProxy-Authorization: NTLM %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number, ntlm_b64);
+
+				// HTTP Request
+				sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
+				if(sen <= 0){
+#ifdef _DEBUG
+					printf("[E] Send http request to forward proxy.\n");
+#endif
+					free(ntlm);
+					free(ntlm_b64);
+					free(ntlm_challenge_message);
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] Send http request to forward proxy.\n");
+#endif
+
+				// HTTP Response (HTTP/1.1 200 Connection established)
+				rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
+				if(rec <= 0){
+#ifdef _DEBUG
+					printf("[E] Recv http response from forward proxy.\n");
+#endif
+					free(ntlm);
+					free(ntlm_b64);
+					free(ntlm_challenge_message);
 					close_socket(forward_proxy_sock);
 					close_socket(client_sock);
 					return -1;
@@ -3667,7 +5020,8 @@ void usage(char *filename)
 	printf("usage   : %s -h listen_ip -p listen_port -H target_socks5server_domainname -P target_socks5server_port\n", filename);
 	printf("          [-s (target socks5 server https connection)] [-t (Socks5 over TLS)]\n");
 	printf("          [-A recv/send tv_sec(timeout 0-10 sec)] [-B recv/send tv_usec(timeout 0-1000000 microsec)] [-C forwarder tv_sec(timeout 0-300 sec)] [-D forwarder tv_usec(timeout 0-1000000 microsec)]\n");
-	printf("          [-a forward proxy domainname] [-b forward proxy port] [-c forward proxy(1:http)] [-d forward proxy username] [-e forward proxy password] [-f forward proxy authentication(1:basic 2:digest)]\n");
+	printf("          [-a forward proxy domainname] [-b forward proxy port] [-c forward proxy(1:http)]\n");
+	printf("          [-d forward proxy authentication(1:basic 2:digest 3:ntlmv2)] [-e forward proxy username] [-f forward proxy password] [-g forward proxy user domainname] [-i forward proxy workstationname]\n");
 	printf("example : %s -h 127.0.0.1 -p 9050 -H 192.168.0.10 -P 80\n", filename);
 	printf("        : %s -h 127.0.0.1 -p 9050 -H foobar.test -P 80 -t\n", filename);
 	printf("        : %s -h 127.0.0.1 -p 9050 -H foobar.test -P 80 -t -A 3 -B 0 -C 3 -D 0\n", filename);
@@ -3675,7 +5029,10 @@ void usage(char *filename)
 	printf("        : %s -h 127.0.0.1 -p 9050 -H 192.168.0.10 -P 443 -s\n", filename);
 	printf("        : %s -h 127.0.0.1 -p 9050 -H foobar.test -P 443 -s -t\n", filename);
 	printf("        : %s -h 127.0.0.1 -p 9050 -H foobar.test -P 443 -s -t -A 3 -B 0 -C 3 -D 0\n", filename);
-	printf("        : %s -h 127.0.0.1 -p 9050 -H foobar.test -P 443 -s -t -a 127.0.0.1 -b 3128 -c 1 -d forward_proxy_user -e forward_proxy_password -f 1\n", filename);
+	printf("        : %s -h 127.0.0.1 -p 9050 -H foobar.test -P 443 -s -t -a 127.0.0.1 -b 3128 -c 1 -d 1 -e forward_proxy_user -f forward_proxy_password\n", filename);
+	printf("        : %s -h 127.0.0.1 -p 9050 -H foobar.test -P 443 -s -t -a 127.0.0.1 -b 3128 -c 1 -d 2 -e forward_proxy_user -f forward_proxy_password\n", filename);
+	printf("        : %s -h 127.0.0.1 -p 9050 -H foobar.test -P 443 -s -t -a 127.0.0.1 -b 3128 -c 1 -d 3 -e forward_proxy_user -f forward_proxy_password -g test.local -i WORKSTATION\n", filename);
+	printf("        : %s -h 127.0.0.1 -p 9050 -H foobar.test -P 443 -s -t -a 127.0.0.1 -b 3128 -c 1 -d 3 -e test01 -f p@ssw0rd -g test.local -i WORKSTATION -A 10\n", filename);
 }
 
 
@@ -3719,7 +5076,7 @@ int getopt(int argc, char **argv, char *optstring)
 int main(int argc, char **argv)
 {
 	int opt;
-	char optstring[] = "h:p:H:P:stA:B:C:D:a:b:c:d:e:f:";
+	char optstring[] = "h:p:H:P:stA:B:C:D:a:b:c:d:e:f:g:i:";
 	long tv_sec = 3;	// recv send
 	long tv_usec = 0;	// recv send
 	long forwarder_tv_sec = 3;
@@ -3780,15 +5137,23 @@ int main(int argc, char **argv)
 			break;
 
 		case 'd':
-			forward_proxy_username = optarg;
+			forward_proxy_authentication_flag = atoi(optarg);
 			break;
 
 		case 'e':
-			forward_proxy_password = optarg;
+			forward_proxy_username = optarg;
 			break;
 
 		case 'f':
-			forward_proxy_authentication_flag = atoi(optarg);
+			forward_proxy_password = optarg;
+			break;
+
+		case 'g':
+			forward_proxy_user_domainname = optarg;
+			break;
+
+		case 'i':
+			forward_proxy_workstationname = optarg;
 			break;
 
 		default:
@@ -3828,7 +5193,7 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	if(forward_proxy_authentication_flag < 0 && forward_proxy_authentication_flag > 2){
+	if(forward_proxy_authentication_flag < 0 && forward_proxy_authentication_flag > 3){
 		usage(argv[0]);
 		exit(1);
 	}
@@ -3836,6 +5201,32 @@ int main(int argc, char **argv)
 	if(forward_proxy_authentication_flag > 0 && (forward_proxy_username == NULL || forward_proxy_password == NULL)){
 		usage(argv[0]);
 		exit(1);
+	}
+
+	if(forward_proxy_authentication_flag == 3 && (forward_proxy_user_domainname == NULL || forward_proxy_workstationname == NULL)){
+		usage(argv[0]);
+		exit(1);
+	}
+
+
+	// load OSSL_PROVIDER legacy, default
+	OSSL_PROVIDER *legacy = NULL;
+	OSSL_PROVIDER *deflt = NULL;
+
+	legacy = OSSL_PROVIDER_load(NULL, "legacy");
+	if(legacy == NULL){
+#ifdef _DEBUG
+		printf("[E] OSSL_PROVIDER_load error:legacy\n");
+#endif
+		exit(-1);
+	}
+
+	deflt = OSSL_PROVIDER_load(NULL, "default");
+	if(deflt == NULL){
+#ifdef _DEBUG
+		printf("[E] OSSL_PROVIDER_load error:default\n");
+#endif
+		exit(-1);
 	}
 
 
@@ -3858,6 +5249,11 @@ int main(int argc, char **argv)
 #ifdef _DEBUG
 			printf("[I] Forward proxy connection:http\n");
 			printf("[I] Forward proxy authentication:digest\n");
+#endif
+		}else if(forward_proxy_authentication_flag == 3){
+#ifdef _DEBUG
+			printf("[I] Forward proxy connection:http\n");
+			printf("[I] Forward proxy authentication:ntlmv2\n");
 #endif
 		}
 	}else{
@@ -3953,6 +5349,10 @@ int main(int argc, char **argv)
 
 	close_socket(server_sock);
 	WSACleanup();
+
+	// unload OSSL_PROVIDER legacy, default
+	OSSL_PROVIDER_unload(legacy);
+	OSSL_PROVIDER_unload(deflt);
 
 	return 0;
 }
