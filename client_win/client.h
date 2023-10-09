@@ -9,9 +9,9 @@ int encrypt_aes(unsigned char *plaintext, int plaintext_length, unsigned char *a
 int decrypt_aes(unsigned char *ciphertext, int ciphertext_length, unsigned char *aes_key, unsigned char *aes_iv, unsigned char *plaintext);
 int encode_base64(const unsigned char *input, int length, unsigned char *output, int output_size);
 int decode_base64(const unsigned char *input, int length, unsigned char *output, int output_size);
-int get_md5_hash(const unsigned char *input, int input_length, unsigned char *output, int output_length);
-int get_sha_256_hash(const unsigned char *input, int input_length, unsigned char *output, int output_length);
-int get_sha_512_256_hash(const unsigned char *input, int input_length, unsigned char *output, int output_length);
+int get_md5_hash(const unsigned char *input, int input_length, unsigned char *output, int output_size);
+int get_sha_256_hash(const unsigned char *input, int input_length, unsigned char *output, int output_size);
+int get_sha_512_256_hash(const unsigned char *input, int input_length, unsigned char *output, int output_size);
 int recv_data(SOCKET sock, void *buffer, int length, long tv_sec, long tv_usec);
 int recv_data_aes(SOCKET sock, void *buffer, int length, unsigned char *aes_key, unsigned char *aes_iv, long tv_sec, long tv_usec);
 int recv_data_tls(SOCKET sock, SSL *ssl ,void *buffer, int length, long tv_sec, long tv_usec);
@@ -81,7 +81,7 @@ struct digest_parameters {
 	char response_hash[150];	// H(H(A1):nonce:nc:cnonce:qop:H(A2))
 };
 
-int get_http_header(const char *input, const char *key, char *output, int output_length);
+int get_http_header(const char *input, const char *key, char *output, int output_size);
 int get_digest_values(const char *input, digest_parameters *param);
 int get_digest_response(digest_parameters *param);
 
