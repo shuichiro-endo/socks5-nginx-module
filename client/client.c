@@ -1920,7 +1920,7 @@ int display_gss_error(OM_uint32 status_value, int status_type, gss_OID mechanism
 		major_status = gss_display_status(&minor_status, status_value, status_type, mechanism_type, &message_context, &status_string);
 		if(major_status == GSS_S_COMPLETE && status_string.length > 0){
 			if(buffer_size > length + status_string.length + 3){
-				length += snprintf(buffer+length, buffer_size-length, "%.*s. ", (int)status_string.length, (char *)status_string.value);
+				length += snprintf(buffer+length, buffer_size-length, "%.*s.\n", (int)status_string.length, (char *)status_string.value);
 			}
 		}
 
