@@ -82,13 +82,15 @@ char server_certificate_file_directory_path_socks5[256] = ".";	// server certifi
 
 void print_bytes(unsigned char *input, int input_length)
 {
-	for(int i=0; i*16<input_length; i++){
-		printf(
-			"%02x %02x %02x %02x %02x %02x %02x %02x  %02x %02x %02x %02x %02x %02x %02x %02x\n",
-			input[i*16+0], input[i*16+1], input[i*16+2], input[i*16+3], input[i*16+4], input[i*16+5], input[i*16+6], input[i*16+7],
-			input[i*16+8], input[i*16+9], input[i*16+10], input[i*16+11], input[i*16+12], input[i*16+13], input[i*16+14], input[i*16+15]
-		);
+	for(int i=0; i<input_length; i++){
+		if(i != 0 && i%16 == 0){
+			printf("\n");
+		}else if(i%16 == 8){
+			printf(" ");
+		}
+		printf("%02x ", input[i]);
 	}
+	printf("\n");
 
 	return;
 }
