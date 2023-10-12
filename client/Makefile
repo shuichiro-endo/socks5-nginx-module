@@ -1,10 +1,10 @@
 CC		= gcc
-CFLAGS	=
-LDFLAGS	= -lssl -lcrypto -pthread
+CFLAGS		=
+LDFLAGS		= -lssl -lcrypto -pthread -lgssapi_krb5
 LIBS		=
 SRCS		= client.c
 OBJS		= $(SRCS:.c=.o)
-TARGET	= client
+TARGET		= client
 
 all:		clean $(TARGET)
 

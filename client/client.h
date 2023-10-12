@@ -22,6 +22,9 @@ int get_av_pair_value(struct challenge_message *challenge_message, uint16_t av_i
 int ntowfv2(const char *user, const char *password, const char *userdom, unsigned char *output, int output_size);
 int lmowfv2(const char *user, const char *password, const char *userdom, unsigned char *output, int output_size);
 int generate_response_ntlmv2(struct challenge_message *challenge_message, struct authenticate_message *authenticate_message);
+int display_gss_error(OM_uint32 status_value, int status_type, gss_OID mechanism_type, char *buffer, int buffer_size);
+gss_name_t get_spn(char *spn);
+int get_base64_kerberos_token(char *spn, char *b64_kerberos_token, int b64_kerberos_token_size);
 void enable_blocking_socket(int sock);	// blocking
 void disable_blocking_socket(int sock);	// non blocking
 int recv_data(int sock, void *buffer, int length, long tv_sec, long tv_usec);

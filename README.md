@@ -67,8 +67,9 @@ sequenceDiagram
 
 - client
     - openssl and libssl-dev
+    - krb5-user, libkrb5-3 and libkrb5-dev
     ```
-    sudo apt install openssl libssl-dev
+    sudo apt install openssl libssl-dev krb5-user libkrb5-3 libkrb5-dev
     ```
 
 ### Version
@@ -148,7 +149,8 @@ git clone https://github.com/shuichiro-endo/socks5-nginx-module.git
               [-s (target socks5 server https connection)] [-t (Socks5 over TLS)]
               [-A recv/send tv_sec(timeout 0-10 sec)] [-B recv/send tv_usec(timeout 0-1000000 microsec)] [-C forwarder tv_sec(timeout 0-300 sec)] [-D forwarder tv_usec(timeout 0-1000000 microsec)]
               [-a forward proxy domainname] [-b forward proxy port] [-c forward proxy(1:http)]
-              [-d forward proxy authentication(1:basic 2:digest 3:ntlmv2)] [-e forward proxy username] [-f forward proxy password] [-g forward proxy user domainname] [-i forward proxy workstationname]
+              [-d forward proxy authentication(1:basic 2:digest 3:ntlmv2 4:spnego(kerberos))]
+              [-e forward proxy username] [-f forward proxy password] [-g forward proxy user domainname] [-i forward proxy workstationname] [-j forward proxy service principal name]
     example : ./client -h 0.0.0.0 -p 9050 -H 192.168.0.10 -P 80
             : ./client -h 0.0.0.0 -p 9050 -H foobar.test -P 80 -t
             : ./client -h 0.0.0.0 -p 9050 -H foobar.test -P 80 -t -A 3 -B 0 -C 3 -D 0
@@ -158,8 +160,10 @@ git clone https://github.com/shuichiro-endo/socks5-nginx-module.git
             : ./client -h 0.0.0.0 -p 9050 -H foobar.test -P 443 -s -t -A 3 -B 0 -C 3 -D 0
             : ./client -h 0.0.0.0 -p 9050 -H foobar.test -P 443 -s -t -a 127.0.0.1 -b 3128 -c 1 -d 1 -e forward_proxy_user -f forward_proxy_password
             : ./client -h 0.0.0.0 -p 9050 -H foobar.test -P 443 -s -t -a 127.0.0.1 -b 3128 -c 1 -d 2 -e forward_proxy_user -f forward_proxy_password
-            : ./client -h 0.0.0.0 -p 9050 -H foobar.test -P 443 -s -t -a 127.0.0.1 -b 3128 -c 1 -d 3 -e forward_proxy_user -f forward_proxy_password -g test.local -i WORKSTATION
+            : ./client -h 0.0.0.0 -p 9050 -H foobar.test -P 443 -s -t -a 127.0.0.1 -b 3128 -c 1 -d 3 -e forward_proxy_user -f forward_proxy_password -g forward_proxy_user_domainname -i forward_proxy_workstationname
             : ./client -h 0.0.0.0 -p 9050 -H foobar.test -P 443 -s -t -a 127.0.0.1 -b 3128 -c 1 -d 3 -e test01 -f p@ssw0rd -g test.local -i WORKSTATION -A 10
+            : ./client -h 0.0.0.0 -p 9050 -H foobar.test -P 443 -s -t -a 127.0.0.1 -b 3128 -c 1 -d 4 -j forward_proxy_service_principal_name
+            : ./client -h 0.0.0.0 -p 9050 -H foobar.test -P 443 -s -t -a 127.0.0.1 -b 3128 -c 1 -d 4 -j HTTP/proxy.test.local@TEST.LOCAL -A 10
     ```
     5. connect to my client from other clients(browser, proxychains, etc.)
     ```
