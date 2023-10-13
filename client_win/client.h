@@ -22,6 +22,7 @@ int get_av_pair_value(struct challenge_message *challenge_message, uint16_t av_i
 int ntowfv2(const char *user, const char *password, const char *userdom, unsigned char *output, int output_size);
 int lmowfv2(const char *user, const char *password, const char *userdom, unsigned char *output, int output_size);
 int generate_response_ntlmv2(struct challenge_message *challenge_message, struct authenticate_message *authenticate_message);
+int get_base64_kerberos_token(char *spn, char *b64_kerberos_token, int b64_kerberos_token_size);
 int recv_data(SOCKET sock, void *buffer, int length, long tv_sec, long tv_usec);
 int recv_data_aes(SOCKET sock, void *buffer, int length, unsigned char *aes_key, unsigned char *aes_iv, long tv_sec, long tv_usec);
 int recv_data_tls(SOCKET sock, SSL *ssl ,void *buffer, int length, long tv_sec, long tv_usec);

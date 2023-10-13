@@ -5,6 +5,8 @@
 
 #define _DEBUG
 
+#define SECURITY_WIN32
+
 #include <stdio.h>
 #include <winsock2.h>
 #include <Windows.h>
@@ -17,6 +19,7 @@
 #include <stdlib.h>
 #include <process.h>
 #include <time.h>
+#include <sspi.h>
 
 #include <openssl/bio.h>
 #include <openssl/ssl.h>
@@ -37,10 +40,15 @@
 #include "client.h"
 
 #pragma comment(lib,"ws2_32.lib")	// Winsock Library
+#pragma comment(lib,"Secur32.lib")	// Security Library
 #pragma comment(lib,"libssl.lib")	// OpenSSL Library
 #pragma comment(lib,"libcrypto.lib")	// OpenSSL Library
 
 #define BUFFER_SIZE 8192
+#define CB_MAX_MESSAGE 2000
+#define SPN_MAX_SIZE 260
+
+#define SEC_SUCCESS(Status) ((Status) >= 0)
 
 #define HTTP_REQUEST_HEADER_SOCKS5_KEY "socks5"
 #define HTTP_REQUEST_HEADER_SOCKS5_VALUE "socks5"
@@ -67,6 +75,7 @@ char *forward_proxy_username = NULL;
 char *forward_proxy_password = NULL;
 char *forward_proxy_user_domainname = NULL;
 char *forward_proxy_workstationname = NULL;
+char *forward_proxy_spn = NULL;	// service principal name
 int https_flag = 0;		// 0:http 1:https
 int socks5_over_tls_flag = 0;	// 0:socks5 over aes 1:socks5 over tls
 int forward_proxy_flag = 0;		// 0:no 1:http
@@ -1881,6 +1890,86 @@ int generate_response_ntlmv2(struct challenge_message *challenge_message, struct
 }
 
 
+int get_base64_kerberos_token(char *spn, char *b64_kerberos_token, int b64_kerberos_token_size)
+{
+	SECURITY_STATUS security_status;
+	TCHAR pname[] = "Kerberos";
+	PTCHAR package_name = (PTCHAR)&pname;
+	CredHandle cred_handle;
+	TimeStamp life_time;
+	PBYTE p_in_buf = NULL;
+	PBYTE p_out_buf = NULL;
+	SecBufferDesc out_buff_desc;
+	SecBuffer out_sec_buff;
+	SecBufferDesc in_buffer_desc;
+	SecBuffer in_sec_buff;
+	ULONG f_context_req = ISC_REQ_REPLAY_DETECT | ISC_REQ_SEQUENCE_DETECT | ISC_REQ_MUTUAL_AUTH;
+	struct _SecHandle context;
+	ULONG context_attributes;
+	int ret = 0;
+	int b64_kerberos_token_length = 0;
+
+
+	security_status = AcquireCredentialsHandleA(NULL, package_name, SECPKG_CRED_OUTBOUND, NULL, NULL, NULL, NULL, &cred_handle, &life_time);
+	if(!(SEC_SUCCESS(security_status))){
+#ifdef _DEBUG
+		printf("[E] AcquireCredentialsHandleA error:%d\n", security_status);
+#endif
+		return -1;
+	}
+
+	p_in_buf = (PBYTE)calloc(CB_MAX_MESSAGE, sizeof(unsigned char));
+	p_out_buf = (PBYTE)calloc(CB_MAX_MESSAGE, sizeof(unsigned char));
+
+	out_buff_desc.ulVersion = 0;
+	out_buff_desc.cBuffers = 1;
+	out_buff_desc.pBuffers = &out_sec_buff;
+	out_sec_buff.cbBuffer = CB_MAX_MESSAGE;
+	out_sec_buff.BufferType = SECBUFFER_TOKEN;
+	out_sec_buff.pvBuffer = p_out_buf;
+
+	security_status = InitializeSecurityContextA(&cred_handle, NULL, (SEC_CHAR *)forward_proxy_spn, f_context_req, 0, SECURITY_NATIVE_DREP,	NULL, 0, &context, &out_buff_desc, &context_attributes, &life_time);
+	if(!SEC_SUCCESS(security_status)){
+#ifdef _DEBUG
+		printf("[E] InitializeSecurityContext error:%d\n", security_status);
+#endif
+		free(p_out_buf);
+		free(p_in_buf);
+		return -1;
+	}
+
+	if(security_status == SEC_I_COMPLETE_AND_CONTINUE || security_status == SEC_I_COMPLETE_NEEDED){
+		security_status = CompleteAuthToken(&context, &out_buff_desc);
+		if(!SEC_SUCCESS(security_status)){
+#ifdef _DEBUG
+			printf("[E] CompleteAuthToken error:%d\n", security_status);
+#endif
+			free(p_out_buf);
+			free(p_in_buf);
+			return -1;
+		}
+	}
+
+	if(out_sec_buff.cbBuffer != 0){
+		ret = encode_base64((const unsigned char *)out_sec_buff.pvBuffer, (int)out_sec_buff.cbBuffer, (unsigned char *)b64_kerberos_token, b64_kerberos_token_size);
+		if(ret == -1){
+#ifdef _DEBUG
+			printf("[E] encode_base64 error\n");
+#endif
+			free(p_out_buf);
+			free(p_in_buf);
+			return -1;
+		}
+		b64_kerberos_token_length = ret;
+	}
+
+	free(p_out_buf);
+	free(p_in_buf);
+
+	return b64_kerberos_token_length;
+}
+
+
 /*
  * Reference:
  * https://stackoverflow.com/questions/10905892/equivalent-of-gettimeofday-for-windows
@@ -3064,6 +3153,9 @@ int worker(void *ptr)
 	int ntlm_challenge_message_length = 0;
 	int ntlm_authenticate_message_length = 0;
 
+	char spnego_http_header_key[] = "Proxy-Authenticate:";
+	char *b64_kerberos_token = NULL;
+
 	char *target_domainname = socks5_target_ip;
 	u_short target_domainname_length = 0;
 	if(target_domainname != NULL){
@@ -3285,6 +3377,15 @@ int worker(void *ptr)
 			if(strlen(forward_proxy_username) > 256 || strlen(forward_proxy_password) > 256){
 #ifdef _DEBUG
 				printf("[E] Forward proxy username or password length is too long (length > 256).\n");
+#endif
+				close_socket(forward_proxy_sock);
+				close_socket(client_sock);
+				return -1;
+			}
+		}else if(forward_proxy_authentication_flag == 4){	// forward proxy authentication: spnego(kerberos)
+			if(strlen(forward_proxy_spn) > SPN_MAX_SIZE){
+#ifdef _DEBUG
+				printf("[E] Forward proxy spn length is too long (length > %d).\n", SPN_MAX_SIZE);
 #endif
 				close_socket(forward_proxy_sock);
 				close_socket(client_sock);
@@ -3758,6 +3859,139 @@ int worker(void *ptr)
 				free(ntlm);
 				free(ntlm_b64);
 				free(ntlm_challenge_message);
+			}else if(forward_proxy_authentication_flag == 4){	// forward proxy authentication: spnego(kerberos)
+				b64_kerberos_token = (char *)calloc(4000, sizeof(char));
+
+				ret = get_base64_kerberos_token(forward_proxy_spn, b64_kerberos_token, 4000);
+				if(ret == -1){
+#ifdef _DEBUG
+					printf("[E] get_base64_kerberos_token error\n");
+#endif
+					free(b64_kerberos_token);
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] b64_kerberos_token:%s\n", b64_kerberos_token);
+#endif
+
+				http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number);
+
+				// HTTP Request
+				sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
+				if(sen <= 0){
+#ifdef _DEBUG
+					printf("[E] Send http request to forward proxy.\n");
+#endif
+					free(b64_kerberos_token);
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] Send http request to forward proxy.\n");
+#endif
+
+				// HTTP Response (HTTP/1.1 407 Proxy Authentication Required)
+				ZeroMemory(&buffer, BUFFER_SIZE+1);
+				rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
+				if(rec <= 0){
+#ifdef _DEBUG
+					printf("[E] Recv http response from forward proxy.\n");
+#endif
+					free(b64_kerberos_token);
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] Recv http response from forward proxy.\n");
+#endif
+
+				ret = strncmp(buffer, "HTTP/1.1 407 Proxy Authentication Required\r\n", strlen("HTTP/1.1 407 Proxy Authentication Required\r\n"));
+				if(ret != 0){
+#ifdef _DEBUG
+					printf("[E] Forward proxy error:\n%s\n", buffer);
+#endif
+					free(b64_kerberos_token);
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+
+				ZeroMemory(&http_header_data, 2000);
+				ret = get_http_header((const char *)&buffer, (const char *)&spnego_http_header_key, (char *)&http_header_data, 2000);
+				if(ret == -1){
+#ifdef _DEBUG
+					printf("[E] get_http_header error\n");
+#endif
+					free(b64_kerberos_token);
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] http_header_data:%s\n", http_header_data);
+#endif
+
+				pos = strstr((char *)&http_header_data, "Proxy-Authenticate: Negotiate");
+				if(pos == NULL){
+#ifdef _DEBUG
+					printf("[E] Cannot find Proxy-Authenticate: Negotiate in http header.\n");
+#endif
+					free(b64_kerberos_token);
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+
+				ZeroMemory(http_request, BUFFER_SIZE+1);
+				http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nProxy-Authorization: Negotiate %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number, b64_kerberos_token);
+
+				// HTTP Request
+				sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
+				if(sen <= 0){
+#ifdef _DEBUG
+					printf("[E] Send http request to forward proxy.\n");
+#endif
+					free(b64_kerberos_token);
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] Send http request to forward proxy.\n");
+#endif
+
+				// HTTP Response (HTTP/1.1 200 Connection established)
+				ZeroMemory(&buffer, BUFFER_SIZE+1);
+				rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
+				if(rec <= 0){
+#ifdef _DEBUG
+					printf("[E] Recv http response from forward proxy.\n");
+#endif
+					free(b64_kerberos_token);
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] Recv http response from forward proxy.\n");
+#endif
+
+				ret = strncmp(buffer, "HTTP/1.1 200 Connection established\r\n", strlen("HTTP/1.1 200 Connection established\r\n"));
+				if(ret != 0){
+#ifdef _DEBUG
+					printf("[E] Forward proxy error:\n%s\n", buffer);
+#endif
+					free(b64_kerberos_token);
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+
+				free(b64_kerberos_token);
 			}else{
 #ifdef _DEBUG
 				printf("[E] Not implemented.\n");
@@ -4221,6 +4455,139 @@ int worker(void *ptr)
 				free(ntlm);
 				free(ntlm_b64);
 				free(ntlm_challenge_message);
+			}else if(forward_proxy_authentication_flag == 4){	// forward proxy authentication: spnego(kerberos)
+				b64_kerberos_token = (char *)calloc(4000, sizeof(char));
+
+				ret = get_base64_kerberos_token(forward_proxy_spn, b64_kerberos_token, 4000);
+				if(ret == -1){
+#ifdef _DEBUG
+					printf("[E] get_base64_kerberos_token error\n");
+#endif
+					free(b64_kerberos_token);
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] b64_kerberos_token:%s\n", b64_kerberos_token);
+#endif
+
+				http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number);
+
+				// HTTP Request
+				sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
+				if(sen <= 0){
+#ifdef _DEBUG
+					printf("[E] Send http request to forward proxy.\n");
+#endif
+					free(b64_kerberos_token);
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] Send http request to forward proxy.\n");
+#endif
+
+				// HTTP Response (HTTP/1.1 407 Proxy Authentication Required)
+				ZeroMemory(&buffer, BUFFER_SIZE+1);
+				rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
+				if(rec <= 0){
+#ifdef _DEBUG
+					printf("[E] Recv http response from forward proxy.\n");
+#endif
+					free(b64_kerberos_token);
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] Recv http response from forward proxy.\n");
+#endif
+
+				ret = strncmp(buffer, "HTTP/1.1 407 Proxy Authentication Required\r\n", strlen("HTTP/1.1 407 Proxy Authentication Required\r\n"));
+				if(ret != 0){
+#ifdef _DEBUG
+					printf("[E] Forward proxy error:\n%s\n", buffer);
+#endif
+					free(b64_kerberos_token);
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+
+				ZeroMemory(&http_header_data, 2000);
+				ret = get_http_header((const char *)&buffer, (const char *)&spnego_http_header_key, (char *)&http_header_data, 2000);
+				if(ret == -1){
+#ifdef _DEBUG
+					printf("[E] get_http_header error\n");
+#endif
+					free(b64_kerberos_token);
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] http_header_data:%s\n", http_header_data);
+#endif
+
+				pos = strstr((char *)&http_header_data, "Proxy-Authenticate: Negotiate");
+				if(pos == NULL){
+#ifdef _DEBUG
+					printf("[E] Cannot find Proxy-Authenticate: Negotiate in http header.\n");
+#endif
+					free(b64_kerberos_token);
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+
+				ZeroMemory(http_request, BUFFER_SIZE+1);
+				http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nProxy-Authorization: Negotiate %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number, b64_kerberos_token);
+
+				// HTTP Request
+				sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
+				if(sen <= 0){
+#ifdef _DEBUG
+					printf("[E] Send http request to forward proxy.\n");
+#endif
+					free(b64_kerberos_token);
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] Send http request to forward proxy.\n");
+#endif
+
+				// HTTP Response (HTTP/1.1 200 Connection established)
+				ZeroMemory(&buffer, BUFFER_SIZE+1);
+				rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
+				if(rec <= 0){
+#ifdef _DEBUG
+					printf("[E] Recv http response from forward proxy.\n");
+#endif
+					free(b64_kerberos_token);
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+#ifdef _DEBUG
+				printf("[I] Recv http response from forward proxy.\n");
+#endif
+
+				ret = strncmp(buffer, "HTTP/1.1 200 Connection established\r\n", strlen("HTTP/1.1 200 Connection established\r\n"));
+				if(ret != 0){
+#ifdef _DEBUG
+					printf("[E] Forward proxy error:\n%s\n", buffer);
+#endif
+					free(b64_kerberos_token);
+					close_socket(forward_proxy_sock);
+					close_socket(client_sock);
+					return -1;
+				}
+
+				free(b64_kerberos_token);
 			}else{
 #ifdef _DEBUG
 				printf("[E] Not implemented.\n");
@@ -5037,7 +5404,8 @@ void usage(char *filename)
 	printf("          [-s (target socks5 server https connection)] [-t (Socks5 over TLS)]\n");
 	printf("          [-A recv/send tv_sec(timeout 0-10 sec)] [-B recv/send tv_usec(timeout 0-1000000 microsec)] [-C forwarder tv_sec(timeout 0-300 sec)] [-D forwarder tv_usec(timeout 0-1000000 microsec)]\n");
 	printf("          [-a forward proxy domainname] [-b forward proxy port] [-c forward proxy(1:http)]\n");
-	printf("          [-d forward proxy authentication(1:basic 2:digest 3:ntlmv2)] [-e forward proxy username] [-f forward proxy password] [-g forward proxy user domainname] [-i forward proxy workstationname]\n");
+	printf("          [-d forward proxy authentication(1:basic 2:digest 3:ntlmv2) 4:spnego(kerberos)]\n");
+	printf("          [-e forward proxy username] [-f forward proxy password] [-g forward proxy user domainname] [-i forward proxy workstationname] [-j forward proxy service principal name]\n");
 	printf("example : %s -h 127.0.0.1 -p 9050 -H 192.168.0.10 -P 80\n", filename);
 	printf("        : %s -h 127.0.0.1 -p 9050 -H foobar.test -P 80 -t\n", filename);
 	printf("        : %s -h 127.0.0.1 -p 9050 -H foobar.test -P 80 -t -A 3 -B 0 -C 3 -D 0\n", filename);
@@ -5047,8 +5415,10 @@ void usage(char *filename)
 	printf("        : %s -h 127.0.0.1 -p 9050 -H foobar.test -P 443 -s -t -A 3 -B 0 -C 3 -D 0\n", filename);
 	printf("        : %s -h 127.0.0.1 -p 9050 -H foobar.test -P 443 -s -t -a 127.0.0.1 -b 3128 -c 1 -d 1 -e forward_proxy_user -f forward_proxy_password\n", filename);
 	printf("        : %s -h 127.0.0.1 -p 9050 -H foobar.test -P 443 -s -t -a 127.0.0.1 -b 3128 -c 1 -d 2 -e forward_proxy_user -f forward_proxy_password\n", filename);
-	printf("        : %s -h 127.0.0.1 -p 9050 -H foobar.test -P 443 -s -t -a 127.0.0.1 -b 3128 -c 1 -d 3 -e forward_proxy_user -f forward_proxy_password -g test.local -i WORKSTATION\n", filename);
+	printf("        : %s -h 127.0.0.1 -p 9050 -H foobar.test -P 443 -s -t -a 127.0.0.1 -b 3128 -c 1 -d 3 -e forward_proxy_user -f forward_proxy_password -g forward_proxy_user_domainname -i forward_proxy_workstationname\n", filename);
 	printf("        : %s -h 127.0.0.1 -p 9050 -H foobar.test -P 443 -s -t -a 127.0.0.1 -b 3128 -c 1 -d 3 -e test01 -f p@ssw0rd -g test.local -i WORKSTATION -A 10\n", filename);
+	printf("        : %s -h 127.0.0.1 -p 9050 -H foobar.test -P 443 -s -t -a 127.0.0.1 -b 3128 -c 1 -d 4 -j forward_proxy_service_principal_name\n", filename);
+	printf("        : %s -h 127.0.0.1 -p 9050 -H foobar.test -P 443 -s -t -a 127.0.0.1 -b 3128 -c 1 -d 4 -j HTTP/proxy.test.local@TEST.LOCAL -A 10\n", filename);
 }
 
 
@@ -5092,7 +5462,7 @@ int getopt(int argc, char **argv, char *optstring)
 int main(int argc, char **argv)
 {
 	int opt;
-	char optstring[] = "h:p:H:P:stA:B:C:D:a:b:c:d:e:f:g:i:";
+	char optstring[] = "h:p:H:P:stA:B:C:D:a:b:c:d:e:f:g:i:j:";
 	long tv_sec = 3;	// recv send
 	long tv_usec = 0;	// recv send
 	long forwarder_tv_sec = 3;
@@ -5172,6 +5542,10 @@ int main(int argc, char **argv)
 			forward_proxy_workstationname = optarg;
 			break;
 
+		case 'j':
+			forward_proxy_spn = optarg;
+			break;
+
 		default:
 			usage(argv[0]);
 			exit(1);
@@ -5214,12 +5588,17 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	if(forward_proxy_authentication_flag > 0 && (forward_proxy_username == NULL || forward_proxy_password == NULL)){
+	if((forward_proxy_authentication_flag >= 1 && forward_proxy_authentication_flag <= 3) && (forward_proxy_username == NULL || forward_proxy_password == NULL)){
 		usage(argv[0]);
 		exit(1);
 	}
 
 	if(forward_proxy_authentication_flag == 3 && (forward_proxy_user_domainname == NULL || forward_proxy_workstationname == NULL)){
+		usage(argv[0]);
+		exit(1);
+	}
+
+	if(forward_proxy_authentication_flag == 4 && forward_proxy_spn == NULL){
 		usage(argv[0]);
 		exit(1);
 	}
@@ -5270,6 +5649,11 @@ int main(int argc, char **argv)
 #ifdef _DEBUG
 			printf("[I] Forward proxy connection:http\n");
 			printf("[I] Forward proxy authentication:ntlmv2\n");
+#endif
+		}else if(forward_proxy_authentication_flag == 4){
+#ifdef _DEBUG
+			printf("[I] Forward proxy connection:http\n");
+			printf("[I] Forward proxy authentication:spnego(kerberos)\n");
 #endif
 		}
 	}else{
