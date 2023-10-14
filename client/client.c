@@ -4863,7 +4863,7 @@ void usage(char *filename)
 {
 	printf("usage   : %s -h listen_ip -p listen_port -H target_socks5server_domainname -P target_socks5server_port\n", filename);
 	printf("          [-s (target socks5 server https connection)] [-t (Socks5 over TLS)]\n");
-	printf("          [-A recv/send tv_sec(timeout 0-10 sec)] [-B recv/send tv_usec(timeout 0-1000000 microsec)] [-C forwarder tv_sec(timeout 0-300 sec)] [-D forwarder tv_usec(timeout 0-1000000 microsec)]\n");
+	printf("          [-A recv/send tv_sec(timeout 0-60 sec)] [-B recv/send tv_usec(timeout 0-1000000 microsec)] [-C forwarder tv_sec(timeout 0-300 sec)] [-D forwarder tv_usec(timeout 0-1000000 microsec)]\n");
 	printf("          [-a forward proxy domainname] [-b forward proxy port] [-c forward proxy(1:http)]\n");
 	printf("          [-d forward proxy authentication(1:basic 2:digest 3:ntlmv2 4:spnego(kerberos))]\n");
 	printf("          [-e forward proxy username] [-f forward proxy password] [-g forward proxy user domainname] [-i forward proxy workstationname] [-j forward proxy service principal name]\n");
@@ -4981,7 +4981,7 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 	
-	if(tv_sec < 0 || tv_sec > 10 || tv_usec < 0 || tv_usec > 1000000){
+	if(tv_sec < 0 || tv_sec > 60 || tv_usec < 0 || tv_usec > 1000000){
 		tv_sec = 3;
 		tv_usec = 0;
 	}else if(tv_sec == 0 && tv_usec == 0){
@@ -5126,7 +5126,7 @@ int main(int argc, char **argv)
 	}
 	
 #ifdef _DEBUG
-	printf("[I] Timeout recv/send tv_sec(0-10 sec):%ld sec recv/send tv_usec(0-1000000 microsec):%ld microsec.\n", tv_sec, tv_usec);
+	printf("[I] Timeout recv/send tv_sec(0-60 sec):%ld sec recv/send tv_usec(0-1000000 microsec):%ld microsec.\n", tv_sec, tv_usec);
 	printf("[I] Timeout forwarder tv_sec(0-300 sec):%ld sec forwarder tv_usec(0-1000000 microsec):%ld microsec.\n", forwarder_tv_sec, forwarder_tv_usec);
 #endif
 	

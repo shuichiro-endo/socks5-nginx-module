@@ -147,7 +147,7 @@ git clone https://github.com/shuichiro-endo/socks5-nginx-module.git
     ```
     usage   : ./client -h listen_ip -p listen_port -H target_socks5server_domainname -P target_socks5server_port
               [-s (target socks5 server https connection)] [-t (Socks5 over TLS)]
-              [-A recv/send tv_sec(timeout 0-10 sec)] [-B recv/send tv_usec(timeout 0-1000000 microsec)] [-C forwarder tv_sec(timeout 0-300 sec)] [-D forwarder tv_usec(timeout 0-1000000 microsec)]
+              [-A recv/send tv_sec(timeout 0-60 sec)] [-B recv/send tv_usec(timeout 0-1000000 microsec)] [-C forwarder tv_sec(timeout 0-300 sec)] [-D forwarder tv_usec(timeout 0-1000000 microsec)]
               [-a forward proxy domainname] [-b forward proxy port] [-c forward proxy(1:http)]
               [-d forward proxy authentication(1:basic 2:digest 3:ntlmv2 4:spnego(kerberos))]
               [-e forward proxy username] [-f forward proxy password] [-g forward proxy user domainname] [-i forward proxy workstationname] [-j forward proxy service principal name]
