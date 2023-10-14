@@ -46,6 +46,16 @@
 #include "client.h"
 
 #define BUFFER_SIZE 8192
+#define USERNAME_MAX_SIZE 255
+#define PASSWORD_MAX_SIZE 255
+#define SPN_MAX_SIZE 260
+#define HTTP_HEADER_DATA_SIZE 2000
+#define BASIC_AUTH_CREDENTIAL_SIZE 1000
+#define BASIC_AUTH_CREDENTIAL_BASE64_SIZE 2000
+#define NTLMV2_AUTH_SIZE 2000
+#define NTLMV2_AUTH_BASE64_SIZE 3000
+#define NTLMV2_AUTH_CHALLENGE_MESSAGE_SIZE 2000
+#define SPNEGO_AUTH_BASE64_KERBEROS_TOKEN_SIZE 4000
 
 #define HTTP_REQUEST_HEADER_SOCKS5_KEY "socks5"
 #define HTTP_REQUEST_HEADER_SOCKS5_VALUE "socks5"
@@ -3088,6 +3098,755 @@ void close_socket(int sock)
 }
 
 
+int forward_proxy_authentication_no(int forward_proxy_sock, char *target_domainname, char *target_port_number, long tv_sec, long tv_usec)
+{
+	char *buffer = calloc(BUFFER_SIZE+1, sizeof(char));
+	char *http_request = calloc(BUFFER_SIZE+1, sizeof(char));
+	int http_request_length = 0;
+	int rec, sen;
+	int ret = 0;
+
+
+	http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nAccept: */*\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number);
+
+	// HTTP Request
+	sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
+	if(sen <= 0){
+#ifdef _DEBUG
+		printf("[E] Send http request to forward proxy.\n");
+#endif
+		free(buffer);
+		free(http_request);
+		return -1;
+	}
+#ifdef _DEBUG
+		printf("[I] Send http request to forward proxy.\n");
+#endif
+
+	// HTTP Response (HTTP/1.1 200 Connection established)
+	rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
+	if(rec <= 0){
+#ifdef _DEBUG
+		printf("[E] Recv http response from forward proxy.\n");
+#endif
+		free(buffer);
+		free(http_request);
+		return -1;
+	}
+#ifdef _DEBUG
+	printf("[I] Recv http response from forward proxy.\n");
+#endif
+
+	ret = strncmp(buffer, "HTTP/1.1 200 Connection established\r\n", strlen("HTTP/1.1 200 Connection established\r\n"));
+	if(ret != 0){
+#ifdef _DEBUG
+		printf("[E] Forward proxy error:\n%s\n", buffer);
+#endif
+		free(buffer);
+		free(http_request);
+		return -1;
+	}
+
+	free(buffer);
+	free(http_request);
+	return 0;
+}
+
+
+int forward_proxy_authentication_basic(int forward_proxy_sock, char *target_domainname, char *target_port_number, long tv_sec, long tv_usec)
+{
+	char *buffer = calloc(BUFFER_SIZE+1, sizeof(char));
+	char *http_request = calloc(BUFFER_SIZE+1, sizeof(char));
+	char *proxy_credential = calloc(BASIC_AUTH_CREDENTIAL_SIZE+1, sizeof(char));
+	char *proxy_b64_credential = calloc(BASIC_AUTH_CREDENTIAL_BASE64_SIZE+1, sizeof(char));
+	int http_request_length = 0;
+	int proxy_credential_length = 0;
+	int length = 0;
+	int rec, sen;
+	int ret = 0;
+
+
+	proxy_credential_length = snprintf(proxy_credential, BASIC_AUTH_CREDENTIAL_SIZE+1, "%s:%s", forward_proxy_username, forward_proxy_password);
+	length = encode_base64(proxy_credential, proxy_credential_length, proxy_b64_credential, BASIC_AUTH_CREDENTIAL_BASE64_SIZE);
+#ifdef _DEBUG
+	printf("[I] Forward proxy credential (base64):%s\n", proxy_b64_credential);
+#endif
+
+	http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nProxy-Authorization: Basic %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nAccept: */*\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number, proxy_b64_credential);
+
+	// HTTP Request
+	sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
+	if(sen <= 0){
+#ifdef _DEBUG
+		printf("[E] Send http request to forward proxy.\n");
+#endif
+		free(buffer);
+		free(http_request);
+		free(proxy_credential);
+		free(proxy_b64_credential);
+		return -1;
+	}
+#ifdef _DEBUG
+	printf("[I] Send http request to forward proxy.\n");
+#endif
+
+	// HTTP Response (HTTP/1.1 200 Connection established)
+	rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
+	if(rec <= 0){
+#ifdef _DEBUG
+		printf("[E] Recv http response from forward proxy.\n");
+#endif
+		free(buffer);
+		free(http_request);
+		free(proxy_credential);
+		free(proxy_b64_credential);
+		return -1;
+	}
+#ifdef _DEBUG
+	printf("[I] Recv http response from forward proxy.\n");
+#endif
+
+	ret = strncmp(buffer, "HTTP/1.1 200 Connection established\r\n", strlen("HTTP/1.1 200 Connection established\r\n"));
+	if(ret != 0){
+#ifdef _DEBUG
+		printf("[E] Forward proxy error:\n%s\n", buffer);
+#endif
+		free(buffer);
+		free(http_request);
+		free(proxy_credential);
+		free(proxy_b64_credential);
+		return -1;
+	}
+
+	free(buffer);
+	free(http_request);
+	free(proxy_credential);
+	free(proxy_b64_credential);
+	return 0;
+}
+
+
+int forward_proxy_authentication_digest(int forward_proxy_sock, char *target_domainname, char *target_port_number, long tv_sec, long tv_usec)
+{
+	char *buffer = calloc(BUFFER_SIZE+1, sizeof(char));
+	char *http_request = calloc(BUFFER_SIZE+1, sizeof(char));
+	char *http_header_data = calloc(HTTP_HEADER_DATA_SIZE+1, sizeof(char));
+	struct digest_parameters *digest_param = calloc(1, sizeof(struct digest_parameters));;
+	char digest_http_header_key[] = "Proxy-Authenticate:";
+	int http_request_length = 0;
+	int length = 0;
+	int rec, sen;
+	int ret = 0;
+	char *pos = NULL;
+
+
+	memcpy(&(digest_param->username), forward_proxy_username, strlen(forward_proxy_username));
+	memcpy(&(digest_param->password), forward_proxy_password, strlen(forward_proxy_password));
+	memcpy(&(digest_param->nc), "00000001", strlen("00000001"));
+	memcpy(&(digest_param->method), "CONNECT", strlen("CONNECT"));
+	length = snprintf(digest_param->uri, 500, "%s:%s", target_domainname, target_port_number);
+
+	http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number);
+
+	// HTTP Request
+	sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
+	if(sen <= 0){
+#ifdef _DEBUG
+		printf("[E] Send http request to forward proxy.\n");
+#endif
+		free(buffer);
+		free(http_request);
+		free(http_header_data);
+		free(digest_param);
+		return -1;
+	}
+#ifdef _DEBUG
+	printf("[I] Send http request to forward proxy.\n");
+#endif
+
+	// HTTP Response (HTTP/1.1 407 Proxy Authentication Required)
+	rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
+	if(rec <= 0){
+#ifdef _DEBUG
+		printf("[E] Recv http response from forward proxy.\n");
+#endif
+		free(buffer);
+		free(http_request);
+		free(http_header_data);
+		free(digest_param);
+		return -1;
+	}
+#ifdef _DEBUG
+	printf("[I] Recv http response from forward proxy.\n");
+#endif
+
+	ret = strncmp(buffer, "HTTP/1.1 407 Proxy Authentication Required\r\n", strlen("HTTP/1.1 407 Proxy Authentication Required\r\n"));
+	if(ret != 0){
+#ifdef _DEBUG
+		printf("[E] Forward proxy error:\n%s\n", buffer);
+#endif
+		free(buffer);
+		free(http_request);
+		free(http_header_data);
+		free(digest_param);
+		return -1;
+	}
+
+	ret = get_http_header((const char *)buffer, (const char *)&digest_http_header_key, (char *)http_header_data, HTTP_HEADER_DATA_SIZE);
+	if(ret == -1){
+#ifdef _DEBUG
+		printf("[E] get_http_header error\n");
+#endif
+		free(buffer);
+		free(http_request);
+		free(http_header_data);
+		free(digest_param);
+		return -1;
+	}
+#ifdef _DEBUG
+	printf("[I] http_header_data:%s\n", http_header_data);
+#endif
+
+	ret = get_digest_values((const char *)http_header_data, digest_param);
+	if(ret == -1){
+#ifdef _DEBUG
+		printf("[E] get_digest_values error\n");
+#endif
+		free(buffer);
+		free(http_request);
+		free(http_header_data);
+		free(digest_param);
+		return -1;
+	}
+
+	if(!strncmp(digest_param->qop, "auth-int", strlen("auth-int"))){
+		pos = strstr((const char *)buffer, "\r\n\r\n");
+		length = snprintf(digest_param->entity_body, BUFFER_SIZE+1, "%s", pos+4);
+	}
+
+	ret = get_digest_response(digest_param);
+	if(ret == -1){
+#ifdef _DEBUG
+		printf("[E] get_digest_response error\n");
+#endif
+		free(buffer);
+		free(http_request);
+		free(http_header_data);
+		free(digest_param);
+		return -1;
+	}
+
+	bzero(http_request, BUFFER_SIZE+1);
+	http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nProxy-Authorization: Digest username=\"%s\", realm=\"%s\", nonce=\"%s\", uri=\"%s\", cnonce=\"%s\", nc=%s, qop=%s, response=\"%s\"\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number, digest_param->username, digest_param->realm, digest_param->nonce, digest_param->uri, digest_param->cnonce, digest_param->nc, digest_param->qop, digest_param->response_hash);
+
+	// HTTP Request
+	sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
+	if(sen <= 0){
+#ifdef _DEBUG
+		printf("[E] Send http request to forward proxy.\n");
+#endif
+		free(buffer);
+		free(http_request);
+		free(http_header_data);
+		free(digest_param);
+		return -1;
+	}
+#ifdef _DEBUG
+	printf("[I] Send http request to forward proxy.\n");
+#endif
+
+	// HTTP Response (HTTP/1.1 200 Connection established)
+	bzero(buffer, BUFFER_SIZE+1);
+	rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
+	if(rec <= 0){
+#ifdef _DEBUG
+		printf("[E] Recv http response from forward proxy.\n");
+#endif
+		free(buffer);
+		free(http_request);
+		free(http_header_data);
+		free(digest_param);
+		return -1;
+	}
+#ifdef _DEBUG
+	printf("[I] Recv http response from forward proxy.\n");
+#endif
+
+	ret = strncmp(buffer, "HTTP/1.1 200 Connection established\r\n", strlen("HTTP/1.1 200 Connection established\r\n"));
+	if(ret != 0){
+#ifdef _DEBUG
+		printf("[E] Forward proxy error:\n%s\n", buffer);
+#endif
+		free(buffer);
+		free(http_request);
+		free(http_header_data);
+		free(digest_param);
+		return -1;
+	}
+
+	free(buffer);
+	free(http_request);
+	free(http_header_data);
+	free(digest_param);
+	return 0;
+}
+
+
+int forward_proxy_authentication_ntlmv2(int forward_proxy_sock, char *target_domainname, char *target_port_number, long tv_sec, long tv_usec)
+{
+	char *buffer = calloc(BUFFER_SIZE+1, sizeof(char));
+	char *http_request = calloc(BUFFER_SIZE+1, sizeof(char));
+	char *http_header_data = calloc(HTTP_HEADER_DATA_SIZE+1, sizeof(char));
+	char *ntlm = calloc(NTLMV2_AUTH_SIZE+1, sizeof(char));
+	char *ntlm_b64 = calloc(NTLMV2_AUTH_BASE64_SIZE+1, sizeof(char));
+	char *ntlm_challenge_message = calloc(NTLMV2_AUTH_CHALLENGE_MESSAGE_SIZE+1, sizeof(char));
+	char ntlm_http_header_key[] = "Proxy-Authenticate:";
+	int http_request_length = 0;
+	int length = 0;
+	int rec, sen;
+	int ret = 0;
+	struct negotiate_message *negotiate_message = NULL;
+	struct challenge_message *challenge_message = NULL;
+	struct authenticate_message *authenticate_message = NULL;
+	int ntlm_negotiate_message_length = 0;
+	int ntlm_challenge_message_length = 0;
+	int ntlm_authenticate_message_length = 0;
+	char *pos = NULL;
+
+
+	// negotiate_message
+	negotiate_message = (struct negotiate_message *)ntlm;
+	ntlm_negotiate_message_length = 0;
+
+	memcpy(&negotiate_message->signature, "NTLMSSP\0", 8);
+	ntlm_negotiate_message_length += 8;
+
+	negotiate_message->message_type = NtLmNegotiate;
+	ntlm_negotiate_message_length += 4;
+
+	negotiate_message->negotiate_flags.negotiate_unicode                  = 0;
+	negotiate_message->negotiate_flags.negotiate_oem                      = 1;
+	negotiate_message->negotiate_flags.request_target                     = 1;
+	negotiate_message->negotiate_flags.request_0x00000008                 = 0;
+	negotiate_message->negotiate_flags.negotiate_sign                     = 0;
+	negotiate_message->negotiate_flags.negotiate_seal                     = 0;
+	negotiate_message->negotiate_flags.negotiate_datagram                 = 0;
+	negotiate_message->negotiate_flags.negotiate_lan_manager_key          = 0;
+	negotiate_message->negotiate_flags.negotiate_0x00000100               = 0;
+	negotiate_message->negotiate_flags.negotiate_ntlm_key                 = 1;
+	negotiate_message->negotiate_flags.negotiate_nt_only                  = 0;
+	negotiate_message->negotiate_flags.negotiate_anonymous                = 0;
+	negotiate_message->negotiate_flags.negotiate_oem_domain_supplied      = 0;
+	negotiate_message->negotiate_flags.negotiate_oem_workstation_supplied = 0;
+	negotiate_message->negotiate_flags.negotiate_0x00004000               = 0;
+	negotiate_message->negotiate_flags.negotiate_always_sign              = 1;
+	negotiate_message->negotiate_flags.target_type_domain                 = 0;
+	negotiate_message->negotiate_flags.target_type_server                 = 0;
+	negotiate_message->negotiate_flags.target_type_share                  = 0;
+	negotiate_message->negotiate_flags.negotiate_extended_security        = 1;
+	negotiate_message->negotiate_flags.negotiate_identify                 = 0;
+	negotiate_message->negotiate_flags.negotiate_0x00200000               = 0;
+	negotiate_message->negotiate_flags.request_non_nt_session             = 0;
+	negotiate_message->negotiate_flags.negotiate_target_info              = 0;
+	negotiate_message->negotiate_flags.negotiate_0x01000000               = 0;
+	negotiate_message->negotiate_flags.negotiate_version                  = 0;
+	negotiate_message->negotiate_flags.negotiate_0x04000000               = 0;
+	negotiate_message->negotiate_flags.negotiate_0x08000000               = 0;
+	negotiate_message->negotiate_flags.negotiate_0x10000000               = 0;
+	negotiate_message->negotiate_flags.negotiate_128                      = 0;
+	negotiate_message->negotiate_flags.negotiate_key_exchange             = 0;
+	negotiate_message->negotiate_flags.negotiate_56                       = 0;
+	ntlm_negotiate_message_length += 4;
+
+	negotiate_message->domain_name_fields.domain_name_len = 0;
+	negotiate_message->domain_name_fields.domain_name_max_len = 0;
+	negotiate_message->domain_name_fields.domain_name_buffer_offset = 0;
+	ntlm_negotiate_message_length += 8;
+
+	negotiate_message->workstation_fields.workstation_len = 0;
+	negotiate_message->workstation_fields.workstation_max_len = 0;
+	negotiate_message->workstation_fields.workstation_buffer_offset = 0;
+	ntlm_negotiate_message_length += 8;
+
+	ret = encode_base64((const unsigned char *)negotiate_message, ntlm_negotiate_message_length, (unsigned char *)ntlm_b64, NTLMV2_AUTH_BASE64_SIZE);
+	if(ret == -1){
+#ifdef _DEBUG
+		printf("[E] encode_base64 error\n");
+#endif
+		free(buffer);
+		free(http_request);
+		free(http_header_data);
+		free(ntlm);
+		free(ntlm_b64);
+		free(ntlm_challenge_message);
+		return -1;
+	}
+
+#ifdef _DEBUG
+	printf("[I] negotiate_message ntlm_b64:%s ntlm_negotiate_message_length:%d\n", ntlm_b64, ntlm_negotiate_message_length);
+#endif
+
+	http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nProxy-Authorization: NTLM %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number, ntlm_b64);
+
+	// HTTP Request
+	sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
+	if(sen <= 0){
+#ifdef _DEBUG
+		printf("[E] Send http request to forward proxy.\n");
+#endif
+		free(buffer);
+		free(http_request);
+		free(http_header_data);
+		free(ntlm);
+		free(ntlm_b64);
+		free(ntlm_challenge_message);
+		return -1;
+	}
+#ifdef _DEBUG
+	printf("[I] Send http request to forward proxy.\n");
+#endif
+
+	// HTTP Response (HTTP/1.1 407 Proxy Authentication Required)
+	rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
+	if(rec <= 0){
+#ifdef _DEBUG
+		printf("[E] Recv http response from forward proxy.\n");
+#endif
+		free(buffer);
+		free(http_request);
+		free(http_header_data);
+		free(ntlm);
+		free(ntlm_b64);
+		free(ntlm_challenge_message);
+		return -1;
+	}
+#ifdef _DEBUG
+	printf("[I] Recv http response from forward proxy.\n");
+#endif
+
+	// challenge message
+	ret = get_http_header((const char *)buffer, (const char *)&ntlm_http_header_key, (char *)http_header_data, HTTP_HEADER_DATA_SIZE);
+	if(ret == -1){
+#ifdef _DEBUG
+		printf("[E] get_http_header error\n");
+#endif
+		free(buffer);
+		free(http_request);
+		free(http_header_data);
+		free(ntlm);
+		free(ntlm_b64);
+		free(ntlm_challenge_message);
+		return -1;
+	}
+#ifdef _DEBUG
+	printf("[I] http_header_data:%s\n", http_header_data);
+#endif
+
+	pos = strstr((const char *)http_header_data, "Proxy-Authenticate: NTLM ");
+	if(pos == NULL){
+#ifdef _DEBUG
+		printf("[E] Cannot find Proxy-Authenticate: NTLM in http header.\n");
+#endif
+		free(buffer);
+		free(http_request);
+		free(http_header_data);
+		free(ntlm);
+		free(ntlm_b64);
+		free(ntlm_challenge_message);
+		return -1;
+	}
+
+	pos += strlen("Proxy-Authenticate: NTLM ");
+	length = strlen(pos);
+	ntlm_challenge_message_length = decode_base64((const char *)pos, length, ntlm_challenge_message, NTLMV2_AUTH_CHALLENGE_MESSAGE_SIZE);
+	if(ntlm_challenge_message_length == -1){
+#ifdef _DEBUG
+		printf("[E] decode_base64 error\n");
+#endif
+		free(buffer);
+		free(http_request);
+		free(http_header_data);
+		free(ntlm);
+		free(ntlm_b64);
+		free(ntlm_challenge_message);
+		return -1;
+	}
+
+	challenge_message = (struct challenge_message *)ntlm_challenge_message;
+
+	if(challenge_message->message_type != NtLmChallenge){
+#ifdef _DEBUG
+		printf("[E] ntlm challenge message message_type error:%04x\n", challenge_message->message_type);
+#endif
+		free(buffer);
+		free(http_request);
+		free(http_header_data);
+		free(ntlm);
+		free(ntlm_b64);
+		free(ntlm_challenge_message);
+		return -1;
+	}
+
+	// authenticate_message
+	bzero(ntlm, NTLMV2_AUTH_SIZE+1);
+	bzero(ntlm_b64, NTLMV2_AUTH_BASE64_SIZE+1);
+	authenticate_message = (struct authenticate_message *)ntlm;
+	ntlm_authenticate_message_length = 0;
+
+	ret = generate_response_ntlmv2(challenge_message, authenticate_message);
+	if(ret == -1){
+#ifdef _DEBUG
+		printf("[E] generate_response_ntlmv2 error\n");
+#endif
+		free(buffer);
+		free(http_request);
+		free(http_header_data);
+		free(ntlm);
+		free(ntlm_b64);
+		free(ntlm_challenge_message);
+		return -1;
+	}
+	ntlm_authenticate_message_length = ret;
+
+	ret = encode_base64((const unsigned char *)authenticate_message, ntlm_authenticate_message_length, (unsigned char *)ntlm_b64, NTLMV2_AUTH_BASE64_SIZE);
+	if(ret == -1){
+#ifdef _DEBUG
+		printf("[E] encode_base64 error\n");
+#endif
+		free(buffer);
+		free(http_request);
+		free(http_header_data);
+		free(ntlm);
+		free(ntlm_b64);
+		free(ntlm_challenge_message);
+		return -1;
+	}
+
+#ifdef _DEBUG
+	printf("[I] authenticate_message ntlm_b64:%s\n", ntlm_b64);
+#endif
+
+	bzero(http_request, BUFFER_SIZE+1);
+	http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nProxy-Authorization: NTLM %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number, ntlm_b64);
+
+	// HTTP Request
+	sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
+	if(sen <= 0){
+#ifdef _DEBUG
+		printf("[E] Send http request to forward proxy.\n");
+#endif
+		free(buffer);
+		free(http_request);
+		free(http_header_data);
+		free(ntlm);
+		free(ntlm_b64);
+		free(ntlm_challenge_message);
+		return -1;
+	}
+#ifdef _DEBUG
+	printf("[I] Send http request to forward proxy.\n");
+#endif
+
+	// HTTP Response (HTTP/1.1 200 Connection established)
+	bzero(buffer, BUFFER_SIZE+1);
+	rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
+	if(rec <= 0){
+#ifdef _DEBUG
+		printf("[E] Recv http response from forward proxy.\n");
+#endif
+		free(buffer);
+		free(http_request);
+		free(http_header_data);
+		free(ntlm);
+		free(ntlm_b64);
+		free(ntlm_challenge_message);
+		return -1;
+	}
+#ifdef _DEBUG
+	printf("[I] Recv http response from forward proxy.\n");
+#endif
+
+	ret = strncmp(buffer, "HTTP/1.1 200 Connection established\r\n", strlen("HTTP/1.1 200 Connection established\r\n"));
+	if(ret != 0){
+#ifdef _DEBUG
+		printf("[E] Forward proxy error:\n%s\n", buffer);
+#endif
+		free(buffer);
+		free(http_request);
+		free(http_header_data);
+		free(ntlm);
+		free(ntlm_b64);
+		free(ntlm_challenge_message);
+		return -1;
+	}
+
+	free(buffer);
+	free(http_request);
+	free(http_header_data);
+	free(ntlm);
+	free(ntlm_b64);
+	free(ntlm_challenge_message);
+	return 0;
+}
+
+
+int forward_proxy_authentication_spnego(int forward_proxy_sock, char *target_domainname, char *target_port_number, long tv_sec, long tv_usec)
+{
+	char *buffer = calloc(BUFFER_SIZE+1, sizeof(char));
+	char *http_request = calloc(BUFFER_SIZE+1, sizeof(char));
+	char *http_header_data = calloc(HTTP_HEADER_DATA_SIZE+1, sizeof(char));
+	char *b64_kerberos_token = calloc(SPNEGO_AUTH_BASE64_KERBEROS_TOKEN_SIZE+1, sizeof(char));
+	char spnego_http_header_key[] = "Proxy-Authenticate:";
+	int http_request_length = 0;
+	int rec, sen;
+	int ret = 0;
+	char *pos = NULL;
+
+
+	ret = get_base64_kerberos_token(forward_proxy_spn, b64_kerberos_token, SPNEGO_AUTH_BASE64_KERBEROS_TOKEN_SIZE);
+	if(ret == -1){
+#ifdef _DEBUG
+		printf("[E] get_base64_kerberos_token error\n");
+#endif
+		free(buffer);
+		free(http_request);
+		free(http_header_data);
+		free(b64_kerberos_token);
+		return -1;
+	}
+#ifdef _DEBUG
+	printf("[I] b64_kerberos_token:%s\n", b64_kerberos_token);
+#endif
+
+	http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number);
+
+	// HTTP Request
+	sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
+	if(sen <= 0){
+#ifdef _DEBUG
+		printf("[E] Send http request to forward proxy.\n");
+#endif
+		free(buffer);
+		free(http_request);
+		free(http_header_data);
+		free(b64_kerberos_token);
+		return -1;
+	}
+#ifdef _DEBUG
+	printf("[I] Send http request to forward proxy.\n");
+#endif
+
+	// HTTP Response (HTTP/1.1 407 Proxy Authentication Required)
+	rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
+	if(rec <= 0){
+#ifdef _DEBUG
+		printf("[E] Recv http response from forward proxy.\n");
+#endif
+		free(buffer);
+		free(http_request);
+		free(http_header_data);
+		free(b64_kerberos_token);
+		return -1;
+	}
+#ifdef _DEBUG
+	printf("[I] Recv http response from forward proxy.\n");
+#endif
+
+	ret = strncmp(buffer, "HTTP/1.1 407 Proxy Authentication Required\r\n", strlen("HTTP/1.1 407 Proxy Authentication Required\r\n"));
+	if(ret != 0){
+#ifdef _DEBUG
+		printf("[E] Forward proxy error:\n%s\n", buffer);
+#endif
+		free(buffer);
+		free(http_request);
+		free(http_header_data);
+		free(b64_kerberos_token);
+		return -1;
+	}
+
+	ret = get_http_header((const char *)buffer, (const char *)&spnego_http_header_key, (char *)http_header_data, HTTP_HEADER_DATA_SIZE);
+	if(ret == -1){
+#ifdef _DEBUG
+		printf("[E] get_http_header error\n");
+#endif
+		free(buffer);
+		free(http_request);
+		free(http_header_data);
+		free(b64_kerberos_token);
+		return -1;
+	}
+#ifdef _DEBUG
+	printf("[I] http_header_data:%s\n", http_header_data);
+#endif
+
+	pos = strstr((const char *)http_header_data, "Proxy-Authenticate: Negotiate");
+	if(pos == NULL){
+#ifdef _DEBUG
+		printf("[E] Cannot find Proxy-Authenticate: Negotiate in http header.\n");
+#endif
+		free(buffer);
+		free(http_request);
+		free(http_header_data);
+		free(b64_kerberos_token);
+		return -1;
+	}
+
+	bzero(http_request, BUFFER_SIZE+1);
+	http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nProxy-Authorization: Negotiate %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number, b64_kerberos_token);
+
+	// HTTP Request
+	sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
+	if(sen <= 0){
+#ifdef _DEBUG
+		printf("[E] Send http request to forward proxy.\n");
+#endif
+		free(buffer);
+		free(http_request);
+		free(http_header_data);
+		free(b64_kerberos_token);
+		return -1;
+	}
+#ifdef _DEBUG
+	printf("[I] Send http request to forward proxy.\n");
+#endif
+
+	// HTTP Response (HTTP/1.1 200 Connection established)
+	bzero(buffer, BUFFER_SIZE+1);
+	rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
+	if(rec <= 0){
+#ifdef _DEBUG
+		printf("[E] Recv http response from forward proxy.\n");
+#endif
+		free(buffer);
+		free(http_request);
+		free(http_header_data);
+		free(b64_kerberos_token);
+		return -1;
+	}
+#ifdef _DEBUG
+	printf("[I] Recv http response from forward proxy.\n");
+#endif
+
+	ret = strncmp(buffer, "HTTP/1.1 200 Connection established\r\n", strlen("HTTP/1.1 200 Connection established\r\n"));
+	if(ret != 0){
+#ifdef _DEBUG
+		printf("[E] Forward proxy error:\n%s\n", buffer);
+#endif
+		free(buffer);
+		free(http_request);
+		free(http_header_data);
+		free(b64_kerberos_token);
+		return -1;
+	}
+
+	free(buffer);
+	free(http_request);
+	free(http_header_data);
+	free(b64_kerberos_token);
+	return 0;
+}
+
+
 int worker(void *ptr)
 {
 	struct worker_param *worker_param = (struct worker_param *)ptr;
@@ -3117,34 +3876,6 @@ int worker(void *ptr)
 		forward_proxy_domainname_length = strlen(forward_proxy_domainname);
 	}
 	char *forward_proxy_port_number = forward_proxy_port;
-
-	int proxy_credential_length = 0;
-	char proxy_credential[1000];
-	char proxy_b64_credential[2000];
-	bzero(&proxy_credential, 1000);
-	bzero(&proxy_b64_credential, 2000);
-
-	char http_header_data[2000];
-	bzero(&http_header_data, 2000);
-
-	char digest_http_header_key[] = "Proxy-Authenticate";
-	struct digest_parameters digest_param;
-	bzero(&digest_param, sizeof(struct digest_parameters));
-	char *pos = NULL;
-
-	char ntlm_http_header_key[] = "Proxy-Authenticate:";
-	char *ntlm = NULL;
-	char *ntlm_b64 = NULL;
-	char *ntlm_challenge_message = NULL;
-	struct negotiate_message *negotiate_message = NULL;
-	struct challenge_message *challenge_message = NULL;
-	struct authenticate_message *authenticate_message = NULL;
-	int ntlm_negotiate_message_length = 0;
-	int ntlm_challenge_message_length = 0;
-	int ntlm_authenticate_message_length = 0;
-
-	char spnego_http_header_key[] = "Proxy-Authenticate:";
-	char *b64_kerberos_token = NULL;
 
 	char *target_domainname = socks5_target_ip;
 	u_short target_domainname_length = 0;
@@ -3178,7 +3909,7 @@ int worker(void *ptr)
 	
 	char http_request[BUFFER_SIZE+1];
 	int http_request_length = 0;
-	bzero(http_request, BUFFER_SIZE+1);
+	bzero(&http_request, BUFFER_SIZE+1);
 	
 	EVP_ENCODE_CTX *base64_encode_ctx = NULL;
 	int length = 0;
@@ -3320,1261 +4051,63 @@ int worker(void *ptr)
 #endif
 
 
-		if(forward_proxy_authentication_flag == 1){	// forward proxy authentication: basic
-			if(strlen(forward_proxy_username) > 256 || strlen(forward_proxy_password) > 256){
+		if(forward_proxy_authentication_flag == 0){	// forward proxy authentication: no
+			ret = forward_proxy_authentication_no(forward_proxy_sock, target_domainname, target_port_number, tv_sec, tv_usec);
+			if(ret < 0){
 #ifdef _DEBUG
-				printf("[E] Forward proxy username or password length is too long (length > 256).\n");
+				printf("[E] forward_proxy_authentication_no error\n");
 #endif
 				close_socket(forward_proxy_sock);
 				close_socket(client_sock);
 				return -1;
 			}
-
-			proxy_credential_length = snprintf(proxy_credential, 1000, "%s:%s", forward_proxy_username, forward_proxy_password);
-			length = 0;
-
-			length = encode_base64(proxy_credential, proxy_credential_length, proxy_b64_credential, 2000);
+		}else if(forward_proxy_authentication_flag == 1){	// forward proxy authentication: basic
+			ret = forward_proxy_authentication_basic(forward_proxy_sock, target_domainname, target_port_number, tv_sec, tv_usec);
+			if(ret < 0){
 #ifdef _DEBUG
-			printf("[I] Forward proxy credential (base64):%s\n", proxy_b64_credential);
+				printf("[E] forward_proxy_authentication_basic error\n");
 #endif
+				close_socket(forward_proxy_sock);
+				close_socket(client_sock);
+				return -1;
+			}
 		}else if(forward_proxy_authentication_flag == 2){	// forward proxy authentication: digest
-			if(strlen(forward_proxy_username) > 256 || strlen(forward_proxy_password) > 256){
+			ret = forward_proxy_authentication_digest(forward_proxy_sock, target_domainname, target_port_number, tv_sec, tv_usec);
+			if(ret < 0){
 #ifdef _DEBUG
-				printf("[E] Forward proxy username or password length is too long (length > 256).\n");
+				printf("[E] forward_proxy_authentication_digest error\n");
 #endif
 				close_socket(forward_proxy_sock);
 				close_socket(client_sock);
 				return -1;
 			}
-
-			memcpy(&(digest_param.username), forward_proxy_username, strlen(forward_proxy_username));
-			memcpy(&(digest_param.password), forward_proxy_password, strlen(forward_proxy_password));
-			memcpy(&(digest_param.nc), "00000001", strlen("00000001"));
-			memcpy(&(digest_param.method), "CONNECT", strlen("CONNECT"));
-			length = snprintf(digest_param.uri, 500, "%s:%s", target_domainname, target_port_number);
 		}else if(forward_proxy_authentication_flag == 3){	// forward proxy authentication: ntlmv2
-			if(strlen(forward_proxy_username) > 256 || strlen(forward_proxy_password) > 256){
+			ret = forward_proxy_authentication_ntlmv2(forward_proxy_sock, target_domainname, target_port_number, tv_sec, tv_usec);
+			if(ret < 0){
 #ifdef _DEBUG
-				printf("[E] Forward proxy username or password length is too long (length > 256).\n");
+				printf("[E] forward_proxy_authentication_ntlmv2 error\n");
 #endif
 				close_socket(forward_proxy_sock);
 				close_socket(client_sock);
 				return -1;
 			}
 		}else if(forward_proxy_authentication_flag == 4){	// forward proxy authentication: spnego(kerberos)
-			if(strlen(forward_proxy_spn) > 260){
+			ret = forward_proxy_authentication_spnego(forward_proxy_sock, target_domainname, target_port_number, tv_sec, tv_usec);
+			if(ret < 0){
 #ifdef _DEBUG
-				printf("[E] Forward proxy spn length is too long (length > 260).\n");
+				printf("[E] forward_proxy_authentication_spnego error\n");
 #endif
 				close_socket(forward_proxy_sock);
 				close_socket(client_sock);
 				return -1;
 			}
-		}
-
-
-		bzero(http_request, BUFFER_SIZE+1);
-		if(https_flag == 0){	// http (target socks5 server)
-			if(forward_proxy_authentication_flag == 0){	// forward proxy authentication: no
-//				http_request_length = snprintf(http_request, BUFFER_SIZE+1, "GET http://%s:%s/ HTTP/1.1\r\nHost: %s:%s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nAccept: */*\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number);
-
-				http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nAccept: */*\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number);
-
-				// HTTP Request
-				sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
-				if(sen <= 0){
+		}else{
 #ifdef _DEBUG
-					printf("[E] Send http request to forward proxy.\n");
+			printf("[E] Not implemented.\n");
 #endif
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] Send http request to forward proxy.\n");
-#endif
-
-				// HTTP Response
-				rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
-				if(rec <= 0){
-#ifdef _DEBUG
-					printf("[E] Recv http response from forward proxy.\n");
-#endif
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] Recv http response from forward proxy.\n");
-#endif
-
-				ret = strncmp(buffer, "HTTP/1.1 200 Connection established\r\n", strlen("HTTP/1.1 200 Connection established\r\n"));
-				if(ret != 0){
-#ifdef _DEBUG
-					printf("[E] Forward proxy error:\n%s\n", buffer);
-#endif
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-			}else if(forward_proxy_authentication_flag == 1){	// forward proxy authentication: basic
-//				http_request_length = snprintf(http_request, BUFFER_SIZE+1, "GET http://%s:%s/ HTTP/1.1\r\nHost: %s:%s\r\nProxy-Authorization: Basic %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nAccept: */*\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number, proxy_b64_credential);
-
-				http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nProxy-Authorization: Basic %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nAccept: */*\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number, proxy_b64_credential);
-
-				// HTTP Request
-				sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
-				if(sen <= 0){
-#ifdef _DEBUG
-					printf("[E] Send http request to forward proxy.\n");
-#endif
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] Send http request to forward proxy.\n");
-#endif
-
-				// HTTP Response
-				rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
-				if(rec <= 0){
-#ifdef _DEBUG
-					printf("[E] Recv http response from forward proxy.\n");
-#endif
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] Recv http response from forward proxy.\n");
-#endif
-
-				ret = strncmp(buffer, "HTTP/1.1 200 Connection established\r\n", strlen("HTTP/1.1 200 Connection established\r\n"));
-				if(ret != 0){
-#ifdef _DEBUG
-					printf("[E] Forward proxy error:\n%s\n", buffer);
-#endif
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-			}else if(forward_proxy_authentication_flag == 2){	// forward proxy authentication: digest
-				http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number);
-
-				// HTTP Request
-				sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
-				if(sen <= 0){
-#ifdef _DEBUG
-					printf("[E] Send http request to forward proxy.\n");
-#endif
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] Send http request to forward proxy.\n");
-#endif
-
-				// HTTP Response (HTTP/1.1 407 Proxy Authentication Required)
-				rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
-				if(rec <= 0){
-#ifdef _DEBUG
-					printf("[E] Recv http response from forward proxy.\n");
-#endif
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] Recv http response from forward proxy.\n");
-#endif
-
-				ret = strncmp(buffer, "HTTP/1.1 407 Proxy Authentication Required\r\n", strlen("HTTP/1.1 407 Proxy Authentication Required\r\n"));
-				if(ret != 0){
-#ifdef _DEBUG
-					printf("[E] Forward proxy error:\n%s\n", buffer);
-#endif
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-
-				ret = get_http_header((const char *)&buffer, (const char *)&digest_http_header_key, (char *)&http_header_data, 2000);
-				if(ret == -1){
-#ifdef _DEBUG
-					printf("[E] get_http_header error\n");
-#endif
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] http_header_data:%s\n", http_header_data);
-#endif
-
-				if(!strncmp(digest_param.qop, "auth-int", strlen("auth-int"))){
-					pos = strstr((const char *)&buffer, "\r\n\r\n");
-					length = snprintf(digest_param.entity_body, BUFFER_SIZE+1, "%s", pos+4);
-				}
-
-				ret = get_digest_values((const char *)&http_header_data, &digest_param);
-				if(ret == -1){
-#ifdef _DEBUG
-					printf("[E] get_digest_values error\n");
-#endif
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-
-				ret = get_digest_response(&digest_param);
-				if(ret == -1){
-#ifdef _DEBUG
-					printf("[E] get_digest_response error\n");
-#endif
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-
-				bzero(http_request, BUFFER_SIZE+1);
-				http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nProxy-Authorization: Digest username=\"%s\", realm=\"%s\", nonce=\"%s\", uri=\"%s\", cnonce=\"%s\", nc=%s, qop=%s, response=\"%s\"\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number, digest_param.username, digest_param.realm, digest_param.nonce, digest_param.uri, digest_param.cnonce, digest_param.nc, digest_param.qop, digest_param.response_hash);
-
-				// HTTP Request
-				sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
-				if(sen <= 0){
-#ifdef _DEBUG
-					printf("[E] Send http request to forward proxy.\n");
-#endif
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] Send http request to forward proxy.\n");
-#endif
-
-				// HTTP Response (HTTP/1.1 200 Connection established)
-				rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
-				if(rec <= 0){
-#ifdef _DEBUG
-					printf("[E] Recv http response from forward proxy.\n");
-#endif
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] Recv http response from forward proxy.\n");
-#endif
-
-				ret = strncmp(buffer, "HTTP/1.1 200 Connection established\r\n", strlen("HTTP/1.1 200 Connection established\r\n"));
-				if(ret != 0){
-#ifdef _DEBUG
-					printf("[E] Forward proxy error:\n%s\n", buffer);
-#endif
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-			}else if(forward_proxy_authentication_flag == 3){	// forward proxy authentication: ntlmv2
-				ntlm = calloc(2000, sizeof(char));
-				ntlm_b64 = calloc(3000, sizeof(char));
-				ntlm_challenge_message = calloc(2000, sizeof(char));
-
-				// negotiate_message
-				negotiate_message = (struct negotiate_message *)ntlm;
-				ntlm_negotiate_message_length = 0;
-
-				memcpy(&(negotiate_message->signature), "NTLMSSP\0", 8);
-				ntlm_negotiate_message_length += 8;
-
-				negotiate_message->message_type = NtLmNegotiate;
-				ntlm_negotiate_message_length += 4;
-
-				negotiate_message->negotiate_flags.negotiate_unicode                  = 0;
-				negotiate_message->negotiate_flags.negotiate_oem                      = 1;
-				negotiate_message->negotiate_flags.request_target                     = 1;
-				negotiate_message->negotiate_flags.request_0x00000008                 = 0;
-				negotiate_message->negotiate_flags.negotiate_sign                     = 0;
-				negotiate_message->negotiate_flags.negotiate_seal                     = 0;
-				negotiate_message->negotiate_flags.negotiate_datagram                 = 0;
-				negotiate_message->negotiate_flags.negotiate_lan_manager_key          = 0;
-				negotiate_message->negotiate_flags.negotiate_0x00000100               = 0;
-				negotiate_message->negotiate_flags.negotiate_ntlm_key                 = 1;
-				negotiate_message->negotiate_flags.negotiate_nt_only                  = 0;
-				negotiate_message->negotiate_flags.negotiate_anonymous                = 0;
-				negotiate_message->negotiate_flags.negotiate_oem_domain_supplied      = 0;
-				negotiate_message->negotiate_flags.negotiate_oem_workstation_supplied = 0;
-				negotiate_message->negotiate_flags.negotiate_0x00004000               = 0;
-				negotiate_message->negotiate_flags.negotiate_always_sign              = 1;
-				negotiate_message->negotiate_flags.target_type_domain                 = 0;
-				negotiate_message->negotiate_flags.target_type_server                 = 0;
-				negotiate_message->negotiate_flags.target_type_share                  = 0;
-				negotiate_message->negotiate_flags.negotiate_extended_security        = 1;
-				negotiate_message->negotiate_flags.negotiate_identify                 = 0;
-				negotiate_message->negotiate_flags.negotiate_0x00200000               = 0;
-				negotiate_message->negotiate_flags.request_non_nt_session             = 0;
-				negotiate_message->negotiate_flags.negotiate_target_info              = 0;
-				negotiate_message->negotiate_flags.negotiate_0x01000000               = 0;
-				negotiate_message->negotiate_flags.negotiate_version                  = 0;
-				negotiate_message->negotiate_flags.negotiate_0x04000000               = 0;
-				negotiate_message->negotiate_flags.negotiate_0x08000000               = 0;
-				negotiate_message->negotiate_flags.negotiate_0x10000000               = 0;
-				negotiate_message->negotiate_flags.negotiate_128                      = 0;
-				negotiate_message->negotiate_flags.negotiate_key_exchange             = 0;
-				negotiate_message->negotiate_flags.negotiate_56                       = 0;
-				ntlm_negotiate_message_length += 4;
-
-				negotiate_message->domain_name_fields.domain_name_len = 0;
-				negotiate_message->domain_name_fields.domain_name_max_len = 0;
-				negotiate_message->domain_name_fields.domain_name_buffer_offset = 0;
-				ntlm_negotiate_message_length += 8;
-
-				negotiate_message->workstation_fields.workstation_len = 0;
-				negotiate_message->workstation_fields.workstation_max_len = 0;
-				negotiate_message->workstation_fields.workstation_buffer_offset = 0;
-				ntlm_negotiate_message_length += 8;
-
-				ret = encode_base64((const unsigned char *)negotiate_message, ntlm_negotiate_message_length, (unsigned char *)ntlm_b64, 3000);
-				if(ret == -1){
-#ifdef _DEBUG
-					printf("[E] encode_base64 error\n");
-#endif
-					free(ntlm);
-					free(ntlm_b64);
-					free(ntlm_challenge_message);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-
-#ifdef _DEBUG
-				printf("[I] negotiate_message ntlm_b64:%s ntlm_negotiate_message_length:%d\n", ntlm_b64, ntlm_negotiate_message_length);
-#endif
-
-				http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nProxy-Authorization: NTLM %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number, ntlm_b64);
-
-				// HTTP Request
-				sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
-				if(sen <= 0){
-#ifdef _DEBUG
-					printf("[E] Send http request to forward proxy.\n");
-#endif
-					free(ntlm);
-					free(ntlm_b64);
-					free(ntlm_challenge_message);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] Send http request to forward proxy.\n");
-#endif
-
-				// HTTP Response (HTTP/1.1 407 Proxy Authentication Required)
-				rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
-				if(rec <= 0){
-#ifdef _DEBUG
-					printf("[E] Recv http response from forward proxy.\n");
-#endif
-					free(ntlm);
-					free(ntlm_b64);
-					free(ntlm_challenge_message);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] Recv http response from forward proxy.\n");
-#endif
-
-				// challenge message
-				ret = get_http_header((const char *)&buffer, (const char *)&ntlm_http_header_key, (char *)&http_header_data, 2000);
-				if(ret == -1){
-#ifdef _DEBUG
-					printf("[E] get_http_header error\n");
-#endif
-					free(ntlm);
-					free(ntlm_b64);
-					free(ntlm_challenge_message);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] http_header_data:%s\n", http_header_data);
-#endif
-
-				pos = strstr((const char *)&http_header_data, "Proxy-Authenticate: NTLM ");
-				if(pos == NULL){
-#ifdef _DEBUG
-					printf("[E] Cannot find Proxy-Authenticate: NTLM in http header.\n");
-#endif
-					free(ntlm);
-					free(ntlm_b64);
-					free(ntlm_challenge_message);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-
-				pos += strlen("Proxy-Authenticate: NTLM ");
-				length = strlen(pos);
-				ntlm_challenge_message_length = decode_base64((const char *)pos, length, ntlm_challenge_message, 2000);
-				if(ntlm_challenge_message_length == -1){
-#ifdef _DEBUG
-					printf("[E] decode_base64 error\n");
-#endif
-					free(ntlm);
-					free(ntlm_b64);
-					free(ntlm_challenge_message);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-
-				challenge_message = (struct challenge_message *)ntlm_challenge_message;
-
-				if(challenge_message->message_type != NtLmChallenge){
-#ifdef _DEBUG
-					printf("[E] ntlm challenge message message_type error:%04x\n", challenge_message->message_type);
-#endif
-					free(ntlm);
-					free(ntlm_b64);
-					free(ntlm_challenge_message);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-
-				// authenticate_message
-				bzero(ntlm, 2000);
-				bzero(ntlm_b64, 3000);
-				authenticate_message = (struct authenticate_message *)ntlm;
-				ntlm_authenticate_message_length = 0;
-
-				ret = generate_response_ntlmv2(challenge_message, authenticate_message);
-				if(ret == -1){
-#ifdef _DEBUG
-					printf("[E] generate_response_ntlmv2 error\n");
-#endif
-					free(ntlm);
-					free(ntlm_b64);
-					free(ntlm_challenge_message);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-				ntlm_authenticate_message_length = ret;
-
-				ret = encode_base64((const unsigned char *)authenticate_message, ntlm_authenticate_message_length, (unsigned char *)ntlm_b64, 3000);
-				if(ret == -1){
-#ifdef _DEBUG
-					printf("[E] encode_base64 error\n");
-#endif
-					free(ntlm);
-					free(ntlm_b64);
-					free(ntlm_challenge_message);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-
-#ifdef _DEBUG
-				printf("[I] authenticate_message ntlm_b64:%s\n", ntlm_b64);
-#endif
-
-				http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nProxy-Authorization: NTLM %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number, ntlm_b64);
-
-				// HTTP Request
-				sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
-				if(sen <= 0){
-#ifdef _DEBUG
-					printf("[E] Send http request to forward proxy.\n");
-#endif
-					free(ntlm);
-					free(ntlm_b64);
-					free(ntlm_challenge_message);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] Send http request to forward proxy.\n");
-#endif
-
-				// HTTP Response (HTTP/1.1 200 Connection established)
-				rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
-				if(rec <= 0){
-#ifdef _DEBUG
-					printf("[E] Recv http response from forward proxy.\n");
-#endif
-					free(ntlm);
-					free(ntlm_b64);
-					free(ntlm_challenge_message);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] Recv http response from forward proxy.\n");
-#endif
-
-				ret = strncmp(buffer, "HTTP/1.1 200 Connection established\r\n", strlen("HTTP/1.1 200 Connection established\r\n"));
-				if(ret != 0){
-#ifdef _DEBUG
-					printf("[E] Forward proxy error:\n%s\n", buffer);
-#endif
-					free(ntlm);
-					free(ntlm_b64);
-					free(ntlm_challenge_message);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-
-				free(ntlm);
-				free(ntlm_b64);
-				free(ntlm_challenge_message);
-			}else if(forward_proxy_authentication_flag == 4){	// forward proxy authentication: spnego(kerberos)
-				b64_kerberos_token = calloc(4000, sizeof(char));
-
-				ret = get_base64_kerberos_token(forward_proxy_spn, b64_kerberos_token, 4000);
-				if(ret == -1){
-#ifdef _DEBUG
-					printf("[E] get_base64_kerberos_token error\n");
-#endif
-					free(b64_kerberos_token);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] b64_kerberos_token:%s\n", b64_kerberos_token);
-#endif
-
-				http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number);
-
-				// HTTP Request
-				sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
-				if(sen <= 0){
-#ifdef _DEBUG
-					printf("[E] Send http request to forward proxy.\n");
-#endif
-					free(b64_kerberos_token);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] Send http request to forward proxy.\n");
-#endif
-
-				// HTTP Response (HTTP/1.1 407 Proxy Authentication Required)
-				bzero(&buffer, BUFFER_SIZE+1);
-				rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
-				if(rec <= 0){
-#ifdef _DEBUG
-					printf("[E] Recv http response from forward proxy.\n");
-#endif
-					free(b64_kerberos_token);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] Recv http response from forward proxy.\n");
-#endif
-
-				ret = strncmp(buffer, "HTTP/1.1 407 Proxy Authentication Required\r\n", strlen("HTTP/1.1 407 Proxy Authentication Required\r\n"));
-				if(ret != 0){
-#ifdef _DEBUG
-					printf("[E] Forward proxy error:\n%s\n", buffer);
-#endif
-					free(b64_kerberos_token);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-
-				bzero(&http_header_data, 2000);
-				ret = get_http_header((const char *)&buffer, (const char *)&spnego_http_header_key, (char *)&http_header_data, 2000);
-				if(ret == -1){
-#ifdef _DEBUG
-					printf("[E] get_http_header error\n");
-#endif
-					free(b64_kerberos_token);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] http_header_data:%s\n", http_header_data);
-#endif
-
-				pos = strstr((const char *)&http_header_data, "Proxy-Authenticate: Negotiate");
-				if(pos == NULL){
-#ifdef _DEBUG
-					printf("[E] Cannot find Proxy-Authenticate: Negotiate in http header.\n");
-#endif
-					free(b64_kerberos_token);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-
-				bzero(http_request, BUFFER_SIZE+1);
-				http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nProxy-Authorization: Negotiate %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number, b64_kerberos_token);
-
-				// HTTP Request
-				sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
-				if(sen <= 0){
-#ifdef _DEBUG
-					printf("[E] Send http request to forward proxy.\n");
-#endif
-					free(b64_kerberos_token);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] Send http request to forward proxy.\n");
-#endif
-
-				// HTTP Response (HTTP/1.1 200 Connection established)
-				bzero(&buffer, BUFFER_SIZE+1);
-				rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
-				if(rec <= 0){
-#ifdef _DEBUG
-					printf("[E] Recv http response from forward proxy.\n");
-#endif
-					free(b64_kerberos_token);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] Recv http response from forward proxy.\n");
-#endif
-
-				ret = strncmp(buffer, "HTTP/1.1 200 Connection established\r\n", strlen("HTTP/1.1 200 Connection established\r\n"));
-				if(ret != 0){
-#ifdef _DEBUG
-					printf("[E] Forward proxy error:\n%s\n", buffer);
-#endif
-					free(b64_kerberos_token);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-
-				free(b64_kerberos_token);
-			}else{
-#ifdef _DEBUG
-				printf("[E] Not implemented.\n");
-#endif
-				close_socket(forward_proxy_sock);
-				close_socket(client_sock);
-				return -1;
-			}
-		}else{	// https (target socks5 server)
-			if(forward_proxy_authentication_flag == 0){	// forward proxy authentication: no
-				http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nAccept: */*\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number);
-
-				// HTTP Request
-				sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
-				if(sen <= 0){
-#ifdef _DEBUG
-					printf("[E] Send http request to forward proxy.\n");
-#endif
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] Send http request to forward proxy.\n");
-#endif
-
-				// HTTP Response
-				rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
-				if(rec <= 0){
-#ifdef _DEBUG
-					printf("[E] Recv http response from forward proxy.\n");
-#endif
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] Recv http response from forward proxy.\n");
-#endif
-
-				ret = strncmp(buffer, "HTTP/1.1 200 Connection established\r\n", strlen("HTTP/1.1 200 Connection established\r\n"));
-				if(ret != 0){
-#ifdef _DEBUG
-					printf("[E] Forward proxy error:\n%s\n", buffer);
-#endif
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-			}else if(forward_proxy_authentication_flag == 1){	// forward proxy authentication: basic
-				http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nProxy-Authorization: Basic %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nAccept: */*\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number, proxy_b64_credential);
-
-				// HTTP Request
-				sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
-				if(sen <= 0){
-#ifdef _DEBUG
-					printf("[E] Send http request to forward proxy.\n");
-#endif
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] Send http request to forward proxy.\n");
-#endif
-
-				// HTTP Response
-				rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
-				if(rec <= 0){
-#ifdef _DEBUG
-					printf("[E] Recv http response from forward proxy.\n");
-#endif
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] Recv http response from forward proxy.\n");
-#endif
-
-				ret = strncmp(buffer, "HTTP/1.1 200 Connection established\r\n", strlen("HTTP/1.1 200 Connection established\r\n"));
-				if(ret != 0){
-#ifdef _DEBUG
-					printf("[E] Forward proxy error:\n%s\n", buffer);
-#endif
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-			}else if(forward_proxy_authentication_flag == 2){	// forward proxy authentication: digest
-				http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number);
-
-				// HTTP Request
-				sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
-				if(sen <= 0){
-#ifdef _DEBUG
-					printf("[E] Send http request to forward proxy.\n");
-#endif
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] Send http request to forward proxy.\n");
-#endif
-
-				// HTTP Response (HTTP/1.1 407 Proxy Authentication Required)
-				rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
-				if(rec <= 0){
-#ifdef _DEBUG
-					printf("[E] Recv http response from forward proxy.\n");
-#endif
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] Recv http response from forward proxy.\n");
-#endif
-
-				ret = strncmp(buffer, "HTTP/1.1 407 Proxy Authentication Required\r\n", strlen("HTTP/1.1 407 Proxy Authentication Required\r\n"));
-				if(ret != 0){
-#ifdef _DEBUG
-					printf("[E] Forward proxy error:\n%s\n", buffer);
-#endif
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-
-				ret = get_http_header((const char *)&buffer, (const char *)&digest_http_header_key, (char *)&http_header_data, 2000);
-				if(ret == -1){
-#ifdef _DEBUG
-					printf("[E] get_http_header error\n");
-#endif
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] http_header_data:%s\n", http_header_data);
-#endif
-
-				ret = get_digest_values((const char *)&http_header_data, &digest_param);
-				if(ret == -1){
-#ifdef _DEBUG
-					printf("[E] get_digest_values error\n");
-#endif
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-
-				ret = get_digest_response(&digest_param);
-				if(ret == -1){
-#ifdef _DEBUG
-					printf("[E] get_digest_response error\n");
-#endif
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-
-				bzero(http_request, BUFFER_SIZE+1);
-				http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nProxy-Authorization: Digest username=\"%s\", realm=\"%s\", nonce=\"%s\", uri=\"%s\", cnonce=\"%s\", nc=%s, qop=%s, response=\"%s\"\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number, digest_param.username, digest_param.realm, digest_param.nonce, digest_param.uri, digest_param.cnonce, digest_param.nc, digest_param.qop, digest_param.response_hash);
-
-				// HTTP Request
-				sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
-				if(sen <= 0){
-#ifdef _DEBUG
-					printf("[E] Send http request to forward proxy.\n");
-#endif
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] Send http request to forward proxy.\n");
-#endif
-
-				// HTTP Response (HTTP/1.1 200 Connection established)
-				rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
-				if(rec <= 0){
-#ifdef _DEBUG
-					printf("[E] Recv http response from forward proxy.\n");
-#endif
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] Recv http response from forward proxy.\n");
-#endif
-
-				ret = strncmp(buffer, "HTTP/1.1 200 Connection established\r\n", strlen("HTTP/1.1 200 Connection established\r\n"));
-				if(ret != 0){
-#ifdef _DEBUG
-					printf("[E] Forward proxy error:\n%s\n", buffer);
-#endif
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-			}else if(forward_proxy_authentication_flag == 3){	// forward proxy authentication: ntlmv2
-				ntlm = calloc(2000, sizeof(char));
-				ntlm_b64 = calloc(3000, sizeof(char));
-				ntlm_challenge_message = calloc(2000, sizeof(char));
-
-				// negotiate_message
-				negotiate_message = (struct negotiate_message *)ntlm;
-				ntlm_negotiate_message_length = 0;
-
-				memcpy(&(negotiate_message->signature), "NTLMSSP\0", 8);
-				ntlm_negotiate_message_length += 8;
-
-				negotiate_message->message_type = NtLmNegotiate;
-				ntlm_negotiate_message_length += 4;
-
-				negotiate_message->negotiate_flags.negotiate_unicode                  = 0;
-				negotiate_message->negotiate_flags.negotiate_oem                      = 1;
-				negotiate_message->negotiate_flags.request_target                     = 1;
-				negotiate_message->negotiate_flags.request_0x00000008                 = 0;
-				negotiate_message->negotiate_flags.negotiate_sign                     = 0;
-				negotiate_message->negotiate_flags.negotiate_seal                     = 0;
-				negotiate_message->negotiate_flags.negotiate_datagram                 = 0;
-				negotiate_message->negotiate_flags.negotiate_lan_manager_key          = 0;
-				negotiate_message->negotiate_flags.negotiate_0x00000100               = 0;
-				negotiate_message->negotiate_flags.negotiate_ntlm_key                 = 1;
-				negotiate_message->negotiate_flags.negotiate_nt_only                  = 0;
-				negotiate_message->negotiate_flags.negotiate_anonymous                = 0;
-				negotiate_message->negotiate_flags.negotiate_oem_domain_supplied      = 0;
-				negotiate_message->negotiate_flags.negotiate_oem_workstation_supplied = 0;
-				negotiate_message->negotiate_flags.negotiate_0x00004000               = 0;
-				negotiate_message->negotiate_flags.negotiate_always_sign              = 1;
-				negotiate_message->negotiate_flags.target_type_domain                 = 0;
-				negotiate_message->negotiate_flags.target_type_server                 = 0;
-				negotiate_message->negotiate_flags.target_type_share                  = 0;
-				negotiate_message->negotiate_flags.negotiate_extended_security        = 1;
-				negotiate_message->negotiate_flags.negotiate_identify                 = 0;
-				negotiate_message->negotiate_flags.negotiate_0x00200000               = 0;
-				negotiate_message->negotiate_flags.request_non_nt_session             = 0;
-				negotiate_message->negotiate_flags.negotiate_target_info              = 0;
-				negotiate_message->negotiate_flags.negotiate_0x01000000               = 0;
-				negotiate_message->negotiate_flags.negotiate_version                  = 0;
-				negotiate_message->negotiate_flags.negotiate_0x04000000               = 0;
-				negotiate_message->negotiate_flags.negotiate_0x08000000               = 0;
-				negotiate_message->negotiate_flags.negotiate_0x10000000               = 0;
-				negotiate_message->negotiate_flags.negotiate_128                      = 0;
-				negotiate_message->negotiate_flags.negotiate_key_exchange             = 0;
-				negotiate_message->negotiate_flags.negotiate_56                       = 0;
-				ntlm_negotiate_message_length += 4;
-
-				negotiate_message->domain_name_fields.domain_name_len = 0;
-				negotiate_message->domain_name_fields.domain_name_max_len = 0;
-				negotiate_message->domain_name_fields.domain_name_buffer_offset = 0;
-				ntlm_negotiate_message_length += 8;
-
-				negotiate_message->workstation_fields.workstation_len = 0;
-				negotiate_message->workstation_fields.workstation_max_len = 0;
-				negotiate_message->workstation_fields.workstation_buffer_offset = 0;
-				ntlm_negotiate_message_length += 8;
-
-				ret = encode_base64((const unsigned char *)negotiate_message, ntlm_negotiate_message_length, (unsigned char *)ntlm_b64, 3000);
-				if(ret == -1){
-#ifdef _DEBUG
-					printf("[E] encode_base64 error\n");
-#endif
-					free(ntlm);
-					free(ntlm_b64);
-					free(ntlm_challenge_message);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-
-#ifdef _DEBUG
-				printf("[I] negotiate_message ntlm_b64:%s ntlm_negotiate_message_length:%d\n", ntlm_b64, ntlm_negotiate_message_length);
-#endif
-
-				http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nProxy-Authorization: NTLM %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number, ntlm_b64);
-
-				// HTTP Request
-				sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
-				if(sen <= 0){
-#ifdef _DEBUG
-					printf("[E] Send http request to forward proxy.\n");
-#endif
-					free(ntlm);
-					free(ntlm_b64);
-					free(ntlm_challenge_message);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] Send http request to forward proxy.\n");
-#endif
-
-				// HTTP Response (HTTP/1.1 407 Proxy Authentication Required)
-				rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
-				if(rec <= 0){
-#ifdef _DEBUG
-					printf("[E] Recv http response from forward proxy.\n");
-#endif
-					free(ntlm);
-					free(ntlm_b64);
-					free(ntlm_challenge_message);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] Recv http response from forward proxy.\n");
-#endif
-
-				// challenge message
-				ret = get_http_header((const char *)&buffer, (const char *)&ntlm_http_header_key, (char *)&http_header_data, 2000);
-				if(ret == -1){
-#ifdef _DEBUG
-					printf("[E] get_http_header error\n");
-#endif
-					free(ntlm);
-					free(ntlm_b64);
-					free(ntlm_challenge_message);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] http_header_data:%s\n", http_header_data);
-#endif
-
-				pos = strstr((const char *)&http_header_data, "Proxy-Authenticate: NTLM ");
-				if(pos == NULL){
-#ifdef _DEBUG
-					printf("[E] Cannot find Proxy-Authenticate: NTLM in http header.\n");
-#endif
-					free(ntlm);
-					free(ntlm_b64);
-					free(ntlm_challenge_message);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-
-				pos += strlen("Proxy-Authenticate: NTLM ");
-				length = strlen(pos);
-				ntlm_challenge_message_length = decode_base64((const char *)pos, length, ntlm_challenge_message, 2000);
-				if(ntlm_challenge_message_length == -1){
-#ifdef _DEBUG
-					printf("[E] decode_base64 error\n");
-#endif
-					free(ntlm);
-					free(ntlm_b64);
-					free(ntlm_challenge_message);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-
-				challenge_message = (struct challenge_message *)ntlm_challenge_message;
-
-				if(challenge_message->message_type != NtLmChallenge){
-#ifdef _DEBUG
-					printf("[E] ntlm challenge message message_type error:%04x\n", challenge_message->message_type);
-#endif
-					free(ntlm);
-					free(ntlm_b64);
-					free(ntlm_challenge_message);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-
-				// authenticate_message
-				bzero(ntlm, 2000);
-				bzero(ntlm_b64, 3000);
-				authenticate_message = (struct authenticate_message *)ntlm;
-				ntlm_authenticate_message_length = 0;
-
-				ret = generate_response_ntlmv2(challenge_message, authenticate_message);
-				if(ret == -1){
-#ifdef _DEBUG
-					printf("[E] generate_response_ntlmv2 error\n");
-#endif
-					free(ntlm);
-					free(ntlm_b64);
-					free(ntlm_challenge_message);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-				ntlm_authenticate_message_length = ret;
-
-				ret = encode_base64((const unsigned char *)authenticate_message, ntlm_authenticate_message_length, (unsigned char *)ntlm_b64, 3000);
-				if(ret == -1){
-#ifdef _DEBUG
-					printf("[E] encode_base64 error\n");
-#endif
-					free(ntlm);
-					free(ntlm_b64);
-					free(ntlm_challenge_message);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-
-#ifdef _DEBUG
-				printf("[I] authenticate_message ntlm_b64:%s\n", ntlm_b64);
-#endif
-
-				http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nProxy-Authorization: NTLM %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number, ntlm_b64);
-
-				// HTTP Request
-				sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
-				if(sen <= 0){
-#ifdef _DEBUG
-					printf("[E] Send http request to forward proxy.\n");
-#endif
-					free(ntlm);
-					free(ntlm_b64);
-					free(ntlm_challenge_message);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] Send http request to forward proxy.\n");
-#endif
-
-				// HTTP Response (HTTP/1.1 200 Connection established)
-				rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
-				if(rec <= 0){
-#ifdef _DEBUG
-					printf("[E] Recv http response from forward proxy.\n");
-#endif
-					free(ntlm);
-					free(ntlm_b64);
-					free(ntlm_challenge_message);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] Recv http response from forward proxy.\n");
-#endif
-
-				ret = strncmp(buffer, "HTTP/1.1 200 Connection established\r\n", strlen("HTTP/1.1 200 Connection established\r\n"));
-				if(ret != 0){
-#ifdef _DEBUG
-					printf("[E] Forward proxy error:\n%s\n", buffer);
-#endif
-					free(ntlm);
-					free(ntlm_b64);
-					free(ntlm_challenge_message);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-
-				free(ntlm);
-				free(ntlm_b64);
-				free(ntlm_challenge_message);
-			}else if(forward_proxy_authentication_flag == 4){	// forward proxy authentication: spnego(kerberos)
-				b64_kerberos_token = calloc(4000, sizeof(char));
-
-				ret = get_base64_kerberos_token(forward_proxy_spn, b64_kerberos_token, 4000);
-				if(ret == -1){
-#ifdef _DEBUG
-					printf("[E] get_base64_kerberos_token error\n");
-#endif
-					free(b64_kerberos_token);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] b64_kerberos_token:%s\n", b64_kerberos_token);
-#endif
-
-				http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number);
-
-				// HTTP Request
-				sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
-				if(sen <= 0){
-#ifdef _DEBUG
-					printf("[E] Send http request to forward proxy.\n");
-#endif
-					free(b64_kerberos_token);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] Send http request to forward proxy.\n");
-#endif
-
-				// HTTP Response (HTTP/1.1 407 Proxy Authentication Required)
-				bzero(&buffer, BUFFER_SIZE+1);
-				rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
-				if(rec <= 0){
-#ifdef _DEBUG
-					printf("[E] Recv http response from forward proxy.\n");
-#endif
-					free(b64_kerberos_token);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] Recv http response from forward proxy.\n");
-#endif
-
-				ret = strncmp(buffer, "HTTP/1.1 407 Proxy Authentication Required\r\n", strlen("HTTP/1.1 407 Proxy Authentication Required\r\n"));
-				if(ret != 0){
-#ifdef _DEBUG
-					printf("[E] Forward proxy error:\n%s\n", buffer);
-#endif
-					free(b64_kerberos_token);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-
-				bzero(&http_header_data, 2000);
-				ret = get_http_header((const char *)&buffer, (const char *)&spnego_http_header_key, (char *)&http_header_data, 2000);
-				if(ret == -1){
-#ifdef _DEBUG
-					printf("[E] get_http_header error\n");
-#endif
-					free(b64_kerberos_token);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] http_header_data:%s\n", http_header_data);
-#endif
-
-				pos = strstr((const char *)&http_header_data, "Proxy-Authenticate: Negotiate");
-				if(pos == NULL){
-#ifdef _DEBUG
-					printf("[E] Cannot find Proxy-Authenticate: Negotiate in http header.\n");
-#endif
-					free(b64_kerberos_token);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-
-				bzero(http_request, BUFFER_SIZE+1);
-				http_request_length = snprintf(http_request, BUFFER_SIZE+1, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\nProxy-Authorization: Negotiate %s\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246\r\nProxy-Connection: Keep-Alive\r\n\r\n", target_domainname, target_port_number, target_domainname, target_port_number, b64_kerberos_token);
-
-				// HTTP Request
-				sen = send_data(forward_proxy_sock, http_request, http_request_length, tv_sec, tv_usec);
-				if(sen <= 0){
-#ifdef _DEBUG
-					printf("[E] Send http request to forward proxy.\n");
-#endif
-					free(b64_kerberos_token);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] Send http request to forward proxy.\n");
-#endif
-
-				// HTTP Response (HTTP/1.1 200 Connection established)
-				bzero(&buffer, BUFFER_SIZE+1);
-				rec = recv_data(forward_proxy_sock, buffer, BUFFER_SIZE, tv_sec, tv_usec);
-				if(rec <= 0){
-#ifdef _DEBUG
-					printf("[E] Recv http response from forward proxy.\n");
-#endif
-					free(b64_kerberos_token);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-#ifdef _DEBUG
-				printf("[I] Recv http response from forward proxy.\n");
-#endif
-
-				ret = strncmp(buffer, "HTTP/1.1 200 Connection established\r\n", strlen("HTTP/1.1 200 Connection established\r\n"));
-				if(ret != 0){
-#ifdef _DEBUG
-					printf("[E] Forward proxy error:\n%s\n", buffer);
-#endif
-					free(b64_kerberos_token);
-					close_socket(forward_proxy_sock);
-					close_socket(client_sock);
-					return -1;
-				}
-
-				free(b64_kerberos_token);
-			}else{
-#ifdef _DEBUG
-				printf("[E] Not implemented.\n");
-#endif
-				close_socket(forward_proxy_sock);
-				close_socket(client_sock);
-				return -1;
-			}
+			close_socket(forward_proxy_sock);
+			close_socket(client_sock);
+			return -1;
 		}
 #ifdef _DEBUG
 		printf("[I] Forward proxy connection established.\n");
@@ -5495,6 +5028,25 @@ int main(int argc, char **argv)
 	}
 
 
+	if(forward_proxy_authentication_flag >= 1 && forward_proxy_authentication_flag <= 3){
+		if(strlen(forward_proxy_username) > USERNAME_MAX_SIZE || strlen(forward_proxy_password) > PASSWORD_MAX_SIZE){
+#ifdef _DEBUG
+			printf("[E] Forward proxy username or password length is too long (username max length:%d, password max length:%d).\n", USERNAME_MAX_SIZE, PASSWORD_MAX_SIZE);
+#endif
+			return -1;
+		}
+	}
+
+	if(forward_proxy_authentication_flag == 4){	// forward proxy authentication: spnego(kerberos)
+		if(strlen(forward_proxy_spn) > SPN_MAX_SIZE){
+#ifdef _DEBUG
+			printf("[E] Forward proxy spn length is too long (spn max length:%d).\n", SPN_MAX_SIZE);
+#endif
+			return -1;
+		}
+	}
+
+
 	// load OSSL_PROVIDER legacy, default
 	OSSL_PROVIDER *legacy = NULL;
 	OSSL_PROVIDER *deflt = NULL;
@@ -5521,37 +5073,37 @@ int main(int argc, char **argv)
 		printf("[I] Forward proxy:off\n");
 #endif
 	}else if(forward_proxy_flag == 1){	// http proxy
-		if(forward_proxy_authentication_flag == 0){
 #ifdef _DEBUG
-			printf("[I] Forward proxy connection:http\n");
-			printf("[I] Forward proxy authentication:no\n");
+		printf("[I] Forward proxy connection:http\n");
 #endif
-		}else if(forward_proxy_authentication_flag == 1){
-#ifdef _DEBUG
-			printf("[I] Forward proxy connection:http\n");
-			printf("[I] Forward proxy authentication:basic\n");
-#endif
-		}else if(forward_proxy_authentication_flag == 2){
-#ifdef _DEBUG
-			printf("[I] Forward proxy connection:http\n");
-			printf("[I] Forward proxy authentication:digest\n");
-#endif
-		}else if(forward_proxy_authentication_flag == 3){
-#ifdef _DEBUG
-			printf("[I] Forward proxy connection:http\n");
-			printf("[I] Forward proxy authentication:ntlmv2\n");
-#endif
-		}else if(forward_proxy_authentication_flag == 4){
-#ifdef _DEBUG
-			printf("[I] Forward proxy connection:http\n");
-			printf("[I] Forward proxy authentication:spnego(kerberos)\n");
-#endif
-		}
 	}else{
 #ifdef _DEBUG
 //		printf("[I] Forward proxy connection:\n");
 #endif
 	}
+
+	if(forward_proxy_authentication_flag == 0){
+#ifdef _DEBUG
+		printf("[I] Forward proxy authentication:no\n");
+#endif
+	}else if(forward_proxy_authentication_flag == 1){
+#ifdef _DEBUG
+		printf("[I] Forward proxy authentication:basic\n");
+#endif
+	}else if(forward_proxy_authentication_flag == 2){
+#ifdef _DEBUG
+		printf("[I] Forward proxy authentication:digest\n");
+#endif
+	}else if(forward_proxy_authentication_flag == 3){
+#ifdef _DEBUG
+		printf("[I] Forward proxy authentication:ntlmv2\n");
+#endif
+	}else if(forward_proxy_authentication_flag == 4){
+#ifdef _DEBUG
+		printf("[I] Forward proxy authentication:spnego(kerberos)\n");
+#endif
+	}
+
 
 	if(https_flag == 0){	// HTTP
 #ifdef _DEBUG

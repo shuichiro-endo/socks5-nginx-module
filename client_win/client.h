@@ -34,6 +34,11 @@ int forwarder_aes(SOCKET client_sock, SOCKET target_sock, unsigned char *aes_key
 int forwarder_tls(SOCKET client_sock, SOCKET target_sock, SSL *target_ssl, long tv_sec, long tv_usec);
 int ssl_connect_non_blocking(SOCKET sock, SSL *ssl, long tv_sec, long tv_usec);
 void close_socket(SOCKET sock);
+int forward_proxy_authentication_no(SOCKET forward_proxy_sock, char *target_domainname, char *target_port_number, long tv_sec, long tv_usec);
+int forward_proxy_authentication_basic(SOCKET forward_proxy_sock, char *target_domainname, char *target_port_number, long tv_sec, long tv_usec);
+int forward_proxy_authentication_digest(SOCKET forward_proxy_sock, char *target_domainname, char *target_port_number, long tv_sec, long tv_usec);
+int forward_proxy_authentication_ntlmv2(SOCKET forward_proxy_sock, char *target_domainname, char *target_port_number, long tv_sec, long tv_usec);
+int forward_proxy_authentication_spnego(SOCKET forward_proxy_sock, char *target_domainname, char *target_port_number, long tv_sec, long tv_usec);
 int worker(void *ptr);
 void worker_thread(void *ptr);
 void usage(char *filename);
