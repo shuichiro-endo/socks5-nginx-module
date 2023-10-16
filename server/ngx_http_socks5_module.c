@@ -2556,7 +2556,7 @@ static ngx_int_t ngx_http_socks5_header_filter(ngx_http_request_t *r)
 		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "[I] Socks5 start.");
 #endif
 		
-		if(tv_sec < 0 || tv_sec > 10 || tv_usec < 0 || tv_usec > 1000000){
+		if(tv_sec < 0 || tv_sec > 60 || tv_usec < 0 || tv_usec > 1000000){
 			tv_sec = 3;
 			tv_usec = 0;
 		}else if(tv_sec == 0 && tv_usec == 0){
