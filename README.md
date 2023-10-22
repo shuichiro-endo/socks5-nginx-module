@@ -1,3 +1,5 @@
+# This has been moved to new [one](https://github.com/shuichiro-endo/socks5-nginx-module-v2).
+
 # socks5 nginx module
 
 socks5 proxy(nginx module) and client with socks5 over tls
